@@ -1193,863 +1193,201 @@ A6_END
 
 
 A7 — KHÁM TIÊU HÓA
-Version: BA S-G-A-C-O v3
-Update 00:14 04/06/2026 GMT+7
-
->>> READ-LOCK: A7
-- Bắt buộc đọc tuần tự toàn bộ A7 từ A7.1 đến A7.18.
-- Không được bỏ qua mục nào.
-- Chỉ tạo A7_STATE.
-- Không tạo state của A khác.
-- Không chạy C.
-- Không render O.
-- Sau khi hoàn tất A7_STATE, chuyển sang A8 theo A_RUN_ORDER.
-<<< END READ-LOCK: A7
-
-A7.1. Nhiệm vụ của A7
-    A7.1.1. Vai trò chính của A7
-        A7 là module chuẩn hóa phần khám tiêu hóa thực thể.
-        A7 tạo A7_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-        A7_STATE là nguồn chính thức cho C/O khi cần dữ liệu khám tiêu hóa.
-        A7 tạo dữ liệu khám tiêu hóa dùng cho O1 và O8.
-
-    A7.1.2. Nội dung A7 tạo ra
-        A7 tạo:
-            1. UPDATED_AT.
-            2. A7_FOR_O1.
-            3. A7_FOR_O8.
-            4. A7_CHECK.
-            5. A7_ERROR nếu A7_CHECK = NEEDS_FIX.
-
-    A7.1.3. Nguyên tắc trách nhiệm
-        A7 chỉ chịu trách nhiệm với khám tiêu hóa thực thể.
-        Nếu khám tiêu hóa sai, phải sửa A7.
-        Nếu khám tiêu hóa bị lẫn với bệnh sử, toàn thân, tuần hoàn, hô hấp, thận - tiết niệu, thần kinh, cơ xương khớp, cơ quan khác hoặc cận lâm sàng, phải sửa A7.
-        Chất lượng nội dung A7_FOR_O1 và A7_FOR_O8 phải được khóa trong A7.
-
-A7.2. Nguồn được đọc
-    A7.2.1. Nguồn được đọc
-        A7 được đọc:
-            1. User input của ROUND hiện tại.
-            2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật như ROUND_ID, STATE_VERSION, RUN_MODE.
-            3. A7_STATE hiện hành mới nhất nếu đã có.
-            4. File/module A7.
-            5. A1_STATE nếu cần đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn liên quan lý do vào viện tiêu hóa.
-            6. A2_STATE nếu cần đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn liên quan tiền sử tiêu hóa, bệnh nền hoặc yếu tố nguy cơ.
-            7. A3_STATE nếu cần đối chiếu triệu chứng tiêu hóa, nhưng không bê triệu chứng cơ năng vào A7.
-            8. A4_STATE nếu cần đối chiếu ranh giới hoặc phát hiện mâu thuẫn với tình trạng toàn thân.
-            9. A5_STATE nếu cần đối chiếu ranh giới hoặc phát hiện mâu thuẫn với khám tuần hoàn.
-            10. A6_STATE nếu cần đối chiếu ranh giới hoặc phát hiện mâu thuẫn với khám hô hấp.
-
-    A7.2.2. Dữ liệu user input có thể dùng cho A7
-        A7 được lấy dữ liệu từ user input nếu dữ liệu đó thuộc khám tiêu hóa thực thể hoặc giúp chọn mẫu khám bụng phù hợp:
-            1. Khám bụng user cung cấp.
-            2. Bụng mềm / chướng.
-            3. Tuần hoàn bàng hệ.
-            4. Gan, lách.
-            5. Điểm đau khu trú thành bụng / vị trí đau hoặc tức nếu có.
-            6. Phản ứng thành bụng.
-            7. Co cứng thành bụng.
-            8. Cảm ứng phúc mạc.
-            9. Dấu hiệu Mendel.
-            10. Triệu chứng tiêu hóa trong user input hoặc A3 để định hướng mẫu khám, nhưng không đưa trực tiếp vào A7_FOR_O1/O8 nếu chỉ là triệu chứng cơ năng.
-            11. Chẩn đoán hoặc mã bệnh tiêu hóa trong user input nếu có, ví dụ K21, K29, trào ngược dạ dày - thực quản, viêm dạ dày.
-        Nếu user cung cấp nhu động ruột hoặc dấu khám tiêu hóa thực thể ngoài contract A7, A7 không tự render vào A7_FOR_O1/O8; A7_CHECK = NEEDS_FIX nếu dữ kiện đó cần được đưa vào bệnh án.
-
-    A7.2.3. Nguồn không dùng do thứ tự chạy
-        A7 không đọc A8-A15 của ROUND hiện tại để viết ngược A7 vì các module này chạy sau A7.
-        A7 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A7 trong A_RUN_ORDER.
-        A7 không dùng A12_STATE cũ từ ROUND trước để tạo A7 trong ROUND hiện tại.
-        A7 không dùng chẩn đoán hoặc mã bệnh từ A12 để tạo dấu khám tiêu hóa mới.
-        Nếu user input trực tiếp có chẩn đoán, mã bệnh hoặc bệnh cảnh tiêu hóa, A7 được dùng dữ kiện đó như user input theo rule hiện hành của A7; đây không phải là đọc A12_STATE.
-        Nếu chẩn đoán tiêu hóa chỉ được tạo sau này ở A12, A7 không được chờ A12 để tạo A7_STATE.
-        Các đối chiếu A7 ↔ A12 hoặc A7 ↔ module chạy sau nếu cần sẽ do tầng tổng hợp/A_GATE hoặc module chạy sau xử lý sau khi các state đó đã có.
-
-A7.3. Dependency nội bộ
-    A7.3.1. Dependency của A7
-        A7 có thể đọc:
-            1. A1_STATE.
-            2. A2_STATE.
-            3. A3_STATE.
-            4. A4_STATE.
-            5. A5_STATE.
-            6. A6_STATE.
-
-    A7.3.2. Mục đích đọc dependency
-        A1_STATE được dùng để không bỏ sót lý do vào viện liên quan tiêu hóa.
-        A2_STATE được dùng để đồng bộ tiền sử tiêu hóa, bệnh nền hoặc yếu tố nguy cơ liên quan.
-        A3_STATE được dùng để đối chiếu triệu chứng tiêu hóa và bệnh sử hiện tại.
-        A4_STATE được dùng để đồng bộ toàn thân nặng, sốt hoặc bệnh cảnh cấp tính.
-        A5_STATE được dùng để đồng bộ tuần hoàn trong bệnh cảnh bụng cấp, xuất huyết tiêu hóa, mất nước hoặc bệnh cảnh nặng nếu cần.
-        A6_STATE được dùng để đồng bộ tình trạng hô hấp trong bệnh cảnh nặng nếu cần.
-
-    A7.3.3. Khi không cần dependency
-        Nếu user input đã đủ dữ kiện khám tiêu hóa và không cần đồng bộ thêm, A7 có thể chỉ đọc user input và A7_STATE hiện hành nếu có.
-
-    A7.3.4. Giới hạn dependency
-        Dependency của A7 chỉ dùng để đối chiếu ngữ cảnh, ranh giới, phát hiện mâu thuẫn và đồng bộ bệnh cảnh.
-        Dependency không được dùng để bê triệu chứng cơ năng vào A7.
-        Dependency không được dùng để tạo dấu khám tiêu hóa mới nếu không có rule hợp lệ.
-        A7 không chép lý do vào viện, tiền sử, bệnh sử, khám toàn thân, khám tuần hoàn hoặc khám hô hấp vào A7_FOR_O1/A7_FOR_O8.
-        A7 không đọc A8-A15 của ROUND hiện tại để viết ngược A7 vì các module này chạy sau A7.
-        A7 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A7.
-        A7 không đọc C_STATE.
-        A7 không đọc O_OUTPUT.
-        A7 không suy ngược khám tiêu hóa từ output đã render.
-        A7 không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
-
-A7.4. Quy tắc tạo mới / cập nhật / dùng lại A7_STATE
-    A7.4.1. Tạo mới A7_STATE
-        CREATE là trạng thái xử lý nội bộ của A7, áp dụng khi chưa có A7_STATE hiện hành.
-        A7 tạo A7_STATE mới từ user input của ROUND hiện tại và dependency được phép nếu cần.
-        A7 phải xác định:
-            1. UPDATED_AT.
-            2. A7_FOR_O1.
-            3. A7_FOR_O8.
-            4. A7_CHECK.
-            5. A7_ERROR nếu cần.
-        UPDATED_AT = HH:MM dd/mm/yyyy tại thời điểm CREATE A7_STATE.
-
-    A7.4.2. Cập nhật A7_STATE
-        UPDATE là trạng thái xử lý nội bộ của A7, áp dụng khi user input của ROUND hiện tại hoặc dependency hợp lệ làm nội dung thật của A7_FOR_O1 / A7_FOR_O8 thay đổi.
-        Dữ liệu có thể ảnh hưởng A7 gồm:
-            1. Khám bụng.
-            2. Bụng mềm / chướng.
-            3. Tuần hoàn bàng hệ.
-            4. Gan, lách.
-            5. Điểm đau khu trú thành bụng / vị trí đau hoặc tức nếu có.
-            6. Phản ứng thành bụng.
-            7. Co cứng thành bụng.
-            8. Cảm ứng phúc mạc.
-            9. Dấu hiệu Mendel.
-        Co cứng thành bụng và cảm ứng phúc mạc chỉ được chuẩn hóa như chi tiết của phản ứng thành bụng, không mở thành nhóm output riêng.
-        Nhu động ruột hoặc dấu khám tiêu hóa thực thể ngoài contract A7 không làm A7 tự render dữ kiện mới vào A7_FOR_O1/O8.
-        Khi cập nhật:
-            - A7 đọc A7_STATE hiện hành mới nhất nếu có.
-            - A7 thay phần bị ảnh hưởng bằng dữ liệu mới.
-            - A7 giữ phần không bị ảnh hưởng bằng nội dung hiện hành mới nhất.
-            - A7_STATE sau cập nhật phải mang STATE_VERSION của ROUND hiện tại.
-            - UPDATED_AT = HH:MM dd/mm/yyyy tại thời điểm UPDATE A7_STATE.
-
-    A7.4.3. Dùng lại A7_STATE
-        REUSE là trạng thái xử lý nội bộ của A7, áp dụng khi đã có A7_STATE hiện hành, input không ảnh hưởng A7 hoặc nội dung thật của A7_FOR_O1 / A7_FOR_O8 không thay đổi.
-        Nếu user input có liên quan nhưng sau chuẩn hóa nội dung thật của A7_FOR_O1 / A7_FOR_O8 không thay đổi, A7 REUSE A7_STATE và A7_REV giữ nguyên.
-        Nếu dependency hợp lệ A1-A6 được đọc nhưng không làm nội dung thật của A7_FOR_O1 / A7_FOR_O8 thay đổi, A7 REUSE A7_STATE và A7_REV giữ nguyên.
-        Nếu dependency hợp lệ làm nội dung thật của A7_FOR_O1 / A7_FOR_O8 thay đổi, A7 UPDATE A7_STATE và A7_REV tăng.
-        A7 dùng lại nội dung thật của A7_STATE hiện hành mới nhất.
-        A7_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong full current A_STATE.
-        UPDATED_AT của A7_STATE REUSE giữ thời điểm cập nhật nội dung thật gần nhất; không đổi chỉ vì REUSE hoặc vì in lại full current A_STATE.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được chỉ ghi “reuse A7” thay cho A7_FOR_O1 và A7_FOR_O8.
-
-    A7.4.4. Quy tắc A7_REV
-        CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A7 đối với A7_STATE; không phải RUN_MODE.
-        A7 chỉ quản lý revision của chính A7 trong A_MODULE_REV.
-        A7 không tự tạo toàn bộ A_MODULE_REV.
-        Nếu CREATE A7_STATE:
-            - A7_REV = 1.
-        Nếu UPDATE và nội dung thật của A7_FOR_O1 / A7_FOR_O8 thay đổi:
-            - A7_REV tăng so với A7_REV hiện hành.
-        Nếu REUSE hoặc input ROUND hiện tại không làm thay đổi nội dung thật của A7_FOR_O1 / A7_FOR_O8:
-            - A7_REV giữ nguyên.
-        A7_REV tăng hoặc giữ nguyên theo thay đổi thật của A7_FOR_O1 / A7_FOR_O8; không theo tên RUN_MODE.
-        A7_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
-        UPDATED_AT là metadata quản lý thời điểm cập nhật A7_STATE; UPDATED_AT khác A7_REV và không quyết định A7_REV.
-        UPDATED_AT không phải dữ liệu bệnh án; O không được render UPDATED_AT vào bệnh án.
-        A7_STATE vẫn phải là full state; không được in patch/delta.
-
-A7.5. Quy tắc xử lý theo RUN_MODE
-    RUN_MODE là chế độ tạo dữ liệu do G_STATE cung cấp; không phải CREATE / UPDATE / REUSE.
-    A7 chỉ đọc RUN_MODE từ G_STATE; A7 không tự xác định RUN_MODE.
-    A7.5.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        A7 chỉ dùng dữ liệu khám tiêu hóa user cung cấp.
-        A7 không tự tạo khám bụng.
-        A7 không tự tạo gan to / lách to.
-        A7 không tự tạo phản ứng thành bụng.
-        A7 không tự tạo co cứng thành bụng.
-        A7 không tự tạo cảm ứng phúc mạc.
-        A7 không tự tạo dấu hiệu Mendel (+).
-        Nếu không có A7_STATE cũ để REUSE và user không cung cấp dữ kiện khám tiêu hóa:
-            - A7_FOR_O1 = Chưa có dữ kiện khám tiêu hóa.
-            - A7_FOR_O8 = Chưa có dữ kiện khám tiêu hóa.
-            - A7_CHECK = NEEDS_FIX.
-            - A7_ERROR = Thiếu dữ kiện khám tiêu hóa.
-        A7 không đọc O_OUTPUT để quyết định dữ kiện khám tiêu hóa có bắt buộc hay không.
-        A7 không tự suy “output đang chạy” từ O.
-        Nếu cần metadata output, A7 chỉ được đọc metadata kỹ thuật từ G_STATE nếu đã có; A7 không thêm dependency O.
-        Nếu user cung cấp một phần khám tiêu hóa:
-            - A7 dùng phần đã có.
-            - Không tự thêm phần chưa có nếu RUN_MODE không cho phép.
-
-    A7.5.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        A7 dùng dữ liệu user cung cấp làm nền.
-        A7 được tự tạo khám tiêu hóa phù hợp bệnh cảnh nếu user không cung cấp đủ khám tiêu hóa.
-        Nếu không có triệu chứng/chẩn đoán tiêu hóa liên quan:
-            - Dùng mẫu khám bụng thường quy mới theo contract, không dùng no-data placeholder.
-            - A7_FOR_O1 = Bụng mềm, không chướng, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
-            - A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
-        Nếu có ợ hơi, ợ chua, nóng rát thượng vị, GERD hoặc lý do vào viện, tiền sử, bệnh sử hoặc triệu chứng tiêu hóa liên quan trong A1/A2/A3:
-            - A7 được chọn mẫu khám bụng phù hợp, miễn là không mâu thuẫn dữ kiện user.
-            - Với ợ hơi/ợ chua/nóng rát thượng vị/GERD, fallback ưu tiên: Bụng mềm, không chướng, gan lách không sờ thấy, ấn tức vùng thượng vị.
-        Nếu có chẩn đoán hoặc mã bệnh tiêu hóa trực tiếp trong user input:
-            - A7 được chọn mẫu khám bụng phù hợp, miễn là không mâu thuẫn dữ kiện user.
-        Nếu user phủ định đau bụng / ấn đau / bụng cấp:
-            - A7 phải giữ đúng phủ định.
-            - Không tự viết ngược lại.
-        Không tự tạo bụng cấp nếu không có căn cứ.
-        Không tự thêm phản ứng thành bụng, đau dữ dội hoặc xuất huyết tiêu hóa nếu user không cung cấp hoặc không có căn cứ lâm sàng rõ.
-        Không tự tạo gan to/lách to/tuần hoàn bàng hệ bất thường nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Không ghi mẫu không có bất thường tiêu hóa nếu user cung cấp bất thường rõ.
-        Không tự tạo dữ kiện âm tính quá mức ngoài mẫu thường quy A7_FOR_O1/A7_FOR_O8 đã chốt.
-        Trong DEFAULT_COMPLETION bệnh án thường quy, A7_FOR_O1/A7_FOR_O8 không được chứa no-data placeholder hoặc câu “khám bụng chưa ghi nhận dữ kiện bất thường rõ”.
-
-    A7.5.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        A7 được tạo khám tiêu hóa mẫu phù hợp bệnh cảnh mẫu.
-        Khám tiêu hóa mẫu phải nhất quán với user input và dependency hợp lệ đã có tại thời điểm A7 chạy.
-        A7 không tự tạo chẩn đoán.
-        Các đối chiếu A7 ↔ A12 hoặc A7 ↔ module chạy sau nếu cần sẽ do tầng tổng hợp/A_GATE hoặc module chạy sau xử lý sau khi các state đó đã có.
-        Nếu bệnh cảnh mẫu ổn định:
-            - A7 có thể tạo khám tiêu hóa trong giới hạn bình thường.
-        Nếu bệnh cảnh mẫu có trào ngược, viêm dạ dày, đau bụng, bụng cấp, bệnh gan mật hoặc bệnh tiêu hóa khác:
-            - A7 phải tạo khám tiêu hóa phù hợp bệnh cảnh mẫu.
-        Không dùng logic AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
-
-A7.6. Phạm vi khám tiêu hóa
-    A7.6.1. Thành phần thuộc A7
-        A7 xử lý:
-            1. Bụng mềm / chướng.
-            2. Tuần hoàn bàng hệ.
-            3. Gan, lách.
-            4. Điểm đau khu trú thành bụng / vị trí đau hoặc tức nếu có.
-            5. Phản ứng thành bụng nếu user cung cấp hoặc có căn cứ lâm sàng rõ.
-            6. Dấu hiệu Mendel.
-        Co cứng thành bụng và cảm ứng phúc mạc chỉ là chi tiết của phản ứng thành bụng nếu user cung cấp hoặc bệnh cảnh đủ căn cứ; không mở thành nhóm output riêng.
-        A7_FOR_O1/O8 không mở field tự do cho nhu động ruột hoặc dấu khám tiêu hóa thực thể khác.
-
-    A7.6.2. Thành phần không thuộc A7
-        A7 không xử lý:
-            1. Triệu chứng cơ năng tiêu hóa nếu chỉ là bệnh sử.
-            2. Ăn uống kém nếu chỉ là triệu chứng cơ năng.
-            3. Ợ hơi, ợ chua, nóng rát thượng vị nếu chỉ là lời kể.
-            4. Buồn nôn, nôn nếu chỉ là lời kể.
-            5. Tiêu chảy, táo bón, rối loạn đại tiện nếu chỉ là bệnh sử.
-            6. Khám toàn thân.
-            7. Khám tuần hoàn.
-            8. Khám hô hấp.
-            9. Khám thận - tiết niệu.
-            10. Khám thần kinh.
-            11. Khám cơ xương khớp.
-            12. Khám cơ quan khác.
-            13. Nội soi dạ dày/đại tràng.
-            14. Siêu âm ổ bụng.
-            15. CT/MRI.
-            16. Xét nghiệm.
-            17. Chẩn đoán.
-            18. Hướng điều trị hoặc thuốc.
-
-    A7.6.3. Phân ranh với A1
-        A1_REASON là lý do vào viện.
-        A7 không viết lý do vào viện thay A1.
-        A7 được đọc A1_REASON để không bỏ sót vấn đề tiêu hóa chính nếu lý do vào viện liên quan tiêu hóa.
-        Nếu A1_REASON có triệu chứng tiêu hóa, A7 dùng để định hướng chọn mẫu khám bụng phù hợp.
-
-    A7.6.4. Phân ranh với A2
-        A2 là tiền sử.
-        A7 không viết tiền sử thay A2.
-        A7 được đọc A2_FINAL để đồng bộ bệnh nền, tiền sử tiêu hóa hoặc yếu tố nguy cơ liên quan.
-        Không biến tiền sử tiêu hóa thành dấu khám tiêu hóa hiện tại nếu không có căn cứ.
-
-    A7.6.5. Phân ranh với A3
-        A3 là bệnh sử và triệu chứng cơ năng.
-        A7 không bê triệu chứng cơ năng từ A3 vào A7_FOR_O1 hoặc A7_FOR_O8.
-        A7 được đọc A3_FINAL để định hướng khám bụng và tránh mâu thuẫn với bệnh sử hiện tại.
-
-    A7.6.6. Phân ranh với A4-A6
-        A4 là khám toàn thân.
-        A5 là khám tuần hoàn.
-        A6 là khám hô hấp.
-        A7 không viết lại A4-A6.
-        A7 chỉ dùng A4-A6 để đồng bộ bệnh cảnh nếu cần.
-
-    A7.6.7. Phân ranh với A14
-        Nội soi, siêu âm ổ bụng, CT/MRI, xét nghiệm và kết quả cận lâm sàng tiêu hóa đã có thuộc A14.
-        A7 không biến kết quả cận lâm sàng thành khám bụng nếu không có dữ kiện khám tương ứng.
-        A7 không tạo kết quả cận lâm sàng.
-
-    A7.6.8. Guard ranh giới hệ thống
-        A7 không viết bệnh sử hoặc triệu chứng cơ năng thay A3.
-        A7 không viết khám toàn thân thay A4.
-        A7 không viết khám tuần hoàn thay A5.
-        A7 không viết khám hô hấp thay A6.
-        A7 không viết khám thận - tiết niệu, thần kinh, cơ xương khớp hoặc cơ quan khác thay A8-A11.
-        A7 không viết chẩn đoán thay A12.
-        A7 không viết hướng xử trí thay A13.
-        A7 không viết thuốc hoặc đơn thuốc thay A15.
-        A7 không viết cận lâm sàng hoặc hành chính thay A14.
-        A7 không chạy C/O.
-
-A7.7. Quy tắc khám thực thể tiêu hóa, không phải bệnh sử
-    A7.7.1. Nguyên tắc chung
-        A7 là khám thực thể tiêu hóa.
-        A7 không phải bệnh sử tiêu hóa.
-        A7 không phải chẩn đoán tiêu hóa.
-        A7 không phải cận lâm sàng tiêu hóa.
-        A7 không phải điều trị tiêu hóa.
-        A7_FOR_O1 và A7_FOR_O8 chỉ chứa khám bụng thực thể thuộc contract output A7.
-
-    A7.7.2. Triệu chứng cơ năng tiêu hóa
-        Ợ hơi, ợ chua, nóng rát thượng vị, buồn nôn, nôn, ăn uống kém, đầy bụng, khó tiêu, tiêu chảy, táo bón, rối loạn đại tiện, đau bụng do bệnh nhân kể thuộc A3 hoặc C7.
-        A7 chỉ ghi dấu khám bụng thực thể.
-        A7 có thể dùng triệu chứng cơ năng để chọn mẫu khám bụng phù hợp trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE.
-        A7 không đưa trực tiếp triệu chứng cơ năng vào A7_FOR_O1 hoặc A7_FOR_O8.
-        Đau bụng do bệnh nhân kể chỉ được dùng làm ngữ cảnh; A7 chỉ render khi đã chuẩn hóa thành dấu khám ấn đau/ấn tức phù hợp.
-
-    A7.7.3. Khi user kể triệu chứng tiêu hóa nhưng không có khám bụng
-        A3 ghi triệu chứng tiêu hóa trong bệnh sử.
-        A7 chọn mẫu khám bụng phù hợp nếu RUN_MODE cho phép.
-        A7 không ghi “ợ hơi, ợ chua, nóng rát thượng vị” như nội dung khám bụng thực thể.
-
-    A7.7.4. Khi user cung cấp chẩn đoán hoặc mã bệnh tiêu hóa trong user input
-        Nếu user input có chẩn đoán hoặc mã bệnh tiêu hóa trực tiếp:
-            - A7 được dùng làm ngữ cảnh để chọn mẫu khám bụng phù hợp trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE.
-        Nếu user phủ định khám tiêu hóa bất thường:
-            - A7 phải giữ đúng phủ định.
-        Nếu RUN_MODE = USER_ONLY:
-            - A7 không tự tạo khám bụng từ chẩn đoán nếu user không cung cấp khám thực thể.
-
-A7.8. Quy tắc chuẩn hóa bụng mềm / chướng / tuần hoàn bàng hệ
-    A7.8.1. Bụng mềm / chướng
-        Nếu user cung cấp bụng mềm hoặc bụng chướng:
-            - A7 phải giữ đúng.
-        Nếu user không cung cấp và RUN_MODE cho phép tự hoàn thiện:
-            - Có thể ghi bụng mềm, không chướng nếu bệnh cảnh không có căn cứ trái ngược.
-        Không ghi bụng mềm, không chướng nếu user đã cung cấp bụng chướng hoặc bụng cấp.
-        Không tự tạo bụng chướng nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A7.8.2. Tuần hoàn bàng hệ
-        Nếu user cung cấp tuần hoàn bàng hệ:
-            - A7 phải giữ đúng.
-        Nếu user không cung cấp:
-            - A7_FOR_O8 có thể ghi không có tuần hoàn bàng hệ nếu RUN_MODE cho phép và bệnh cảnh không trái ngược.
-            - A7_FOR_O1 không bắt buộc ghi tuần hoàn bàng hệ nếu không cần.
-        Không tự tạo tuần hoàn bàng hệ nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A7.8.3. Bụng cấp
-        Nếu có dữ kiện bụng cấp, phản ứng thành bụng, co cứng thành bụng hoặc cảm ứng phúc mạc:
-            - A7 không được ghi wording chung chung thay cho bất thường khám bụng.
-            - A7 phải thể hiện bất thường phù hợp.
-        Không tự tạo bụng cấp nếu không có căn cứ.
-        Nếu bệnh cảnh gợi ý bụng cấp nhưng thiếu khám thực thể:
-            - DEFAULT_COMPLETION có thể tạo mẫu phù hợp nếu đủ căn cứ.
-            - USER_ONLY không tự tạo.
-
-A7.9. Quy tắc chuẩn hóa gan / lách và dữ kiện ngoài contract
-    A7.9.1. Gan
-        Nếu user cung cấp gan to, đau vùng gan hoặc bất thường gan khi khám:
-            - A7 phải giữ đúng.
-        Nếu user không cung cấp và RUN_MODE cho phép:
-            - Có thể ghi gan không sờ thấy nếu bệnh cảnh không trái ngược.
-        Không tự tạo gan to nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A7.9.2. Lách
-        Nếu user cung cấp lách to hoặc bất thường lách:
-            - A7 phải giữ đúng.
-        Nếu user không cung cấp và RUN_MODE cho phép:
-            - Có thể ghi lách không sờ thấy nếu bệnh cảnh không trái ngược.
-        Không tự tạo lách to nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A7.9.3. Dữ kiện ngoài contract output A7
-        A7_FOR_O1/O8 không render nhu động ruột hoặc dấu khám tiêu hóa thực thể ngoài danh sách contract A7.
-        Nếu user cung cấp dữ kiện ngoài contract và dữ kiện đó cần xuất hiện trong bệnh án:
-            - A7_CHECK = NEEDS_FIX.
-            - A7_ERROR ghi rõ cần mở rộng contract hoặc xử lý ở nguồn phù hợp.
-        A7 không tự tạo dữ kiện ngoài contract output A7.
-
-A7.10. Quy tắc chuẩn hóa ấn đau / phản ứng thành bụng / Mendel
-    A7.10.1. Điểm đau khu trú thành bụng / vị trí đau hoặc tức nếu có
-        Nếu user cung cấp vị trí đau khi khám:
-            - A7 phải giữ đúng vị trí.
-        Nếu có triệu chứng/chẩn đoán tiêu hóa phù hợp và RUN_MODE cho phép:
-            - A7 được chọn mẫu ấn đau/ấn tức phù hợp.
-        Nếu user phủ định đau bụng hoặc ấn đau:
-            - A7 phải giữ đúng phủ định.
-            - Không tự ghi ấn đau hoặc ấn tức.
-        Nếu A1_REASON hoặc A3_FINAL có triệu chứng tiêu hóa chính:
-            - A7 phải cân nhắc vị trí khám tương ứng nếu RUN_MODE cho phép.
-
-    A7.10.2. Phản ứng thành bụng
-        Nếu user cung cấp phản ứng thành bụng:
-            - A7 phải giữ đúng.
-        Nếu user không cung cấp và không có căn cứ lâm sàng rõ:
-            - Không ghi phản ứng thành bụng trong mẫu thường quy.
-            - Không mặc định ghi “không có phản ứng thành bụng”.
-        Chỉ ghi “không có phản ứng thành bụng”, “có phản ứng thành bụng”, co cứng thành bụng hoặc cảm ứng phúc mạc khi user cung cấp hoặc có căn cứ lâm sàng rõ.
-        Không tự tạo phản ứng thành bụng nếu không có căn cứ.
-
-    A7.10.3. Co cứng thành bụng / cảm ứng phúc mạc
-        Nếu user cung cấp co cứng thành bụng hoặc cảm ứng phúc mạc:
-            - A7 phải giữ đúng.
-        Nếu user không cung cấp:
-            - Không tự tạo co cứng thành bụng hoặc cảm ứng phúc mạc nếu không có căn cứ.
-        Nếu bệnh cảnh bụng cấp rõ và RUN_MODE cho phép:
-            - A7 có thể tạo dấu phù hợp nếu đủ căn cứ.
-
-    A7.10.4. Dấu hiệu Mendel
-        Nếu user cung cấp dấu hiệu Mendel:
-            - A7 phải giữ đúng.
-        Nếu có bệnh cảnh K21/K29 hoặc trào ngược/viêm dạ dày trong user input và RUN_MODE cho phép:
-            - A7 có thể chọn mẫu thượng vị phù hợp, gồm dấu hiệu Mendel theo quy tắc module.
-        Nếu user phủ định khám tiêu hóa bất thường:
-            - A7 không tự ghi Mendel (+).
-        Nếu không có bệnh cảnh dạ dày/thượng vị:
-            - Không tự tạo Mendel (+).
-
-A7.11. Quy tắc đồng bộ với A1, A2, A3, A4, A5, A6 và user input
-    A7.11.1. Đồng bộ với A1
-        Nếu A1_REASON có lý do vào viện liên quan tiêu hóa:
-            - A7 phải không bỏ sót bệnh cảnh tiêu hóa khi chọn mẫu khám.
-        Nếu A1_REASON không liên quan tiêu hóa:
-            - A7 không tự tạo bất thường tiêu hóa nếu không có căn cứ khác.
-        A7 không sửa A1_REASON.
-
-    A7.11.2. Đồng bộ với A2
-        Nếu A2_FINAL có tiền sử tiêu hóa, bệnh gan mật, phẫu thuật bụng, bệnh dạ dày, bệnh đại tràng hoặc yếu tố nguy cơ liên quan:
-            - A7 dùng để định hướng khám tiêu hóa nếu phù hợp.
-        A7 không biến tiền sử thành dấu khám hiện tại nếu không có căn cứ.
-        A7 không sửa A2_FINAL.
-
-    A7.11.3. Đồng bộ với A3
-        Nếu A3 có triệu chứng tiêu hóa, A7 dùng để định hướng khám bụng.
-        Không bê triệu chứng tiêu hóa cơ năng từ A3 vào A7.
-        Nếu A3 ghi đau bụng, A7 không được ghi không có điểm đau khu trú thành bụng nếu không có căn cứ.
-        Nếu A3 ghi triệu chứng tiêu hóa đã hết, A7 không được ghi dấu hiện tại mâu thuẫn nếu không có căn cứ.
-
-    A7.11.4. Đồng bộ với A4
-        Nếu A4 có sốt hoặc toàn trạng xấu, A7 chỉ dùng làm ngữ cảnh.
-        A7 không tự tạo bụng cấp chỉ vì A4 có sốt hoặc toàn trạng xấu.
-        Nếu có dấu hiệu bụng cấp trong user input, A7 phải thể hiện trong khám bụng.
-
-    A7.11.5. Đồng bộ với A5
-        Nếu A5 có mạch nhanh, huyết áp tụt hoặc bệnh cảnh tuần hoàn nặng:
-            - A7 phải cân nhắc bệnh cảnh bụng cấp, mất nước, xuất huyết tiêu hóa hoặc bệnh cảnh nặng nếu user input/A3 gợi ý.
-        A7 không tự tạo xuất huyết tiêu hóa hoặc bụng cấp chỉ từ A5 nếu không có căn cứ.
-
-    A7.11.6. Đồng bộ với A6
-        Nếu A6 có bệnh cảnh hô hấp nặng hoặc suy hô hấp:
-            - A7 chỉ dùng làm ngữ cảnh toàn trạng.
-        A7 không tự tạo bất thường tiêu hóa chỉ từ A6 nếu không có căn cứ.
-
-    A7.11.7. Đồng bộ với chẩn đoán/mã bệnh tiêu hóa trong user input
-        Nếu user input có K21/K29 hoặc bệnh trào ngược dạ dày - thực quản / viêm dạ dày hiện tại và user không phủ định khám tiêu hóa bất thường:
-            - A7 chọn mẫu thượng vị phù hợp.
-        Nếu user input có bệnh gan mật, đau bụng, viêm ruột, tắc ruột hoặc bụng cấp:
-            - A7 chọn mẫu khám phù hợp nếu RUN_MODE cho phép.
-        Nếu user phủ định khám tiêu hóa bất thường:
-            - A7 giữ đúng phủ định.
-        Nếu không có bệnh tiêu hóa và không có triệu chứng tiêu hóa:
-            - A7 có thể dùng mẫu bình thường nếu RUN_MODE cho phép.
-
-A7.12. Quy tắc tạo A7_FOR_O1
-    A7.12.1. Vai trò của A7_FOR_O1
-        A7_FOR_O1 là bản khám tiêu hóa dùng cho O1.
-        A7_FOR_O1 phải ngắn gọn, cụ thể.
-        A7_FOR_O1 chỉ chứa khám bụng thực thể thuộc contract output A7.
-        A7_FOR_O1 không chứa triệu chứng cơ năng.
-        A7_FOR_O1 không làm O1 bị dài.
-
-    A7.12.2. Nội dung bắt buộc của A7_FOR_O1
-        A7_FOR_O1 phải có:
-            1. Bụng mềm / chướng.
-            2. Gan lách.
-            3. Không có điểm đau khu trú thành bụng hoặc vị trí đau/tức nếu có.
-            4. Dấu hiệu Mendel.
-
-    A7.12.3. Nội dung không bắt buộc trong A7_FOR_O1
-        A7_FOR_O1 không bắt buộc ghi tuần hoàn bàng hệ nếu không cần.
-        A7_FOR_O1 không ghi phản ứng thành bụng trong mẫu thường quy.
-        A7_FOR_O1 chỉ ghi phản ứng thành bụng, co cứng thành bụng hoặc cảm ứng phúc mạc khi user cung cấp hoặc có căn cứ lâm sàng rõ.
-
-    A7.12.4. Mẫu không có bất thường tiêu hóa
-        Nếu không có bất thường tiêu hóa và RUN_MODE cho phép:
-            A7_FOR_O1 = Bụng mềm, không chướng, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
-
-    A7.12.5. Mẫu đau / tức thượng vị không có K21/K29
-        Nếu có đau hoặc tức thượng vị nhưng không có K21/K29:
-            A7_FOR_O1 = Bụng mềm, không chướng, gan lách không sờ thấy, ấn tức vùng thượng vị, dấu hiệu Mendel (-).
-
-    A7.12.6. Mẫu K21/K29 hoặc trào ngược/viêm dạ dày
-        Nếu có K21/K29 hoặc bệnh cảnh trào ngược/viêm dạ dày trong user input và RUN_MODE cho phép:
-            A7_FOR_O1 = Bụng mềm, không chướng, ấn tức vùng thượng vị, dấu hiệu Mendel (+), gan lách không sờ thấy.
-        Nếu user phủ định khám tiêu hóa bất thường:
-            - Không dùng mẫu này.
-
-    A7.12.7. Mẫu đau hạ sườn phải / bệnh gan mật
-        Nếu có đau hạ sườn phải hoặc bệnh gan mật phù hợp:
-            A7_FOR_O1 = Bụng mềm, không chướng, ấn tức vùng hạ sườn phải, gan lách không sờ thấy, dấu hiệu Mendel (-).
-        Không tự tạo gan to nếu không có căn cứ.
-
-    A7.12.8. Mẫu bụng cấp / phản ứng thành bụng
-        Nếu có bụng cấp hoặc phản ứng phúc mạc:
-            A7_FOR_O1 = Bụng chướng nhẹ, gan lách không sờ thấy, ấn đau [vị trí], có phản ứng thành bụng [khu trú / rõ nếu có], dấu hiệu Mendel (+).
-        Không tự tạo bụng cấp nếu không có căn cứ.
-
-    A7.12.9. Mẫu gan to / lách to
-        Nếu user cung cấp gan to hoặc lách to:
-            A7_FOR_O1 phải ghi đúng bất thường gan/lách.
-        Không tự tạo gan to/lách to nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A7.12.10. Cấm trong A7_FOR_O1
-        A7_FOR_O1 không chứa:
-            1. Ợ hơi, ợ chua, nóng rát thượng vị nếu chỉ là triệu chứng.
-            2. Buồn nôn, nôn nếu chỉ là triệu chứng.
-            3. Ăn uống kém nếu chỉ là triệu chứng.
-            4. Tiêu chảy, táo bón nếu chỉ là bệnh sử.
-            5. Nội soi, siêu âm, CT/MRI, xét nghiệm.
-            6. Chẩn đoán.
-            7. Thuốc hoặc hướng điều trị.
-            8. Khám toàn thân, tuần hoàn, hô hấp, thận - tiết niệu, thần kinh, cơ xương khớp hoặc cơ quan khác.
-
-A7.13. Quy tắc tạo A7_FOR_O8
-    A7.13.1. Vai trò của A7_FOR_O8
-        A7_FOR_O8 là bản khám tiêu hóa thực thể dùng cho O8.
-        A7_FOR_O8 chi tiết hơn A7_FOR_O1 nhờ có thêm tuần hoàn bàng hệ trong mẫu thường quy.
-        A7_FOR_O8 không thêm dữ kiện ngoài phạm vi khám tiêu hóa thực thể của A7.
-        Nếu O8 cần triệu chứng tiêu hóa, tình trạng ăn uống, đại tiện hoặc ngữ cảnh bệnh sử, O8/tầng tổng hợp lấy từ state đúng nguồn sau này; không nhúng vào A7_STATE.
-
-    A7.13.2. Nội dung bắt buộc của A7_FOR_O8
-        A7_FOR_O8 phải có:
-            1. Bụng mềm / chướng.
-            2. Tuần hoàn bàng hệ.
-            3. Gan, lách.
-            4. Không có điểm đau khu trú thành bụng hoặc vị trí đau/tức nếu có.
-            5. Dấu hiệu Mendel.
-        Phản ứng thành bụng không bắt buộc trong mẫu thường quy A7_FOR_O8.
-        Chỉ ghi phản ứng thành bụng, co cứng thành bụng hoặc cảm ứng phúc mạc khi user cung cấp hoặc có căn cứ lâm sàng rõ.
-        Co cứng thành bụng / cảm ứng phúc mạc nếu có chỉ được mô tả như chi tiết của phản ứng thành bụng.
-        A7_FOR_O8 không chứa triệu chứng cơ năng, bệnh sử, tình trạng ăn uống hoặc đại tiện như dữ kiện bệnh sử/theo dõi ngoài khám thực thể.
-        A7_FOR_O8 không mở field tự do cho nhu động ruột hoặc dấu khám tiêu hóa thực thể khác.
-
-    A7.13.3. Mẫu không có bất thường tiêu hóa
-        Nếu không có bất thường tiêu hóa và RUN_MODE cho phép:
-            A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
-
-    A7.13.4. Mẫu có dấu khám thượng vị
-        Nếu có đau/tức thượng vị nhưng không có K21/K29 và RUN_MODE cho phép:
-            A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, ấn tức vùng thượng vị, dấu hiệu Mendel (-).
-        Nếu có K21/K29 hoặc bệnh cảnh trào ngược/viêm dạ dày trong user input và RUN_MODE cho phép:
-            A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, ấn tức vùng thượng vị, dấu hiệu Mendel (+).
-        Không đưa triệu chứng cơ năng, tình trạng ăn uống hoặc đại tiện kiểu bệnh sử vào A7_FOR_O8.
-
-    A7.13.5. Mẫu gan mật / hạ sườn phải
-        Nếu có đau hạ sườn phải hoặc bệnh gan mật phù hợp:
-            A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, ấn tức vùng hạ sườn phải, dấu hiệu Mendel (-).
-        Không tự tạo vị trí đau hoặc bất thường gan/lách nếu không có căn cứ.
-
-    A7.13.6. Mẫu bụng cấp
-        Nếu có bụng cấp:
-            A7_FOR_O8 = Bụng chướng nhẹ, không có tuần hoàn bàng hệ, gan lách không sờ thấy, ấn đau [vị trí], có phản ứng thành bụng [khu trú / rõ nếu có], dấu hiệu Mendel (+).
-        Không tự tạo bụng cấp nếu không có căn cứ.
-
-    A7.13.7. Mẫu gan to / lách to
-        Nếu user cung cấp gan to hoặc lách to:
-            A7_FOR_O8 phải ghi rõ gan/lách theo dữ kiện user cung cấp.
+Version: BA S-G-A-C-O V4
+Update: compact allowlist
+
+A7_ROLE
+    A7 chuẩn hóa khám tiêu hóa thực thể / khám bụng.
+    A7 tạo, cập nhật hoặc dùng lại A7_STATE để đưa vào full current A_STATE của ROUND hiện tại.
+    A7_STATE là nguồn chính thức cho C/O khi cần dữ liệu khám tiêu hóa.
+    A7 tạo 2 bản nội dung:
+        1. A7_FOR_O1: bản khám tiêu hóa ngắn dùng cho O1.
+        2. A7_FOR_O8: bản khám tiêu hóa chi tiết hơn dùng cho O8.
+    Nếu khám tiêu hóa sai, lẫn module khác hoặc mâu thuẫn dữ liệu nguồn, phải sửa tại A7.
+
+A7_ALLOWED_SOURCE
+    A7 chỉ được đọc:
+        1. User input của ROUND hiện tại, chỉ phần thuộc khám tiêu hóa thực thể / khám bụng hoặc bệnh cảnh được phép dùng để chọn mẫu khám bụng.
+        2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
+        3. Latest/current A7_STATE nếu đã có, chỉ để UPDATE hoặc REUSE.
+        4. File/module A7.
+        5. A1_STATE, chỉ để đối chiếu lý do vào viện liên quan tiêu hóa.
+        6. A2_STATE, chỉ để đối chiếu tiền sử tiêu hóa, bệnh gan mật, phẫu thuật bụng, bệnh nền hoặc yếu tố nguy cơ.
+        7. A3_STATE, chỉ để đối chiếu triệu chứng/bệnh sử tiêu hóa; không bê triệu chứng cơ năng vào khám thực thể.
+        8. A4_STATE, chỉ để đối chiếu tình trạng toàn thân, sốt, da niêm, phù chung hoặc bệnh cảnh toàn thân.
+        9. A5_STATE, chỉ để đối chiếu bệnh cảnh tuần hoàn nặng, mất nước, xuất huyết tiêu hóa hoặc bụng cấp khi có gợi ý hợp lệ.
+        10. A6_STATE, chỉ để đối chiếu tình trạng hô hấp/toàn trạng nặng nếu cần.
+    A7 không được đọc A8-A15 của ROUND hiện tại để tạo A7_STATE.
+    A7 không đọc A12_STATE hiện tại hoặc cũ để tạo dấu khám tiêu hóa; chẩn đoán/mã bệnh tiêu hóa chỉ được dùng nếu user input trực tiếp cung cấp và RUN_MODE cho phép dùng như bệnh cảnh.
+    A7 không đọc A14_STATE hoặc cận lâm sàng để tạo dấu khám bụng nếu không có dữ kiện khám tương ứng.
+    A7 không đọc C_STATE, O_OUTPUT, output render cũ, trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+    A7 không biến A1/A2/A3/A4/A5/A6 thành dữ kiện khám tiêu hóa mới ngoài phạm vi contract.
+    A7 không biến triệu chứng, bệnh sử, chẩn đoán, mã bệnh, nội soi, siêu âm ổ bụng, CT/MRI, xét nghiệm, bilirubin hoặc men gan thành dấu khám bụng nếu user không cung cấp dấu khám tương ứng.
+
+A7_ALLOWED_ACTION
+    A7 chỉ được:
+        1. CREATE A7_STATE.
+        2. UPDATE A7_STATE.
+        3. REUSE A7_STATE.
+        4. CHECK A7_STATE.
+        5. Quản lý A7_REV của chính A7.
+        6. Chọn mẫu khám bụng phù hợp theo RUN_MODE và căn cứ hợp lệ.
+
+A7_ALLOWED_WRITE
+    A7 chỉ ghi A7_STATE.
+    A7 không ghi A1-A6, A8-A15, C/O, A_GATE hoặc A_STATE_OUTPUT_SCHEMA.
+    A7 không tự tạo toàn bộ A_MODULE_REV; A7 chỉ cung cấp/quản lý A7_REV để A_GATE / full current A_STATE tổng hợp.
+    A7_STATE là full state; không dùng patch/delta làm A7_STATE chính thức.
+
+A7_STATE_SCHEMA
+    A7_STATE:
+        STATE_VERSION = ...
+        UPDATED_AT = HH:MM dd/mm/yyyy
+        A7_FOR_O1 = ...
+        A7_FOR_O8 = ...
+        A7_CHECK = PASS / NEEDS_FIX
+        A7_ERROR = ...
+    Không thêm STATUS hoặc field mới khác vào A7_STATE.
+    Không đổi tên hoặc bỏ A7_FOR_O1, A7_FOR_O8, UPDATED_AT.
+    A7_STATE phải dùng STATE_VERSION của ROUND hiện tại.
+    UPDATED_AT là metadata quản lý phiên bản state, không phải dữ liệu bệnh án; O không được render UPDATED_AT vào bệnh án.
+    UPDATED_AT khác A7_REV; thay đổi UPDATED_AT đơn thuần không làm tăng A7_REV.
+    A7_ERROR = NONE khi A7_CHECK = PASS.
+    A7_ERROR ghi lỗi cụ thể khi A7_CHECK = NEEDS_FIX.
+
+A7_LOGIC_RULES
+    CREATE / UPDATE / REUSE:
+        1. CREATE khi chưa có latest/current A7_STATE.
+        2. UPDATE khi user input hiện tại hoặc dependency hợp lệ làm nội dung thật của A7_FOR_O1 / A7_FOR_O8 thay đổi.
+        3. Dữ liệu ảnh hưởng A7 gồm: bụng mềm/chướng, tuần hoàn bàng hệ, gan/lách, điểm đau hoặc tức khu trú thành bụng, phản ứng thành bụng khi có căn cứ, co cứng thành bụng hoặc cảm ứng phúc mạc nếu là chi tiết phản ứng thành bụng, dấu hiệu Mendel, chỉnh sửa khám tiêu hóa, hoặc dependency hợp lệ phát hiện mâu thuẫn cần sửa A7.
+        4. UPDATE chỉ thay phần bị ảnh hưởng; phần không bị ảnh hưởng lấy từ latest/current A7_STATE.
+        5. State sau UPDATE dùng STATE_VERSION của ROUND hiện tại; UPDATED_AT là thời điểm UPDATE A7_STATE.
+        6. REUSE khi đã có latest/current A7_STATE và input/dependency hợp lệ không ảnh hưởng A7 hoặc không làm đổi nội dung thật A7_FOR_O1/A7_FOR_O8.
+    RUN_MODE:
+        1. RUN_MODE lấy từ G_STATE; A7 không tự xác định RUN_MODE.
+        2. RUN_MODE độc lập với CREATE / UPDATE / REUSE.
+        3. USER_ONLY: chỉ dùng dữ kiện khám tiêu hóa user cung cấp; không tự tạo khám bụng, mẫu mặc định, gan/lách to, tuần hoàn bàng hệ bất thường, phản ứng thành bụng, co cứng thành bụng, cảm ứng phúc mạc, bụng cấp hoặc Mendel (+). Nếu không có A7_STATE hợp lệ để REUSE và thiếu dữ kiện khám tiêu hóa: A7_FOR_O1 = Chưa có dữ kiện khám tiêu hóa; A7_FOR_O8 = Chưa có dữ kiện khám tiêu hóa; A7_CHECK = NEEDS_FIX; A7_ERROR = Thiếu dữ kiện khám tiêu hóa.
+        4. DEFAULT_COMPLETION: dùng dữ liệu user làm nền; được tự tạo khám tiêu hóa phù hợp bệnh cảnh nếu user không cung cấp đủ và không có dữ kiện trái ngược; dùng mẫu bình thường đã chốt khi không có triệu chứng/chẩn đoán tiêu hóa liên quan hoặc không có căn cứ bất thường; không dùng no-data placeholder trong bệnh án thường quy; không tự thêm bất thường tiêu hóa mới nếu không có căn cứ.
+        5. AUTO_SAMPLE: chỉ dùng cho ca mẫu; có thể tạo khám bụng phù hợp bệnh cảnh mẫu; không áp dụng cho ca bệnh thật đã có dữ liệu user; không đọc ngược A12 hoặc A8-A15 để tạo A7.
+
+A7_SPECIAL_RULES
+    Phạm vi A7 — INCLUDE:
+        A7 quản lý khám tiêu hóa thực thể / khám bụng gồm: bụng mềm, bụng chướng, bụng không chướng, tuần hoàn bàng hệ, gan, lách, gan lách không sờ thấy, gan to nếu user cung cấp hoặc đủ căn cứ, lách to nếu user cung cấp hoặc đủ căn cứ, điểm đau khu trú thành bụng, tức khu trú thành bụng, vị trí đau/tức khu trú nếu user cung cấp, phản ứng thành bụng nếu user cung cấp hoặc đủ căn cứ, co cứng thành bụng nếu là chi tiết phản ứng thành bụng, cảm ứng phúc mạc nếu là chi tiết phản ứng thành bụng, dấu hiệu Mendel, và dấu khám tiêu hóa thực thể khác nếu đã thuộc contract.
+        Co cứng thành bụng và cảm ứng phúc mạc chỉ là chi tiết của phản ứng thành bụng; không mở thành nhóm output riêng.
+    Phạm vi A7 — EXCLUDE / BOUNDARY:
+        A7 không quản lý triệu chứng cơ năng tiêu hóa đơn thuần, bệnh sử tiêu hóa, khám toàn thân A4, khám tuần hoàn A5, khám hô hấp A6, thận tiết niệu A8, thần kinh A9, cơ xương khớp A10, cơ quan khác A11, chẩn đoán A12, hướng xử trí/điều trị A13, cận lâm sàng A14 hoặc thuốc/điều trị A15.
+        A7 không quản lý nếu chỉ là lời kể/triệu chứng: ợ hơi, ợ chua, nóng rát thượng vị, buồn nôn, nôn, ăn uống kém, đầy bụng, khó tiêu, tiêu chảy, táo bón, rối loạn đại tiện, đau bụng do bệnh nhân kể, đại tiện, ăn uống.
+        A7 không quản lý sốt, thể trạng, da niêm mạc chung, vàng da nếu là da niêm/toàn thân chung, phù chung, mạch, huyết áp, tiếng tim, nhịp thở, SpO2, nội soi, siêu âm ổ bụng, CT/MRI, xét nghiệm, bilirubin, men gan, chẩn đoán, thuốc hoặc điều trị.
+    Phân ranh A3-A7:
+        Triệu chứng cơ năng tiêu hóa thuộc A3/C7 nếu chỉ là lời kể.
+        A7 chỉ ghi dấu khám thực thể tương ứng khi có dữ kiện khám: bụng chướng, điểm đau/tức khu trú thành bụng, phản ứng thành bụng, gan/lách to, tuần hoàn bàng hệ, Mendel bất thường hoặc dấu khám tiêu hóa thực thể khác thuộc contract.
+        A7 không bê triệu chứng cơ năng hoặc bệnh sử hiện tại vào A7_FOR_O1/O8; chỉ có thể dùng triệu chứng/bệnh cảnh để chọn mẫu khám bụng trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE nếu RUN_MODE cho phép và không trái dữ kiện.
+    Phân ranh A4-A7:
+        Sốt, thể trạng, da niêm, vàng da nếu là da niêm/toàn thân chung, phù chung và toàn trạng thuộc A4.
+        A4 chỉ cung cấp ngữ cảnh/mâu thuẫn/bệnh cảnh nặng; A7 không chép toàn trạng/sốt/da niêm/phù chung vào A7_FOR_O1/O8 nếu không phải dấu khám tiêu hóa thực thể.
+        Nếu A4 và A7 mâu thuẫn về tình trạng bụng/toàn thân có liên quan, A7_CHECK có thể NEEDS_FIX và A7_ERROR ghi rõ.
+    Phân ranh A5-A7:
+        Mạch, huyết áp, tiếng tim và tuần hoàn thuộc A5; A7 không ghi các dữ kiện này trong A7_FOR_O1/O8.
+        A5 chỉ dùng để đối chiếu bệnh cảnh nặng, mất nước, xuất huyết tiêu hóa hoặc bụng cấp nếu có gợi ý hợp lệ; A7 không dùng A5 để tự tạo phản ứng thành bụng, gan/lách to hoặc bụng cấp nếu thiếu dữ kiện khám tiêu hóa.
+    Phân ranh A6-A7:
+        Nhịp thở, SpO2, ran phổi, rì rào phế nang và khám hô hấp thuộc A6; A7 không ghi các dữ kiện này trong A7_FOR_O1/O8.
+        A6 chỉ dùng để đối chiếu bệnh cảnh toàn thân nặng nếu cần; A7 không dùng A6 để tự tạo dấu khám bụng bất thường nếu thiếu dữ kiện khám tiêu hóa.
+    Phân ranh A12/A14-A7:
+        A7 không đọc A12_STATE hiện tại hoặc cũ để tạo dấu khám tiêu hóa.
+        A7 không dùng chẩn đoán/mã bệnh đơn thuần để tạo điểm đau khu trú, phản ứng thành bụng, gan to, lách to, tuần hoàn bàng hệ, Mendel (+) hoặc bụng cấp.
+        Nếu user input trực tiếp có chẩn đoán/mã bệnh tiêu hóa thì có thể dùng như bệnh cảnh trong RUN_MODE hợp lệ, nhưng không được thay cho dấu khám nếu user không cung cấp.
+        Nội soi, siêu âm ổ bụng, CT/MRI, xét nghiệm, bilirubin và men gan thuộc A14; không biến cận lâm sàng thành khám thực thể nếu không có dữ kiện khám tương ứng.
+    Dữ kiện ngoài contract A7:
+        Nhu động ruột hoặc dấu khám tiêu hóa thực thể khác chưa được A7 cho phép không được tự render vào A7_FOR_O1/O8.
+        Nếu dữ kiện ngoài contract cần xuất hiện trong bệnh án: A7_CHECK = NEEDS_FIX; A7_ERROR nêu cần mở rộng contract hoặc xử lý ở nguồn phù hợp.
+        Không tự mở rộng A7_FOR_O1/O8 để chứa field ngoài contract.
+    Bụng / gan lách / điểm đau / Mendel:
+        Bụng mềm/chướng, gan/lách và dấu hiệu Mendel phải giữ đúng dữ kiện user cung cấp.
+        Nếu user phủ định đau bụng/ấn đau/khám tiêu hóa bất thường, A7 phải giữ phủ định và không tự viết ngược lại.
+        Nếu user cung cấp bất thường rõ, không ghi mẫu bình thường trái lại.
         Không tự tạo gan to/lách to nếu không có căn cứ.
+        Điểm đau/tức khu trú phải giữ đúng vị trí nếu user cung cấp.
+        Nếu không có điểm đau khu trú trong mẫu bình thường, dùng đúng cụm “không có điểm đau khu trú thành bụng”.
+        Không dùng cụm mơ hồ “không đau”, “ấn không đau”, “ấn bụng không đau”.
+        Mẫu bình thường dùng “dấu hiệu Mendel (-)”; không tự tạo Mendel (+) nếu không có căn cứ.
+    Phản ứng thành bụng / bụng cấp:
+        Phản ứng thành bụng chỉ ghi khi user cung cấp hoặc bệnh cảnh đủ căn cứ/RUN_MODE cho phép.
+        Không tự tạo phản ứng thành bụng, co cứng thành bụng, cảm ứng phúc mạc hoặc bụng cấp nếu không có căn cứ.
+        Nếu bệnh cảnh có nguy cơ bụng cấp/mâu thuẫn nhưng thiếu dữ kiện khám để kết luận an toàn, A7_CHECK = NEEDS_FIX và A7_ERROR ghi rõ.
+    A7_FOR_O1:
+        A7_FOR_O1 là bản ngắn, phải có bụng mềm/chướng, gan/lách, điểm đau hoặc không có điểm đau khu trú thành bụng, dấu hiệu Mendel.
+        Mẫu bình thường đúng literal: Bụng mềm, không chướng, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
+        Tuần hoàn bàng hệ không bắt buộc trong O1 thường quy.
+        A7_FOR_O1 không chứa ăn uống, đại tiện, triệu chứng cơ năng, bệnh sử, CLS, chẩn đoán, thuốc, điều trị hoặc khám ngoài scope A7.
+        Nếu user cung cấp bất thường tiêu hóa thực thể rõ, O1 phải phản ánh tương ứng ở mức ngắn.
+    A7_FOR_O8:
+        A7_FOR_O8 là bản chi tiết hơn, phải có bụng mềm/chướng, tuần hoàn bàng hệ, gan/lách, điểm đau hoặc không có điểm đau khu trú thành bụng, dấu hiệu Mendel.
+        Mẫu bình thường đúng literal: Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
+        A7_FOR_O8 không chứa ăn uống, đại tiện, triệu chứng cơ năng, bệnh sử, CLS, chẩn đoán, thuốc, điều trị hoặc khám ngoài scope A7.
+        Nếu user cung cấp bất thường tiêu hóa thực thể rõ, O8 phải phản ánh tương ứng đầy đủ hơn O1.
+    Đồng bộ O1/O8:
+        A7_FOR_O1 và A7_FOR_O8 không được mâu thuẫn về bụng mềm/chướng, điểm đau/tức khu trú, gan/lách, dấu hiệu Mendel hoặc phản ứng thành bụng nếu có.
+        Nếu O1 ghi “không có điểm đau khu trú thành bụng” thì O8 không được ghi ấn đau/tức khu trú ngược lại.
+        Nếu O8 có bất thường rõ thì O1 không được ghi bình thường trái lại.
+        O8 có thể chi tiết hơn O1 nhưng không thêm dữ kiện sai phạm vi.
+        Nếu O1/O8 mâu thuẫn nhau thì A7_CHECK = NEEDS_FIX và A7_ERROR ghi rõ.
+    Wording cấm / normalize:
+        Không dùng: “Khám sơ bộ chưa phát hiện bất thường tiêu hóa”, “tiêu hóa bình thường”, “bụng bình thường”, “không đau” chung chung, “ấn không đau”, “ấn bụng không đau”.
+        Khi bình thường phải dùng: “không có điểm đau khu trú thành bụng”.
 
-    A7.13.8. Cấm dữ kiện ngoài khám thực thể trong A7_FOR_O8
-        A7_FOR_O8 không ghi tình trạng ăn uống, đại tiện hoặc triệu chứng cơ năng như dữ kiện bệnh sử/theo dõi ngoài khám thực thể.
-        Không tự tạo ăn uống được, ăn uống kém, đại tiện bình thường, tiêu chảy, táo bón hoặc rối loạn đại tiện trong A7_FOR_O8.
-        Không dùng “ấn không đau”, “ấn bụng không đau” hoặc “không đau” chung chung trong output chuẩn A7_FOR_O8.
-        Không dùng “không có phản ứng thành bụng” trong mẫu thường quy A7_FOR_O8.
+A7_CHECK_PASS_IF
+    A7_CHECK = PASS khi đồng thời đạt:
+        1. A7_STATE đủ STATE_VERSION, UPDATED_AT, A7_FOR_O1, A7_FOR_O8, A7_CHECK, A7_ERROR.
+        2. A7_FOR_O1 có dữ liệu khám tiêu hóa hợp lệ, đúng format, đúng scope A7, đúng RUN_MODE; có bụng mềm/chướng, gan/lách, điểm đau hoặc không có điểm đau khu trú thành bụng, dấu hiệu Mendel.
+        3. A7_FOR_O8 có dữ liệu khám tiêu hóa hợp lệ, đúng format, đúng scope A7, đúng RUN_MODE; có bụng mềm/chướng, tuần hoàn bàng hệ, gan/lách, điểm đau hoặc không có điểm đau khu trú thành bụng, dấu hiệu Mendel.
+        4. O1/O8 không trái user input, không mâu thuẫn nhau, dùng literal/format đúng cho mẫu thường quy và không dùng wording cấm.
+        5. O1/O8 không tự tạo dấu khám từ A1-A6, triệu chứng, bệnh sử, chẩn đoán, mã bệnh hoặc CLS; không chứa triệu chứng cơ năng đơn thuần, cận lâm sàng, chẩn đoán, thuốc, hướng xử trí, mạch, huyết áp, tiếng tim, nhịp thở, SpO2 hoặc khám chuyên khoa ngoài scope.
+        6. A7_ERROR = NONE.
 
-    A7.13.9. Đồng bộ O1/O8
-        A7_FOR_O1 và A7_FOR_O8 phải đồng bộ:
-            1. Điểm đau khu trú thành bụng / vị trí đau hoặc tức nếu có.
-            2. Bụng mềm / chướng.
-            3. Gan, lách.
-            4. Dấu hiệu Mendel.
-            5. Phản ứng thành bụng nếu user cung cấp hoặc có căn cứ lâm sàng rõ.
-        A7_FOR_O8 phải chi tiết hơn A7_FOR_O1, không chỉ dài hơn, và không được mâu thuẫn A7_FOR_O1.
-        Nếu A7_FOR_O1 có ấn tức/ấn đau vị trí nào, A7_FOR_O8 phải giữ đúng vị trí đó.
-        Nếu A7_FOR_O1 ghi không có điểm đau khu trú thành bụng, A7_FOR_O8 không được ghi ấn đau hoặc ấn tức.
-        Nếu A7_FOR_O1 có Mendel (+), A7_FOR_O8 không được ghi Mendel (-), và ngược lại.
-        Nếu A7_FOR_O1 có phản ứng thành bụng, A7_FOR_O8 phải thể hiện tương ứng.
-        Nếu không có dữ kiện phản ứng thành bụng trong mẫu thường quy, A7_FOR_O8 không được tự thêm cụm “không có phản ứng thành bụng”.
+A7_NEEDS_FIX_IF
+    A7_CHECK = NEEDS_FIX nếu có ít nhất một lỗi:
+        1. USER_ONLY thiếu dữ kiện khám tiêu hóa và không có state hợp lệ để REUSE.
+        2. A7_FOR_O1 hoặc A7_FOR_O8 thiếu dữ liệu cần thiết, sai format bụng/gan lách/điểm đau/Mendel, dùng wording cấm hoặc chứa dữ liệu ngoài scope A7.
+        3. A7_FOR_O1 hoặc A7_FOR_O8 tự tạo dấu khám từ triệu chứng, bệnh sử, chẩn đoán, mã bệnh hoặc CLS.
+        4. A7_FOR_O1 hoặc A7_FOR_O8 mâu thuẫn user input, mâu thuẫn nhau, hoặc DEFAULT_COMPLETION tạo mẫu trái dữ kiện user/dependency.
+        5. Bệnh cảnh có nguy cơ bụng cấp/mâu thuẫn khiến không thể tự hoàn thiện an toàn.
+        6. Dữ kiện ngoài contract A7 cần xuất hiện trong bệnh án nhưng không có nơi xử lý hợp lệ.
+        7. State thiếu field bắt buộc.
+        8. A7_ERROR không rõ khi NEEDS_FIX hoặc A7_ERROR không phải NONE khi PASS.
 
-A7.14. Ví dụ cụ thể
-    A7.14.1. Ví dụ CREATE A7_STATE trong DEFAULT_COMPLETION
-        Điều kiện:
-            Chưa có A7_STATE hiện hành.
-        Input:
-            Không ghi bất thường tiêu hóa.
-            RUN_MODE = DEFAULT_COMPLETION.
-        Kết quả xử lý nội bộ:
-            CREATE A7_STATE.
-            A7_REV = 1.
-        A7_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A7_FOR_O1 = Bụng mềm, không chướng, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
-            A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
-            A7_CHECK = PASS
-            A7_ERROR = NONE
+A7_ERROR_RULE
+    Nếu A7_CHECK = PASS: A7_ERROR = NONE.
+    Nếu A7_CHECK = NEEDS_FIX: A7_ERROR phải ghi lỗi cụ thể.
+    Nếu thiếu dữ liệu, A7_ERROR nêu dữ liệu cần user bổ sung.
+    Nếu mâu thuẫn, A7_ERROR nêu điểm mâu thuẫn.
+    Nếu sai phạm vi, A7_ERROR nêu phần cần sửa.
+    Nếu sai format, A7_ERROR nêu format cần sửa.
+    Nếu dữ kiện ngoài contract cần xuất hiện, A7_ERROR nêu cần mở rộng contract hoặc xử lý nguồn phù hợp.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
 
-    A7.14.2. Ví dụ UPDATE khi nội dung thật thay đổi
-        Điều kiện:
-            A7_STATE hiện hành có A7_REV = 1 và không có điểm đau khu trú thành bụng.
-        Input ROUND hiện tại:
-            Khám bụng bổ sung: ấn tức vùng thượng vị.
-            RUN_MODE = DEFAULT_COMPLETION.
-        Kết quả xử lý nội bộ:
-            UPDATE A7_STATE.
-            A7_REV = 2.
-        A7_STATE:
-            STATE_VERSION = V2
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A7_FOR_O1 = Bụng mềm, không chướng, gan lách không sờ thấy, ấn tức vùng thượng vị, dấu hiệu Mendel (-).
-            A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, ấn tức vùng thượng vị, dấu hiệu Mendel (-).
-            A7_CHECK = PASS
-            A7_ERROR = NONE
+A7_REUSE_RULE
+    REUSE khi latest/current A7_STATE có và input/dependency hợp lệ không ảnh hưởng A7 hoặc không làm đổi nội dung thật A7_FOR_O1/A7_FOR_O8.
+    Khi REUSE, dùng lại nội dung thật của latest/current A7_STATE và vẫn in full A7_STATE với STATE_VERSION hiện tại.
+    UPDATED_AT khi REUSE giữ thời điểm cập nhật nội dung thật gần nhất, trừ khi contract hiện tại quy định khác.
+    Không ghi “giữ nguyên như trước”, “reuse A7”, “theo bản trước”, “không đổi” hoặc patch/delta thay cho A7_FOR_O1/A7_FOR_O8.
+    A7_REV giữ nguyên nếu A7_FOR_O1/A7_FOR_O8 không thay đổi thật.
+    Thay đổi metadata UPDATED_AT đơn thuần không làm tăng A7_REV.
 
-    A7.14.3. Ví dụ REUSE full state khi nội dung thật không đổi
-        Điều kiện:
-            A7_STATE hiện hành có A7_REV = 2.
-        Input ROUND hiện tại:
-            Bổ sung dữ kiện không ảnh hưởng khám tiêu hóa thực thể.
-            RUN_MODE = DEFAULT_COMPLETION.
-        Kết quả xử lý nội bộ:
-            REUSE A7_STATE.
-            A7_REV = 2.
-        A7_STATE:
-            STATE_VERSION = V3
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A7_FOR_O1 = Bụng mềm, không chướng, gan lách không sờ thấy, ấn tức vùng thượng vị, dấu hiệu Mendel (-).
-            A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, ấn tức vùng thượng vị, dấu hiệu Mendel (-).
-            A7_CHECK = PASS
-            A7_ERROR = NONE
+A7_REV_RULE
+    CREATE A7_STATE thì A7_REV = 1.
+    UPDATE nếu A7_FOR_O1 hoặc A7_FOR_O8 thay đổi thật thì A7_REV tăng so với A7_REV hiện hành.
+    REUSE hoặc input/dependency hợp lệ không làm đổi nội dung thật A7_FOR_O1/A7_FOR_O8 thì A7_REV giữ nguyên.
+    Dependency hợp lệ làm nội dung thật thay đổi thì A7 phải UPDATE và tăng A7_REV.
+    A7_REV tăng/giữ theo thay đổi thật của A7_FOR_O1/A7_FOR_O8, không theo tên RUN_MODE.
+    A7_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
+    A7 không tự tạo toàn bộ A_MODULE_REV.
+    A7_STATE vẫn phải là full state, không patch/delta.
 
-    A7.14.4. Ví dụ USER_ONLY thiếu khám tiêu hóa
-        Điều kiện:
-            Không có A7_STATE cũ để REUSE.
-        Input:
-            RUN_MODE = USER_ONLY.
-            Không có dữ kiện khám tiêu hóa.
-        Kết quả xử lý nội bộ:
-            CREATE A7_STATE.
-            A7_REV = 1.
-        A7_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A7_FOR_O1 = Chưa có dữ kiện khám tiêu hóa.
-            A7_FOR_O8 = Chưa có dữ kiện khám tiêu hóa.
-            A7_CHECK = NEEDS_FIX
-            A7_ERROR = Thiếu dữ kiện khám tiêu hóa.
-
-    A7.14.5. Ví dụ không biến nội soi thành khám bụng
-        Input:
-            Nội soi: viêm trợt hang vị. Không có dữ kiện khám bụng.
-            RUN_MODE = USER_ONLY.
-        A7_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A7_FOR_O1 = Chưa có dữ kiện khám tiêu hóa.
-            A7_FOR_O8 = Chưa có dữ kiện khám tiêu hóa.
-            A7_CHECK = NEEDS_FIX
-            A7_ERROR = Thiếu dữ kiện khám tiêu hóa; không dùng nội soi để thay khám bụng.
-
-    A7.14.6. Ví dụ AUTO_SAMPLE chỉ cho ca mẫu
-        Điều kiện:
-            Đây là ca mẫu, không phải ca bệnh thật có dữ liệu user cung cấp.
-        Input:
-            RUN_MODE = AUTO_SAMPLE.
-            Bệnh cảnh mẫu ổn định, không có bất thường tiêu hóa mẫu.
-        Kết quả xử lý nội bộ:
-            CREATE A7_STATE.
-            A7_REV = 1.
-        A7_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A7_FOR_O1 = Bụng mềm, không chướng, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
-            A7_FOR_O8 = Bụng mềm, không chướng, không có tuần hoàn bàng hệ, gan lách không sờ thấy, không có điểm đau khu trú thành bụng, dấu hiệu Mendel (-).
-            A7_CHECK = PASS
-            A7_ERROR = NONE
-        Không dùng AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
-
-A7.15. Schema A7_STATE
-    A7.15.1. Schema chuẩn
-        A7_STATE:
-            STATE_VERSION = ...
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A7_FOR_O1 = ...
-            A7_FOR_O8 = ...
-            A7_CHECK = PASS / NEEDS_FIX
-            A7_ERROR = ...
-
-    A7.15.2. Nguyên tắc schema
-        A7_STATE là full state; không phải patch/delta.
-        A7_STATE không cần in trạng thái tạo mới / cập nhật / dùng lại.
-        A7_STATE không cần STATUS.
-        A7_STATE phải có UPDATED_AT = HH:MM dd/mm/yyyy.
-        UPDATED_AT là metadata quản lý phiên bản state, không phải dữ liệu bệnh án; O không được render UPDATED_AT vào bệnh án.
-        UPDATED_AT là thời điểm cập nhật state, khác A7_REV là revision nội dung theo rule system.
-        A7_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        A7_FOR_O1 là khám tiêu hóa dùng cho O1.
-        A7_FOR_O8 là khám tiêu hóa dùng cho O8.
-        A7_CHECK là kết quả tự kiểm của A7.
-        A7_ERROR chỉ dùng khi A7_CHECK = NEEDS_FIX.
-
-    A7.15.3. Khi A7_CHECK = PASS
-        Nếu A7_CHECK = PASS:
-            - A7_FOR_O1 có giá trị hợp lệ.
-            - A7_FOR_O8 có giá trị hợp lệ.
-            - A7_ERROR = NONE.
-
-    A7.15.4. Khi A7_CHECK = NEEDS_FIX
-        Nếu A7_CHECK = NEEDS_FIX:
-            - A7_ERROR phải ghi rõ lỗi.
-            - A7_ERROR phải nêu dữ liệu cần user bổ sung hoặc phần cần sửa.
-            - Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-A7.16. Lỗi không được mắc
-    A7.16.1. Lỗi sai phạm vi A7
-        Không đưa bệnh sử vào A7.
-        Không đưa lý do vào viện vào A7 như khám thực thể.
-        Không đưa tiền sử vào A7 như khám thực thể.
-        Không đưa triệu chứng cơ năng tiêu hóa vào A7_FOR_O1 nếu chỉ là lời kể.
-        Không đưa khám toàn thân vào A7.
-        Không đưa khám tuần hoàn vào A7.
-        Không đưa khám hô hấp vào A7.
-        Không đưa khám thận - tiết niệu vào A7.
-        Không đưa khám thần kinh vào A7.
-        Không đưa khám cơ xương khớp vào A7.
-        Không đưa khám cơ quan khác vào A7.
-        Không đưa nội soi, siêu âm, CT/MRI, xét nghiệm vào A7 như khám bụng.
-        Không đưa chẩn đoán, thuốc, đơn thuốc hoặc hướng xử trí vào A7.
-        Không đưa hành chính vào A7.
-
-    A7.16.2. Lỗi tự tạo dữ kiện
-        Không tự tạo gan to / lách to nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo phản ứng thành bụng nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo co cứng thành bụng nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo cảm ứng phúc mạc nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo bụng cấp nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo tuần hoàn bàng hệ nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự render nhu động ruột hoặc dấu khám tiêu hóa thực thể ngoài contract A7 vào A7_FOR_O1/O8.
-        Không ghi wording khám bụng chung chung nếu user cung cấp bất thường rõ.
-
-    A7.16.3. Lỗi mâu thuẫn
-        Nếu A1_REASON có triệu chứng tiêu hóa chính, A7 không được bỏ sót bệnh cảnh tiêu hóa khi RUN_MODE cho phép xử lý.
-        Nếu A2_FINAL có tiền sử tiêu hóa, A7 không được biến tiền sử thành dấu khám hiện tại nếu không có căn cứ.
-        Nếu A3 có đau bụng, A7 không được ghi không có điểm đau khu trú thành bụng nếu không có căn cứ.
-        Nếu có chướng bụng, A7 không được ghi không chướng.
-        Nếu có phản ứng thành bụng, A7 không được ghi phủ định phản ứng thành bụng.
-        Nếu có K21/K29 hoặc trào ngược/viêm dạ dày trong user input và RUN_MODE cho phép, A7 phải chọn mẫu tiêu hóa phù hợp nếu user không phủ định.
-        Nếu user phủ định đau bụng/ấn đau, A7 không tự ghi ấn tức/ấn đau thượng vị.
-        Nếu user phủ định khám tiêu hóa bất thường, A7 không được tự tạo bất thường tiêu hóa.
-
-    A7.16.4. Lỗi trình bày A7_FOR_O1 / A7_FOR_O8
-        Không ghi “Khám sơ bộ chưa phát hiện bất thường tiêu hóa”.
-        Không ghi “tiêu hóa bình thường”.
-        Không ghi “bụng bình thường”.
-        Không ghi “không đau” chung chung.
-        Không dùng “ấn không đau” hoặc “ấn bụng không đau” trong output chuẩn.
-        Khi bình thường phải dùng “không có điểm đau khu trú thành bụng”.
-        Khi có bất thường phải dùng vị trí thật như “ấn tức vùng...”, “ấn đau vùng...”, “đau vùng...” hoặc mô tả user cung cấp.
-        Không để A7_FOR_O1 và A7_FOR_O8 mâu thuẫn.
-        Không để A7_FOR_O1 thiếu dữ kiện bắt buộc nếu A7_CHECK = PASS.
-        Không để A7_FOR_O8 thiếu dữ kiện cần thiết nếu A7_CHECK = PASS.
-        Không viết A7_FOR_O1 quá dài.
-        Không viết A7_FOR_O8 dài nhưng thêm dữ kiện sai phạm vi.
-        Không làm mất bất thường tiêu hóa user cung cấp.
-
-    A7.16.5. Lỗi vận hành state
-        Không tạo state của A khác.
-        Không dùng patch/delta làm A7_STATE chính thức.
-        Không ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không đưa metadata không cần thiết vào A7_STATE.
-        Không render O trong A7.
-        Không chạy C trong A7.
-        Không suy ngược A7 từ O_OUTPUT.
-
-A7.17. A7_CHECK
-    A7.17.1. Kiểm A7_FOR_O1
-        Kiểm:
-            1. A7_FOR_O1 có bụng mềm / chướng.
-            2. A7_FOR_O1 có gan lách.
-            3. A7_FOR_O1 có cụm “không có điểm đau khu trú thành bụng” hoặc vị trí đau/tức nếu có.
-            4. A7_FOR_O1 có dấu hiệu Mendel.
-            5. A7_FOR_O1 không chứa triệu chứng cơ năng.
-            6. A7_FOR_O1 không chứa cận lâm sàng.
-            7. A7_FOR_O1 không ghi wording cấm hoặc wording chung chung.
-            8. A7_FOR_O1 chỉ chứa các nhóm dữ kiện thuộc contract output A7.
-            9. A7_FOR_O1 không mâu thuẫn với user input.
-            10. A7_FOR_O1 không mâu thuẫn với A1/A2/A3/A4 nếu có dùng dependency.
-
-    A7.17.2. Kiểm A7_FOR_O8
-        Kiểm:
-            1. A7_FOR_O8 có đủ bụng mềm/chướng, tuần hoàn bàng hệ, gan lách, cụm “không có điểm đau khu trú thành bụng” hoặc vị trí đau/tức nếu có, và dấu hiệu Mendel.
-            2. A7_FOR_O8 chi tiết hơn A7_FOR_O1 nhờ có tuần hoàn bàng hệ trong mẫu thường quy, không chỉ dài hơn.
-            2a. A7_FOR_O8 không bắt buộc phản ứng thành bụng trong mẫu thường quy; chỉ ghi phản ứng thành bụng khi user cung cấp hoặc có căn cứ lâm sàng rõ.
-            3. A7_FOR_O8 không lan sang cơ quan khác.
-            4. A7_FOR_O8 không chứa triệu chứng cơ năng, bệnh sử, tình trạng ăn uống hoặc đại tiện như dữ kiện bệnh sử/theo dõi ngoài khám thực thể.
-            5. A7_FOR_O8 không biến nội soi/siêu âm/CT/MRI/xét nghiệm thành khám bụng.
-            6. A7_FOR_O8 không mâu thuẫn với A7_FOR_O1.
-            7. A7_FOR_O8 không mâu thuẫn với user input.
-            8. A7_FOR_O8 không mâu thuẫn với A1/A2/A3/A4 nếu có dùng dependency.
-            9. A7_FOR_O8 không ghi wording cấm hoặc wording chung chung.
-            10. A7_FOR_O8 chỉ chứa các nhóm dữ kiện thuộc contract output A7.
-            11. A7_FOR_O8 không mâu thuẫn với A7_FOR_O1 về không có điểm đau khu trú thành bụng / đau / tức khu trú.
-
-    A7.17.3. Kiểm dependency và đồng bộ
-        Kiểm:
-            1. Nếu dùng A1_STATE, A7 không bỏ sót lý do vào viện liên quan tiêu hóa.
-            2. Nếu dùng A2_STATE, A7 không biến tiền sử thành dấu khám hiện tại nếu không có căn cứ.
-            3. Nếu dùng A3_STATE, A7 không bê triệu chứng cơ năng vào khám tiêu hóa.
-            4. Nếu dùng A4_STATE, A7 chỉ đồng bộ bệnh cảnh, không tạo bụng cấp nếu không có căn cứ.
-            5. Nếu dùng A5_STATE, A7 chỉ đồng bộ tình trạng nặng, không tạo xuất huyết tiêu hóa/bụng cấp nếu không có căn cứ.
-            6. Nếu dùng A6_STATE, A7 chỉ đồng bộ tình trạng nặng, không tạo bất thường tiêu hóa nếu không có căn cứ.
-            7. Nếu dùng chẩn đoán/mã bệnh tiêu hóa trong user input, A7 chọn mẫu phù hợp nếu RUN_MODE cho phép.
-            8. A7 không đọc A8-A15 của ROUND hiện tại.
-            9. A7 không đọc A12_STATE của ROUND hiện tại.
-            10. A7 không đọc C_STATE hoặc O_OUTPUT.
-
-    A7.17.4. Kiểm A7_STATE
-        Kiểm:
-            1. A7_STATE có STATE_VERSION.
-            2. A7_STATE có UPDATED_AT đúng định dạng HH:MM dd/mm/yyyy.
-            3. UPDATED_AT là metadata và không được render vào bệnh án.
-            4. A7_STATE có A7_FOR_O1.
-            5. A7_STATE có A7_FOR_O8.
-            6. A7_STATE có A7_CHECK.
-            7. Nếu A7_CHECK = NEEDS_FIX, có A7_ERROR rõ.
-            8. Nếu A7_CHECK = PASS, A7_ERROR = NONE.
-            9. A7_STATE sẵn sàng đưa vào full current A_STATE.
-
-    A7.17.5. Kết quả A7_CHECK
-        Nếu đạt:
-            A7_CHECK = PASS.
-            A7_ERROR = NONE.
-        Nếu chưa đạt:
-            A7_CHECK = NEEDS_FIX.
-            A7_ERROR = ghi rõ lỗi.
-
-A7.18. Kết thúc module
-    A7.18.1. Điều kiện hoàn tất A7
-        A7 hoàn tất khi:
-            1. Đã tạo mới, cập nhật hoặc dùng lại A7_STATE.
-            2. Đã kiểm A7_CHECK.
-            3. Không tạo dữ liệu ngoài A7_STATE.
-            4. Không tạo state của A khác.
-            5. Không chạy C.
-            6. Không render O.
-
-    A7.18.2. Chuyển module tiếp theo
-        Sau khi hoàn tất A7_STATE, chuyển sang A8 theo A_RUN_ORDER.
-        A7 không tự dừng STEP A.
-        A7 không tự chuyển sang C/O và không render output.
-        Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
+A7_END
+    A7 hoàn tất khi đã CREATE / UPDATE / REUSE A7_STATE, đã CHECK A7_STATE, và không ghi ngoài A7_ALLOWED_WRITE.
+    Sau khi hoàn tất A7_STATE, chuyển sang A8 theo A_RUN_ORDER.
+    A7 không tự dừng STEP A, không tự chuyển sang C/O/A_GATE và không render output.
+    Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
 
 <<< END A7
 
