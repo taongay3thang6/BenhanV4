@@ -1,467 +1,143 @@
 ####################################################################################################
 
 A1 — THỜI ĐIỂM / LÝ DO VÀO VIỆN
-Version: BA S-G-A-C-O v3
+Version: BA S-G-A-C-O v4 allowlist compact
 Update 23:49 29/05/2026 GMT+7
 
 >>> READ-LOCK: A1
-- Bắt buộc đọc tuần tự toàn bộ A1 từ A1.1 đến A1.12.
-- Không được bỏ qua mục nào.
-- Chỉ tạo A1_STATE.
-- Không tạo state của A khác.
-- Không chạy C.
-- Không render O.
-- Sau khi hoàn tất A1_STATE, chuyển sang A2 theo A_RUN_ORDER.
+- Bắt buộc đọc toàn bộ A1 compact trước khi tạo/cập nhật/dùng lại A1_STATE.
+- A1 vận hành theo ALLOWLIST MODE: chỉ dùng source/action/write được khai báo dưới đây.
+- Sau khi hoàn tất A1_STATE, chuyển sang A2 theo A_RUN_ORDER; không đổi pipeline nhóm A.
 <<< END READ-LOCK: A1
 
-A1.1. Nhiệm vụ của A1
-    A1.1.1. Vai trò chính của A1
-        A1 là module chuẩn hóa thời điểm khám / thời điểm vào viện và lý do vào viện.
-        A1 tạo A1_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-        A1_STATE là nguồn chính thức cho C/O khi cần thời điểm khám / vào viện hoặc lý do vào viện.
-    A1.1.2. Nội dung A1 tạo ra
-        A1 tạo:
-            1. A1_TIME.
-            2. A1_REASON.
-            3. A1_CHECK.
-            4. A1_ERROR nếu A1_CHECK = NEEDS_FIX.
-    A1.1.3. Nguyên tắc trách nhiệm
-        A1 chỉ chịu trách nhiệm với A1_TIME và A1_REASON.
-        Chất lượng A1_TIME và A1_REASON phải được khóa trong A1.
-        Nếu A1_TIME sai, phải sửa A1.
-        Nếu A1_REASON sai, phải sửa A1.
+A1_ROLE
+    A1 chuẩn hóa thời điểm khám / thời điểm vào viện và lý do vào viện.
+    A1 tạo A1_STATE để đưa vào full current A_STATE của ROUND hiện tại.
+    A1_TIME và A1_REASON là nguồn chính thức cho C/O khi cần thời điểm khám / vào viện hoặc lý do vào viện.
+    A1 chịu trách nhiệm chất lượng A1_TIME và A1_REASON.
+    Nếu A1_TIME sai hoặc A1_REASON sai, phải sửa tại A1.
 
-A1.2. Nguồn được đọc
-    A1.2.1. Nguồn được đọc
-        A1 được đọc:
-            1. User input của ROUND hiện tại.
-            2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật như ROUND_ID, STATE_VERSION, RUN_MODE.
-            3. A1_STATE hiện hành mới nhất nếu đã có.
-            4. File/module A1.
-    A1.2.2. Nguồn không được đọc
-        A1 không đọc C_STATE.
-        A1 không đọc O_OUTPUT.
-        A1 không dùng output đã render để suy ngược A1.
-        A1 không đọc A khác để tạo A1_STATE.
+A1_ALLOWED_SOURCE
+    A1 chỉ được đọc:
+        1. User input của ROUND hiện tại.
+        2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
+        3. Latest A1_STATE nếu đã có, chỉ để UPDATE hoặc REUSE.
+        4. File/module A1.
+    A1 không có dependency A khác.
 
-A1.3. Dependency nội bộ
-    A1.3.1. Dependency của A1
-        A1 không có dependency nội bộ.
-        A1 không cần đọc A khác để tạo A1_STATE.
-        A1 là module đầu tiên trong A_RUN_ORDER.
+A1_ALLOWED_ACTION
+    A1 chỉ được làm:
+        1. CREATE A1_STATE.
+        2. UPDATE A1_STATE.
+        3. REUSE A1_STATE.
+        4. CHECK A1_STATE.
+        5. Quản lý A1_REV của chính A1.
 
-A1.4. Quy tắc tạo mới / cập nhật / dùng lại A1_STATE
-    A1.4.1. Tạo mới A1_STATE
-        Áp dụng khi chưa có A1_STATE hiện hành.
-        A1 tạo A1_STATE mới từ user input của ROUND hiện tại.
-        A1 phải xác định:
-            1. A1_TIME nếu có dữ liệu thời điểm.
-            2. A1_REASON nếu có dữ liệu đủ để xác định lý do vào viện.
-            3. A1_CHECK.
-            4. A1_ERROR nếu cần.
-    A1.4.2. Cập nhật A1_STATE
-        Áp dụng khi user input của ROUND hiện tại sửa hoặc bổ sung dữ liệu ảnh hưởng A1.
-        Dữ liệu có thể ảnh hưởng A1 gồm:
-            1. Thời điểm khám.
-            2. Thời điểm vào viện.
-            3. Ngày giờ hành chính liên quan lần khám / lần vào viện.
-            4. Lý do vào viện.
-            5. Triệu chứng chính dùng làm lý do vào viện.
-        Khi cập nhật:
-            - A1 đọc A1_STATE hiện hành mới nhất nếu có.
-            - A1 thay phần bị ảnh hưởng bằng dữ liệu mới.
-            - A1 giữ phần không bị ảnh hưởng bằng nội dung hiện hành mới nhất.
-            - A1_STATE sau cập nhật phải mang STATE_VERSION của ROUND hiện tại.
-    A1.4.3. Dùng lại A1_STATE
-        Áp dụng khi đã có A1_STATE hiện hành và user input của ROUND hiện tại không ảnh hưởng A1.
-        A1 dùng lại nội dung thật của A1_STATE hiện hành mới nhất.
-        A1_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong full current A_STATE.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được chỉ ghi “reuse A1” thay cho A1_TIME và A1_REASON.
-    A1.4.4. Quy tắc A1_REV
-        CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A1 đối với A1_STATE; không phải RUN_MODE.
-        A1 chỉ quản lý revision của chính A1 trong A_MODULE_REV.
-        A1 không tự tạo toàn bộ A_MODULE_REV.
-        Nếu CREATE A1_STATE:
-            - A1_REV = 1.
-        Nếu UPDATE và A1_TIME hoặc A1_REASON thay đổi thật:
-            - A1_REV tăng so với A1_REV hiện hành.
-        Nếu REUSE hoặc input ROUND hiện tại không làm thay đổi nội dung thật của A1_TIME / A1_REASON:
-            - A1_REV giữ nguyên.
-        A1_REV tăng hoặc giữ nguyên theo thay đổi thật của A1_TIME / A1_REASON; không theo tên RUN_MODE.
-        A1_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
-        A1_STATE vẫn phải là full state; không được in patch/delta.
+A1_ALLOWED_WRITE
+    A1 chỉ ghi A1_STATE.
+    A1 không ghi A2-A15, C/O hoặc A_GATE.
+    A1 không tự tạo toàn bộ A_MODULE_REV; A1 chỉ cung cấp/quản lý A1_REV để A_GATE / full current A_STATE tổng hợp.
 
-A1.5. Quy tắc xử lý theo RUN_MODE
-    RUN_MODE là chế độ tạo dữ liệu do G_STATE cung cấp.
-    A1 chỉ đọc RUN_MODE từ G_STATE; A1 không tự xác định RUN_MODE.
-    RUN_MODE độc lập với trạng thái xử lý nội bộ CREATE / UPDATE / REUSE của A1.
-    A1.5.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        A1 chỉ dùng dữ liệu user cung cấp.
-        A1 không tự tạo thời điểm khám / vào viện.
-        A1 không tự tạo lý do vào viện ngoài dữ liệu user cung cấp.
-        Nếu user cung cấp thời điểm:
-            - A1 được chuẩn hóa định dạng thời điểm.
-        Nếu user không cung cấp thời điểm:
-            - A1_TIME ghi theo quy tắc thiếu dữ liệu của A1.
-            - Không tự tạo giờ/ngày.
-        Nếu user cung cấp lý do vào viện trực tiếp:
-            - A1 dùng lý do đó và chuẩn hóa ngắn gọn.
-        Nếu user không ghi trực tiếp lý do vào viện nhưng có triệu chứng chính rõ:
-            - A1 được dùng triệu chứng chính đó làm A1_REASON vì đó là dữ liệu user cung cấp.
-        Nếu không đủ dữ liệu xác định A1_REASON:
-            - A1_CHECK = NEEDS_FIX.
-            - A1_ERROR ghi rõ cần user bổ sung lý do vào viện hoặc triệu chứng chính.
-    A1.5.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        A1 dùng dữ liệu user cung cấp làm nền.
-        Nếu user ghi trực tiếp lý do vào viện:
-            - Ưu tiên dùng lý do user ghi trực tiếp.
-            - Chuẩn hóa ngắn gọn theo văn phong bệnh án.
-        Nếu user không ghi trực tiếp lý do vào viện:
-            - Được rút A1_REASON từ triệu chứng chính.
-            - Được rút A1_REASON từ bệnh sử nếu có dữ kiện rõ về vấn đề khiến bệnh nhân vào viện.
-        A1 không được chuyển chẩn đoán hoặc mã bệnh thành A1_REASON.
-        A1 không tự tạo thời điểm cụ thể nếu user không cung cấp.
-        A1 không tạo dữ kiện trái với user input.
-        Nếu dữ liệu vẫn không đủ xác định A1_REASON:
-            - A1_REASON = Chưa có dữ kiện.
-            - A1_CHECK = NEEDS_FIX.
-            - A1_ERROR = Thiếu lý do vào viện hoặc triệu chứng chính.
-    A1.5.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        A1 được tạo A1_TIME mẫu và A1_REASON mẫu nếu đang dựng bệnh án mẫu.
-        A1_TIME mẫu phải phù hợp bối cảnh ca mẫu.
-        A1_REASON mẫu phải phù hợp bệnh cảnh mẫu.
-        Dữ liệu mẫu phải nhất quán với các module A khác khi về sau tạo full A_STATE.
-        Không dùng logic AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
+A1_STATE_SCHEMA
+    A1_STATE:
+        STATE_VERSION = ...
+        A1_TIME = ...
+        A1_REASON = ...
+        A1_CHECK = PASS / NEEDS_FIX
+        A1_ERROR = ...
+    Không thêm STATUS, UPDATED_AT hoặc field mới khác vào A1_STATE.
+    A1_STATE phải dùng STATE_VERSION của ROUND hiện tại.
+    A1_TIME và A1_REASON là dữ liệu bệnh án đã chuẩn hóa.
+    A1_CHECK là kết quả tự kiểm của A1.
+    A1_ERROR chỉ dùng để ghi lỗi cụ thể khi A1_CHECK = NEEDS_FIX; nếu PASS thì A1_ERROR = NONE.
 
-A1.6. Quy tắc chuẩn hóa A1_TIME
-    A1.6.1. Khái niệm A1_TIME
-        A1_TIME là thời điểm khám hoặc thời điểm vào viện đã chuẩn hóa.
-        A1_TIME không phải thời điểm viết module.
-        A1_TIME không phải UPDATED_AT.
-        A1_TIME không phải ngày bệnh trình.
-        A1_TIME không phải ngày ra viện.
-    A1.6.2. Khi user cung cấp đủ giờ, phút, ngày, tháng, năm
-        Nếu user cung cấp đủ giờ, phút, ngày, tháng, năm:
-            - A1_TIME = HHhMMp ngày dd/mm/yyyy.
-        Nếu user cung cấp cả giây:
-            - Bỏ giây.
-        Ví dụ:
-            Input:
-                20/05/2026 07:55:57
-            A1_TIME:
-                07h55p ngày 20/05/2026
-        Quy tắc:
-            - Không giữ nguyên định dạng ngày giờ thô.
-            - Không tự đổi ngày.
-            - Không tự đổi giờ.
-            - Không tự đổi phút.
-            - Không để giây trong A1_TIME.
-    A1.6.3. Khi user cung cấp ngày nhưng không có giờ
-        Nếu user chỉ cung cấp ngày:
-            - A1_TIME = ngày dd/mm/yyyy.
-        Không tự tạo giờ cụ thể nếu user không cung cấp giờ.
-        Không thêm “00h00p” nếu không có căn cứ.
-    A1.6.4. Khi user cung cấp giờ nhưng thiếu ngày
-        Nếu user chỉ cung cấp giờ mà không có ngày:
-            - Không tự ghép với ngày hiện tại.
-            - A1_TIME ghi nhận phần giờ nếu phù hợp với schema đang dùng.
-            - A1_CHECK có thể NEEDS_FIX nếu output yêu cầu ngày đầy đủ.
-    A1.6.5. Khi user không cung cấp thời điểm
-        Nếu RUN_MODE = USER_ONLY:
-            - Không tự tạo A1_TIME.
-            - A1_TIME = Chưa có dữ kiện.
-            - A1_CHECK = NEEDS_FIX nếu O/G yêu cầu bắt buộc có thời điểm.
-        Nếu RUN_MODE = DEFAULT_COMPLETION:
-            - Không tự tạo A1_TIME cụ thể.
-            - A1_TIME = Chưa có dữ kiện nếu không có thời điểm trong input.
-            - A1_CHECK = NEEDS_FIX nếu O/G yêu cầu bắt buộc có thời điểm.
-        Nếu RUN_MODE = AUTO_SAMPLE:
-            - Được tạo thời điểm mẫu phù hợp ca mẫu.
-    A1.6.6. Nguyên tắc không dùng sai thời điểm
-        Không dùng thời điểm hiện tại làm A1_TIME trừ khi user nói rõ đó là thời điểm khám hoặc thời điểm vào viện.
-        Không dùng dòng Update của module làm A1_TIME.
-        Không dùng ngày ra viện làm A1_TIME.
-        Không dùng ngày bệnh trình làm A1_TIME.
-        Không dùng ngày xét nghiệm làm A1_TIME nếu đó không phải thời điểm khám / vào viện.
-        Không dùng thời điểm trong đơn thuốc làm A1_TIME nếu đó không phải thời điểm khám / vào viện.
+A1_LOGIC_RULES
+    CREATE / UPDATE / REUSE:
+        1. CREATE khi chưa có latest A1_STATE.
+        2. UPDATE khi user input ROUND hiện tại sửa hoặc bổ sung dữ liệu ảnh hưởng A1.
+        3. Dữ liệu ảnh hưởng A1 gồm: thời điểm khám, thời điểm vào viện, ngày giờ hành chính liên quan lần khám / lần vào viện, lý do vào viện, triệu chứng chính dùng làm lý do vào viện.
+        4. Khi UPDATE, chỉ thay phần bị ảnh hưởng bằng dữ liệu mới; field không bị ảnh hưởng phải lấy từ latest A1_STATE.
+        5. A1_STATE sau UPDATE phải dùng STATE_VERSION của ROUND hiện tại.
+        6. REUSE khi đã có latest A1_STATE và user input ROUND hiện tại không ảnh hưởng A1.
+    A1_REV:
+        1. CREATE A1_STATE thì A1_REV = 1.
+        2. UPDATE nếu A1_TIME hoặc A1_REASON thay đổi thật thì A1_REV tăng so với A1_REV hiện hành.
+        3. REUSE hoặc input ROUND hiện tại không làm đổi nội dung thật của A1_TIME / A1_REASON thì A1_REV giữ nguyên.
+        4. A1_REV tăng hoặc giữ theo thay đổi thật của A1_TIME / A1_REASON, không theo tên RUN_MODE.
+        5. A1_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
+    RUN_MODE:
+        1. RUN_MODE lấy từ G_STATE; A1 không tự xác định RUN_MODE.
+        2. RUN_MODE độc lập với trạng thái xử lý nội bộ CREATE / UPDATE / REUSE.
+        3. USER_ONLY: chỉ dùng dữ liệu user cung cấp; không tự tạo thời điểm khám / vào viện hoặc lý do vào viện ngoài user input; nếu user có thời điểm thì được chuẩn hóa; nếu user không có thời điểm thì A1_TIME theo quy tắc thiếu dữ liệu; nếu user có lý do trực tiếp thì dùng và chuẩn hóa ngắn gọn; nếu không có lý do trực tiếp nhưng có triệu chứng chính rõ thì được dùng triệu chứng chính đó làm A1_REASON; nếu không đủ dữ liệu xác định A1_REASON thì A1_CHECK = NEEDS_FIX và A1_ERROR ghi rõ cần bổ sung lý do vào viện hoặc triệu chứng chính.
+        4. DEFAULT_COMPLETION: dùng dữ liệu user làm nền; ưu tiên lý do vào viện user ghi trực tiếp; nếu không có lý do trực tiếp thì được rút A1_REASON từ triệu chứng chính hoặc bệnh sử có dữ kiện rõ về vấn đề khiến bệnh nhân vào viện; không dùng chẩn đoán hoặc mã bệnh làm A1_REASON; không tự tạo thời điểm cụ thể nếu user không cung cấp; không tạo dữ kiện trái user input; nếu vẫn không đủ A1_REASON thì A1_REASON = Chưa có dữ kiện, A1_CHECK = NEEDS_FIX, A1_ERROR = Thiếu lý do vào viện hoặc triệu chứng chính.
+        5. AUTO_SAMPLE: được tạo A1_TIME mẫu và A1_REASON mẫu nếu đang dựng bệnh án mẫu; dữ liệu mẫu phải phù hợp bối cảnh ca mẫu, phù hợp bệnh cảnh mẫu, nhất quán với các module A khác khi về sau tạo full A_STATE; không dùng AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
 
-A1.7. Quy tắc chuẩn hóa A1_REASON
-    A1.7.1. Khái niệm A1_REASON
-        A1_REASON là lý do chính khiến bệnh nhân đến khám hoặc vào viện.
-        A1_REASON phải ngắn gọn theo văn phong bệnh án.
-        A1_REASON không phải bệnh sử.
-        A1_REASON không phải danh sách triệu chứng đầy đủ.
-        A1_REASON không phải chẩn đoán đầy đủ.
-    A1.7.2. Ưu tiên nguồn xác định A1_REASON
-        Thứ tự ưu tiên:
-            1. Lý do vào viện user ghi trực tiếp.
-            2. Triệu chứng chính user cung cấp.
-            3. Vấn đề chính rút từ bệnh sử nếu không có lý do trực tiếp.
-        Không dùng chẩn đoán hoặc mã bệnh làm nguồn tạo A1_REASON.
-        Nếu có nhiều nguồn cùng lúc:
-            - Ưu tiên lý do user ghi trực tiếp.
-            - Không dùng chẩn đoán thay A1_REASON.
-    A1.7.3. Khi có lý do vào viện trực tiếp
-        Nếu user ghi rõ lý do vào viện:
-            - Dùng nội dung đó làm nền.
-            - Chuẩn hóa ngắn gọn.
-            - Không mở rộng thành bệnh sử.
-            - Không thêm triệu chứng phụ nếu user không đưa vào lý do chính.
-    A1.7.4. Khi không có lý do trực tiếp nhưng có triệu chứng chính
-        Nếu user không ghi “lý do vào viện” nhưng có triệu chứng chính:
-            - Chọn triệu chứng nổi bật nhất làm A1_REASON.
-            - Có thể gom tối đa 3 nhóm lý do chính.
-            - Không đưa toàn bộ triệu chứng phụ vào A1_REASON.
-        Ví dụ:
-            Input:
-                Đau cột sống thắt lưng, đau lan xuống mông và mặt sau đùi phải, tê bì chân phải, vận động đau tăng.
-            A1_REASON:
-                Đau thắt lưng lan chân phải, tê bì chân phải.
-    A1.7.5. Khi chỉ có bệnh sử
-        Nếu user chỉ cung cấp bệnh sử:
-            - Rút vấn đề chính khiến bệnh nhân vào viện.
-            - Không đưa toàn bộ diễn biến thời gian vào A1_REASON.
-            - Không ghi xử trí trước vào viện vào A1_REASON.
-        Ví dụ:
-            Không viết:
-                Bệnh nhân đau bụng 3 ngày, ngày đầu đau âm ỉ, đã uống thuốc không đỡ, hôm nay đau tăng nên vào viện.
-            Nên viết:
-                Đau bụng tăng.
-    A1.7.6. Khi chỉ có chẩn đoán hoặc mã bệnh
-        Nếu user chỉ cung cấp chẩn đoán hoặc mã bệnh, không có lý do vào viện trực tiếp, không có triệu chứng chính và không có vấn đề chính rút hợp lệ từ bệnh sử:
-            - Không dùng chẩn đoán hoặc mã bệnh làm nguồn tạo A1_REASON.
-            - Không chuyển chẩn đoán hoặc mã bệnh thành vấn đề lâm sàng để điền A1_REASON.
-            - A1_REASON = Chưa có dữ kiện.
-            - A1_CHECK = NEEDS_FIX.
-            - A1_ERROR = Thiếu lý do vào viện hoặc triệu chứng chính.
-        Không đưa hướng điều trị vào A1_REASON.
-        Không đưa chẩn đoán, mã ICD, cận lâm sàng, thuốc, điều trị hoặc bệnh trình vào A1_REASON.
-    A1.7.7. Độ dài A1_REASON
-        A1_REASON phải ngắn gọn.
-        A1_REASON không quá 3 nhóm lý do chính.
-        Không dùng “kèm...” để kéo dài danh sách triệu chứng.
-        Không liệt kê hàng loạt triệu chứng phụ.
-        Nếu có nhiều triệu chứng:
-            - Chọn triệu chứng chính.
-            - Gom nhóm triệu chứng cùng hệ cơ quan nếu phù hợp.
-            - Bỏ triệu chứng phụ không phải lý do chính.
-    A1.7.8. Phân ranh A1_REASON với module khác
-        A1_REASON không chứa:
-            1. Toàn bộ bệnh sử.
-            2. Diễn biến thời gian chi tiết.
-            3. Xử trí trước vào viện.
-            4. Danh sách chẩn đoán.
-            5. Mã ICD.
-            6. Khám lâm sàng.
-            7. Kết quả cận lâm sàng.
-            8. Hướng điều trị.
-            9. Thuốc.
-            10. Đơn thuốc.
-            11. Tình trạng ra viện.
-            12. Bệnh trình điều trị.
-    A1.7.9. Ví dụ chuẩn hóa A1_REASON
-        Ví dụ 1:
-            Input:
-                Đau nhiều khớp cổ chân, cổ tay, liên đốt bàn ngón tay hai bên, đau khớp vai tăng, kèm ợ hơi, ợ chua, nóng rát thượng vị, đau đầu, hoa mắt chóng mặt.
-            A1_REASON:
-                Đau nhiều khớp, đau khớp vai hai bên, hoa mắt chóng mặt.
-        Ví dụ 2:
-            Input:
-                Đau cột sống thắt lưng, đau lan xuống mông và mặt sau đùi phải, tê bì chân phải, vận động đau tăng.
-            A1_REASON:
-                Đau thắt lưng lan chân phải, tê bì chân phải.
-        Ví dụ 3:
-            Input:
-                Mệt mỏi, ăn uống kém, tê bì tay chân, cảm giác châm chích, nóng rát hai chân, tiểu nhiều.
-            A1_REASON:
-                Mệt mỏi, tê bì tay chân.
-        Ví dụ 4:
-            Input:
-                Sưng đau khớp gối hai bên, đi lại hạn chế.
-            A1_REASON:
-                Sưng đau khớp gối hai bên, đi lại hạn chế.
-        Ví dụ 5:
-            Input:
-                Đau đầu, hoa mắt chóng mặt, buồn nôn, ăn ngủ kém.
-            A1_REASON:
-                Đau đầu, hoa mắt chóng mặt, buồn nôn.
-        Ví dụ 6:
-            Input:
-                Nóng rát vùng thượng vị, ợ hơi, ợ chua, đau tức thượng vị.
-            A1_REASON:
-                Nóng rát thượng vị, ợ chua.
+A1_SPECIAL_RULES
+    A1_TIME:
+        1. A1_TIME là thời điểm khám hoặc thời điểm vào viện đã chuẩn hóa; không phải thời điểm viết module, UPDATED_AT, ngày bệnh trình hoặc ngày ra viện.
+        2. Nếu user cung cấp đủ giờ, phút, ngày, tháng, năm: A1_TIME = HHhMMp ngày dd/mm/yyyy.
+        3. Nếu user cung cấp cả giây: bỏ giây.
+        4. Không giữ nguyên định dạng ngày giờ thô khi cần chuẩn hóa; không tự đổi ngày, giờ hoặc phút user đã cung cấp.
+        5. Nếu user chỉ cung cấp ngày: A1_TIME = ngày dd/mm/yyyy; không tự tạo giờ cụ thể và không thêm 00h00p khi không có căn cứ.
+        6. Nếu user chỉ cung cấp giờ mà thiếu ngày: không tự ghép với ngày hiện tại; ghi nhận phần giờ nếu phù hợp schema đang dùng; A1_CHECK có thể NEEDS_FIX nếu output yêu cầu ngày đầy đủ.
+        7. Khi không có thời điểm trong USER_ONLY hoặc DEFAULT_COMPLETION: không tự tạo thời điểm cụ thể; A1_TIME = Chưa có dữ kiện; A1_CHECK = NEEDS_FIX nếu O/G yêu cầu bắt buộc có thời điểm.
+        8. Khi AUTO_SAMPLE: được tạo thời điểm mẫu phù hợp ca mẫu.
+        9. Không dùng thời điểm hiện tại làm A1_TIME trừ khi user nói rõ đó là thời điểm khám hoặc thời điểm vào viện.
+        10. Không dùng dòng Update của module, ngày ra viện, ngày bệnh trình, ngày xét nghiệm hoặc thời điểm trong đơn thuốc làm A1_TIME nếu đó không phải thời điểm khám / vào viện.
+        11. Không tạo A1_TIME mâu thuẫn với dữ liệu user cung cấp.
+    A1_REASON:
+        1. A1_REASON là lý do chính khiến bệnh nhân đến khám hoặc vào viện; phải ngắn gọn theo văn phong bệnh án.
+        2. A1_REASON không phải bệnh sử, danh sách triệu chứng đầy đủ hoặc chẩn đoán đầy đủ.
+        3. Ưu tiên nguồn xác định A1_REASON: lý do vào viện user ghi trực tiếp; triệu chứng chính user cung cấp; vấn đề chính rút từ bệnh sử nếu không có lý do trực tiếp.
+        4. Không dùng chẩn đoán hoặc mã ICD làm nguồn tạo A1_REASON; không dùng chẩn đoán thay A1_REASON.
+        5. Nếu user ghi rõ lý do vào viện: dùng nội dung đó làm nền, chuẩn hóa ngắn gọn, không mở rộng thành bệnh sử, không thêm triệu chứng phụ nếu user không đưa vào lý do chính.
+        6. Nếu không có lý do trực tiếp nhưng có triệu chứng chính: chọn triệu chứng nổi bật nhất làm A1_REASON; có thể gom tối đa 3 nhóm lý do chính; không đưa toàn bộ triệu chứng phụ vào A1_REASON.
+        7. Nếu chỉ có bệnh sử: rút vấn đề chính khiến bệnh nhân vào viện; không đưa toàn bộ diễn biến thời gian hoặc xử trí trước vào viện vào A1_REASON.
+        8. Nếu chỉ có chẩn đoán hoặc mã bệnh, không có lý do vào viện trực tiếp, không có triệu chứng chính và không có vấn đề chính rút hợp lệ từ bệnh sử: A1_REASON = Chưa có dữ kiện; A1_CHECK = NEEDS_FIX; A1_ERROR = Thiếu lý do vào viện hoặc triệu chứng chính.
+        9. A1_REASON phải ngắn gọn, không quá 3 nhóm lý do chính; không dùng “kèm...” để kéo dài danh sách triệu chứng; không liệt kê hàng loạt triệu chứng phụ; nếu có nhiều triệu chứng thì chọn triệu chứng chính, gom nhóm cùng hệ cơ quan nếu phù hợp và bỏ triệu chứng phụ không phải lý do chính.
+        10. A1_REASON không chứa: bệnh sử đầy đủ, diễn biến thời gian chi tiết, xử trí trước vào viện, danh sách chẩn đoán, mã ICD, khám lâm sàng, kết quả cận lâm sàng, hướng điều trị, thuốc, đơn thuốc, tình trạng ra viện hoặc bệnh trình điều trị.
+    Ví dụ chuẩn hóa giữ nghĩa:
+        - 20/05/2026 07:55:57 -> A1_TIME = 07h55p ngày 20/05/2026.
+        - Bệnh nhân vào viện ngày 20/05/2026 vì đau bụng tăng -> A1_TIME = ngày 20/05/2026; A1_REASON = Đau bụng tăng.
+        - Đau cột sống thắt lưng lan mông/mặt sau đùi phải, tê bì chân phải -> A1_REASON = Đau thắt lưng lan chân phải, tê bì chân phải.
+        - Chỉ có chẩn đoán/mã bệnh, không có lý do hoặc triệu chứng chính -> A1_REASON = Chưa có dữ kiện; A1_CHECK = NEEDS_FIX; A1_ERROR = Thiếu lý do vào viện hoặc triệu chứng chính.
 
-A1.8. Ví dụ cụ thể
-    A1.8.1. Ví dụ có đủ thời điểm và lý do vào viện
-        Input:
-            Bệnh nhân vào viện ngày 20/05/2026 lúc 07:55:57.
-            Đau thắt lưng lan xuống chân phải, tê bì chân phải.
-        A1_STATE:
-            STATE_VERSION = V1
-            A1_TIME = 07h55p ngày 20/05/2026
-            A1_REASON = Đau thắt lưng lan chân phải, tê bì chân phải.
-            A1_CHECK = PASS
-            A1_ERROR = NONE
-    A1.8.2. Ví dụ chỉ có ngày, không có giờ
-        Input:
-            Bệnh nhân vào viện ngày 20/05/2026 vì đau bụng tăng.
-        A1_STATE:
-            STATE_VERSION = V1
-            A1_TIME = ngày 20/05/2026
-            A1_REASON = Đau bụng tăng.
-            A1_CHECK = PASS
-            A1_ERROR = NONE
-    A1.8.3. Ví dụ không ghi trực tiếp lý do vào viện nhưng có triệu chứng chính
-        Input:
-            Bệnh nhân đau cột sống thắt lưng, đau lan xuống mông và mặt sau đùi phải, tê bì chân phải, vận động đau tăng.
-        A1_STATE:
-            STATE_VERSION = V1
-            A1_TIME = Chưa có dữ kiện
-            A1_REASON = Đau thắt lưng lan chân phải, tê bì chân phải.
-            A1_CHECK = PASS
-            A1_ERROR = NONE
-    A1.8.4. Ví dụ lý do vào viện quá dài cần rút gọn
-        Input:
-            Đau nhiều khớp cổ chân, cổ tay, liên đốt bàn ngón tay hai bên, đau khớp vai tăng, kèm ợ hơi, ợ chua, nóng rát thượng vị, đau đầu, hoa mắt chóng mặt.
-        A1_STATE:
-            STATE_VERSION = V1
-            A1_TIME = Chưa có dữ kiện
-            A1_REASON = Đau nhiều khớp, đau khớp vai hai bên, hoa mắt chóng mặt.
-            A1_CHECK = PASS
-            A1_ERROR = NONE
-    A1.8.5. Ví dụ USER_ONLY thiếu lý do vào viện
-        Input:
-            User yêu cầu chỉ dùng dữ liệu đã cung cấp.
-            Bệnh nhân vào viện ngày 20/05/2026.
-        A1_STATE:
-            STATE_VERSION = V1
-            A1_TIME = ngày 20/05/2026
-            A1_REASON = Chưa có dữ kiện
-            A1_CHECK = NEEDS_FIX
-            A1_ERROR = Thiếu lý do vào viện hoặc triệu chứng chính.
+A1_CHECK_PASS_IF
+    A1_CHECK = PASS khi đồng thời đạt:
+        1. A1_TIME đúng với thời điểm user cung cấp nếu có.
+        2. A1_TIME đã chuẩn hóa đúng nếu có đủ dữ liệu ngày giờ.
+        3. A1_TIME không có giây, không dùng sai nguồn thời điểm, không dùng Update của module hoặc thời điểm hiện tại thay dữ kiện ca bệnh, và không mâu thuẫn user input.
+        4. A1_REASON xác định được khi đủ dữ kiện.
+        5. A1_REASON ngắn gọn, đúng vấn đề chính khiến bệnh nhân vào viện, không quá 3 nhóm lý do chính.
+        6. A1_REASON không phải bệnh sử, danh sách triệu chứng đầy đủ, danh sách chẩn đoán; không chứa mã ICD hoặc nội dung ngoài phạm vi A1.
+        7. A1_STATE đủ STATE_VERSION, A1_TIME, A1_REASON, A1_CHECK, A1_ERROR.
+        8. A1_ERROR = NONE.
 
-A1.9. Schema A1_STATE
-    A1.9.1. Schema chuẩn
-        A1_STATE:
-            STATE_VERSION = ...
-            A1_TIME = ...
-            A1_REASON = ...
-            A1_CHECK = PASS / NEEDS_FIX
-            A1_ERROR = ...
-    A1.9.2. Nguyên tắc schema
-        A1_STATE không cần in trạng thái tạo mới / cập nhật / dùng lại.
-        A1_STATE không cần STATUS.
-        A1_STATE không cần UPDATED_AT.
-        A1_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        A1_TIME là dữ liệu bệnh án đã chuẩn hóa.
-        A1_REASON là dữ liệu bệnh án đã chuẩn hóa.
-        A1_CHECK là kết quả tự kiểm của A1.
-        A1_ERROR chỉ dùng khi A1_CHECK = NEEDS_FIX.
-    A1.9.3. Khi A1_CHECK = PASS
-        Nếu A1_CHECK = PASS:
-            - A1_TIME có giá trị hợp lệ hoặc được ghi theo quy tắc hợp lệ của A1.
-            - A1_REASON có giá trị hợp lệ.
-            - A1_ERROR = NONE.
-    A1.9.4. Khi A1_CHECK = NEEDS_FIX
-        Nếu A1_CHECK = NEEDS_FIX:
-            - A1_ERROR phải ghi rõ lỗi.
-            - A1_ERROR phải nêu dữ liệu cần user bổ sung hoặc phần cần sửa.
-            - Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
+A1_NEEDS_FIX_IF
+    A1_CHECK = NEEDS_FIX nếu có ít nhất một lỗi:
+        1. Thiếu lý do vào viện, triệu chứng chính hoặc vấn đề chính hợp lệ khi không được hoặc không thể suy ra.
+        2. Chỉ có chẩn đoán/mã bệnh mà không có nguồn hợp lệ cho A1_REASON.
+        3. Thiếu thời điểm khi O/G yêu cầu bắt buộc có thời điểm.
+        4. A1_STATE thiếu field bắt buộc.
+        5. A1_TIME sai format, dùng sai nguồn thời điểm hoặc mâu thuẫn dữ liệu user.
+        6. A1_REASON sai phạm vi, quá dài, chứa chẩn đoán/mã ICD/nội dung module khác hoặc không thể hiện lý do chính vào viện.
 
-A1.10. Lỗi không được mắc
-    A1.10.1. Lỗi A1_TIME
-        Không tự thay đổi thời điểm user cung cấp.
-        Không giữ nguyên định dạng ngày giờ thô nếu cần chuẩn hóa bệnh án.
-        Không để A1_TIME có giây.
-        Không tự tạo giờ cụ thể khi user chỉ cung cấp ngày và không có căn cứ.
-        Không dùng ngày ra viện làm ngày khám / vào viện.
-        Không dùng ngày bệnh trình làm ngày khám / vào viện.
-        Không dùng thời điểm hiện tại thay cho thời điểm khám / vào viện đã có.
-        Không dùng Update của module làm A1_TIME.
-        Không tạo A1_TIME mâu thuẫn với dữ liệu user cung cấp.
-    A1.10.2. Lỗi A1_REASON
-        Không để A1_REASON quá dài.
-        Không đưa toàn bộ bệnh sử vào A1_REASON.
-        Không đưa toàn bộ danh sách triệu chứng vào A1_REASON.
-        Không đưa quá 3 nhóm lý do chính vào A1_REASON.
-        Không dùng “kèm...” để kéo dài danh sách triệu chứng.
-        Không dùng chẩn đoán hoặc danh sách chẩn đoán thay lý do vào viện.
-        Không đưa mã ICD vào A1_REASON.
-        Không ghi diễn biến thời gian trong A1_REASON.
-        Không ghi xử trí trước vào viện trong A1_REASON.
-        Không ghi khám lâm sàng trong A1_REASON.
-        Không ghi kết quả cận lâm sàng trong A1_REASON.
-        Không ghi hướng điều trị trong A1_REASON.
-        Không ghi thuốc trong A1_REASON.
-        Không ghi đơn thuốc trong A1_REASON.
-        Không ghi tình trạng ra viện trong A1_REASON.
-        Không ghi bệnh trình điều trị trong A1_REASON.
-    A1.10.3. Lỗi vận hành state
-        Không tạo state của A khác.
-        Không dùng patch/delta làm A1_STATE chính thức.
-        Không ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không đưa metadata không cần thiết vào A1_STATE.
-        Không render O trong A1.
-        Không chạy C trong A1.
-        Không suy ngược A1 từ O_OUTPUT.
+A1_ERROR_RULE
+    Nếu A1_CHECK = PASS: A1_ERROR = NONE.
+    Nếu A1_CHECK = NEEDS_FIX: A1_ERROR phải ghi lỗi cụ thể, nêu dữ liệu cần user bổ sung hoặc phần cần sửa; không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
 
-A1.11. A1_CHECK
-    A1.11.1. Kiểm A1_TIME
-        Kiểm:
-            1. A1_TIME đúng với thời điểm user cung cấp nếu có.
-            2. A1_TIME đã chuẩn hóa nếu có đủ dữ liệu ngày giờ.
-            3. A1_TIME không có giây.
-            4. A1_TIME không dùng Update của module.
-            5. A1_TIME không dùng thời điểm hiện tại thay dữ kiện ca bệnh.
-            6. A1_TIME không mâu thuẫn với user input.
-    A1.11.2. Kiểm A1_REASON
-        Kiểm:
-            1. A1_REASON đã được xác định nếu có đủ dữ kiện.
-            2. A1_REASON ngắn gọn.
-            3. A1_REASON không quá 3 nhóm lý do chính.
-            4. A1_REASON thể hiện vấn đề chính khiến bệnh nhân vào viện.
-            5. A1_REASON không phải bệnh sử.
-            6. A1_REASON không phải danh sách triệu chứng đầy đủ.
-            7. A1_REASON không phải danh sách chẩn đoán.
-            8. A1_REASON không chứa mã ICD.
-            9. A1_REASON không chứa nội dung thuộc module khác.
-    A1.11.3. Kiểm A1_STATE
-        Kiểm:
-            1. A1_STATE có STATE_VERSION.
-            2. A1_STATE có A1_TIME.
-            3. A1_STATE có A1_REASON.
-            4. A1_STATE có A1_CHECK.
-            5. Nếu A1_CHECK = NEEDS_FIX, có A1_ERROR rõ.
-            6. Nếu A1_CHECK = PASS, A1_ERROR = NONE.
-            7. A1_STATE sẵn sàng đưa vào full current A_STATE.
-    A1.11.4. Kết quả A1_CHECK
-        Nếu đạt:
-            A1_CHECK = PASS.
-            A1_ERROR = NONE.
-        Nếu chưa đạt:
-            A1_CHECK = NEEDS_FIX.
-            A1_ERROR = ghi rõ lỗi.
+A1_REUSE_RULE
+    REUSE áp dụng khi đã có latest A1_STATE và user input ROUND hiện tại không ảnh hưởng A1.
+    Khi REUSE, A1 dùng lại nội dung thật của latest A1_STATE và vẫn in full A1_STATE với STATE_VERSION của ROUND hiện tại.
+    Không được ghi “giữ nguyên như trước”, “reuse A1”, “theo bản trước”, “không đổi” hoặc patch/delta thay cho A1_TIME và A1_REASON.
+    Khi REUSE hoặc input ROUND hiện tại không làm thay đổi nội dung thật của A1_TIME / A1_REASON, A1_REV giữ nguyên.
 
-A1.12. Kết thúc module
-    A1.12.1. Điều kiện hoàn tất A1
-        A1 hoàn tất khi:
-            1. Đã tạo mới, cập nhật hoặc dùng lại A1_STATE.
-            2. Đã kiểm A1_CHECK.
-            3. Không tạo dữ liệu ngoài A1_STATE.
-            4. Không tạo state của A khác.
-            5. Không chạy C.
-            6. Không render O.
-    A1.12.2. Chuyển module tiếp theo
-        Sau khi hoàn tất A1_STATE, chuyển sang A2 theo A_RUN_ORDER.
-        Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
+A1_END
+    A1 hoàn tất khi đã CREATE / UPDATE / REUSE A1_STATE, đã CHECK A1_STATE, và không ghi ngoài A1_ALLOWED_WRITE.
+    Sau khi hoàn tất A1_STATE, chuyển sang A2 theo A_RUN_ORDER.
+    Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
 
 <<< END A1
-
-####################################################################################################
 
 A2 — TIỀN SỬ
 Version: BA S-G-A-C-O v3
