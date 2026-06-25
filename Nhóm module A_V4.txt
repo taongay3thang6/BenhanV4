@@ -548,838 +548,211 @@ A3_END
 ####################################################################################################
 
 A4 — KHÁM TOÀN THÂN
-Version: BA S-G-A-C-O v3
-Update 00:22 30/05/2026 GMT+7
-
->>> READ-LOCK: A4
-- Bắt buộc đọc tuần tự toàn bộ A4 từ A4.1 đến A4.16.
-- Không được bỏ qua mục nào.
-- Chỉ tạo A4_STATE.
-- Không tạo state của A khác.
-- Không chạy C.
-- Không render O.
-- Sau khi hoàn tất A4_STATE, chuyển sang A5 theo A_RUN_ORDER.
-<<< END READ-LOCK: A4
-
-A4.1. Nhiệm vụ của A4
-    A4.1.1. Vai trò chính của A4
-        A4 là module chuẩn hóa phần khám toàn thân.
-        A4 tạo A4_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-        A4_STATE là nguồn chính thức cho C/O khi cần dữ liệu khám toàn thân.
-        A4 tạo dữ liệu khám toàn thân dùng cho O1 và O8.
-
-    A4.1.2. Nội dung A4 tạo ra
-        A4 tạo:
-            1. A4_FOR_O1.
-            2. A4_FOR_O8.
-            3. A4_CHECK.
-            4. A4_ERROR nếu A4_CHECK = NEEDS_FIX.
-
-    A4.1.3. Nguyên tắc trách nhiệm
-        A4 chỉ chịu trách nhiệm với khám toàn thân.
-        Nếu khám toàn thân sai, phải sửa A4.
-        Nếu khám toàn thân bị lẫn với tuần hoàn, hô hấp, tiêu hóa, thận - tiết niệu, thần kinh, cơ xương khớp hoặc cơ quan khác, phải sửa A4.
-        Chất lượng nội dung A4_FOR_O1 và A4_FOR_O8 phải được khóa trong A4.
-
-A4.2. Nguồn được đọc
-    A4.2.1. Nguồn được đọc
-        A4 được đọc:
-            1. User input của ROUND hiện tại.
-            2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật như ROUND_ID, STATE_VERSION, RUN_MODE.
-            3. A4_STATE hiện hành mới nhất nếu đã có.
-            4. File/module A4.
-            5. A1_STATE nếu cần đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn.
-            6. A2_STATE nếu cần đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn.
-            7. A3_STATE nếu cần đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn.
-        A1_STATE / A2_STATE / A3_STATE chỉ là dependency hợp lệ để đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn.
-        A4 không chép lý do vào viện, tiền sử hoặc bệnh sử vào A4_FOR_O1 / A4_FOR_O8.
-        A4 không dùng A1_STATE / A2_STATE / A3_STATE để tạo dấu khám mới.
-
-    A4.2.2. Dữ liệu user input có thể dùng cho A4
-        A4 được lấy dữ liệu từ user input nếu dữ liệu đó thuộc khám toàn thân:
-            1. Ý thức.
-            2. Tiếp xúc.
-            3. Thể trạng.
-            4. Tình trạng chung.
-            5. Da niêm mạc toàn thân.
-            6. Phù.
-            7. Sốt / nhiệt độ nếu là nhận định toàn thân.
-            8. Hạch ngoại vi.
-            9. Tuyến giáp.
-            10. Dữ kiện khám toàn thân khác nếu phù hợp phạm vi A4.
-            11. Triệu chứng toàn thân trong user input hoặc A3 chỉ để đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn; không dùng để tạo dấu khám mới.
-
-    A4.2.3. Nguồn không dùng do thứ tự chạy
-        A4 không đọc A5-A15 của ROUND hiện tại vì các module này chạy sau A4.
-        A4 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A4 trong A_RUN_ORDER.
-        Nếu user input có chẩn đoán/mã bệnh trực tiếp, A4 chỉ dùng để đối chiếu mâu thuẫn hoặc xác định cần hỏi thêm; không dùng để tạo dấu khám mới.
-        Nếu chẩn đoán chỉ được tạo sau này ở A12, A4 không được chờ A12 để tạo A4_STATE.
-
-A4.3. Dependency nội bộ
-    A4.3.1. Dependency của A4
-        A4 có thể đọc:
-            1. A1_STATE.
-            2. A2_STATE.
-            3. A3_STATE.
-
-    A4.3.2. Mục đích đọc dependency
-        A1_STATE / A2_STATE / A3_STATE chỉ dùng để đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn.
-        A4 không chép lý do vào viện, tiền sử hoặc bệnh sử vào A4_FOR_O1 / A4_FOR_O8.
-        A4 không dùng A1_STATE / A2_STATE / A3_STATE, triệu chứng, bệnh sử, chẩn đoán hoặc mã bệnh để tạo dấu khám mới.
-
-    A4.3.3. Khi không cần dependency
-        Nếu user input đã đủ dữ kiện khám toàn thân và không cần đồng bộ thêm, A4 không cần dùng A1_STATE / A2_STATE / A3_STATE; A4 vẫn đọc G_STATE, A4_STATE hiện hành nếu có và file/module A4 theo nguồn hợp lệ.
-
-    A4.3.4. Giới hạn dependency
-        Dependency của A4 chỉ dùng để định hướng, tránh bỏ sót, tránh mâu thuẫn và đồng bộ bệnh cảnh.
-        Dependency không được dùng để bê triệu chứng cơ năng vào A4.
-        Dependency không được dùng để tạo dấu khám toàn thân mới.
-        A4 không đọc A5-A15 của ROUND hiện tại vì các module này chạy sau A4.
-        A4 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A4.
-        A4 không đọc C_STATE.
-        A4 không đọc O_OUTPUT.
-        A4 không suy ngược khám toàn thân từ output đã render.
-        A4 không đọc state A khác để tạo A4_STATE, trừ dependency hợp lệ được khai báo rõ.
-        A4 không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
-
-A4.4. Quy tắc tạo mới / cập nhật / dùng lại A4_STATE
-    A4.4.1. Tạo mới A4_STATE
-        CREATE là trạng thái xử lý nội bộ của A4, áp dụng khi chưa có A4_STATE hiện hành.
-        A4 tạo A4_STATE mới từ user input của ROUND hiện tại và dependency được phép nếu cần.
-        A4 phải xác định:
-            1. A4_FOR_O1.
-            2. A4_FOR_O8.
-            3. A4_CHECK.
-            4. A4_ERROR nếu cần.
-
-    A4.4.2. Cập nhật A4_STATE
-        UPDATE là trạng thái xử lý nội bộ của A4, áp dụng khi user input của ROUND hiện tại hoặc dependency hợp lệ làm nội dung thật của A4_FOR_O1 / A4_FOR_O8 thay đổi.
-        Dữ liệu có thể ảnh hưởng A4 gồm:
-            1. Ý thức.
-            2. Tiếp xúc.
-            3. Thể trạng.
-            4. Tình trạng chung.
-            5. Sốt / nhiệt độ.
-            6. Da niêm mạc toàn thân.
-            7. Phù.
-            8. Hạch ngoại vi.
-            9. Tuyến giáp.
-            10. Dữ kiện khám toàn thân khác.
-        Khi cập nhật:
-            - A4 đọc A4_STATE hiện hành mới nhất nếu có.
-            - A4 thay phần bị ảnh hưởng bằng dữ liệu mới.
-            - A4 giữ phần không bị ảnh hưởng bằng nội dung hiện hành mới nhất.
-            - A4_STATE sau cập nhật phải mang STATE_VERSION của ROUND hiện tại.
-
-    A4.4.3. Dùng lại A4_STATE
-        REUSE là trạng thái xử lý nội bộ của A4, áp dụng khi đã có A4_STATE hiện hành, input không ảnh hưởng A4 và nội dung thật của A4_FOR_O1 / A4_FOR_O8 không thay đổi.
-        Nếu dependency hợp lệ được đọc nhưng không làm nội dung thật của A4_FOR_O1 / A4_FOR_O8 thay đổi, A4 REUSE A4_STATE và A4_REV giữ nguyên.
-        A4 dùng lại nội dung thật của A4_STATE hiện hành mới nhất.
-        A4_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong full current A_STATE.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được chỉ ghi “reuse A4” thay cho A4_FOR_O1 và A4_FOR_O8.
-
-    A4.4.4. Quy tắc A4_REV
-        CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A4 đối với A4_STATE; không phải RUN_MODE.
-        A4 chỉ quản lý revision của chính A4 trong A_MODULE_REV.
-        A4 không tự tạo toàn bộ A_MODULE_REV.
-        Nếu CREATE A4_STATE:
-            - A4_REV = 1.
-        Nếu UPDATE và nội dung thật của A4_FOR_O1 / A4_FOR_O8 (nội dung A4_FINAL tương đương) thay đổi:
-            - A4_REV tăng so với A4_REV hiện hành.
-        Nếu REUSE hoặc input ROUND hiện tại không làm thay đổi nội dung thật của A4_FOR_O1 / A4_FOR_O8:
-            - A4_REV giữ nguyên.
-        Nếu dependency hợp lệ làm nội dung thật của A4_FOR_O1 / A4_FOR_O8 thay đổi:
-            - A4 phải UPDATE và A4_REV tăng.
-        A4_REV tăng hoặc giữ nguyên theo thay đổi thật của nội dung A4; không theo tên RUN_MODE.
-        A4_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
-        A4_STATE vẫn phải là full state; không được in patch/delta.
-
-A4.5. Quy tắc xử lý theo RUN_MODE
-    RUN_MODE là chế độ tạo dữ liệu do G_STATE cung cấp; không phải CREATE / UPDATE / REUSE.
-    A4 chỉ đọc RUN_MODE từ G_STATE; A4 không tự xác định RUN_MODE.
-    A4.5.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        A4 chỉ dùng dữ liệu khám toàn thân user cung cấp.
-        A4 không tự tạo dấu khám toàn thân bất thường.
-        A4 không tự tạo toàn thân bình thường nếu user không cung cấp.
-        Nếu RUN_MODE = USER_ONLY, không có A4_STATE hợp lệ để REUSE và user không cung cấp dữ kiện khám toàn thân:
-            - A4_FOR_O1 = Chưa có dữ kiện khám toàn thân.
-            - A4_FOR_O8 = Chưa có dữ kiện khám toàn thân.
-            - A4_CHECK = NEEDS_FIX.
-            - A4_ERROR = Thiếu dữ kiện khám toàn thân.
-        A4 không đọc hoặc suy đoán O để quyết định A4_CHECK.
-        Nếu có A4_STATE hợp lệ và input không làm thay đổi nội dung thật của A4, A4 REUSE theo full-state rule hiện hành; không tạo patch/delta.
-        Nếu user cung cấp một phần khám toàn thân:
-            - A4 dùng phần đã có.
-            - Không tự thêm phần chưa có nếu RUN_MODE không cho phép.
-
-    A4.5.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        A4 chuẩn hóa các dữ kiện khám toàn thân user đã cung cấp và được tự hoàn thiện mẫu khám toàn thân trong phạm vi A4 nếu không có dữ kiện trái ngược.
-        A4 được hoàn thiện:
-            1. Ý thức tỉnh.
-            2. Tiếp xúc tốt.
-            3. Thể trạng trung bình.
-            4. Không sốt nếu bệnh cảnh không gợi ý sốt và user không cung cấp sốt / nhiệt độ.
-            5. Không phù nếu bệnh cảnh không gợi ý phù và user không cung cấp phù.
-            6. Da niêm mạc bình thường nếu user không cung cấp bất thường toàn thân.
-            7. Hạch ngoại vi không sưng đau theo mẫu A4_FOR_O8 thường quy.
-            8. Tuyến giáp không sờ thấy theo mẫu A4_FOR_O8 thường quy.
-            9. Tình trạng chung chỉ ghi khi user cung cấp hoặc có căn cứ hợp lệ; không tự thêm “tình trạng chung ổn” vào mẫu thường quy.
-            10. Nhiệt độ cụ thể chỉ ghi khi user cung cấp; không tự thêm nhiệt độ 36,7°C vào mẫu thường quy.
-        Không coi việc tự hoàn thiện các dữ kiện trên trong DEFAULT_COMPLETION là lỗi nếu không trái dữ kiện user và nằm đúng phạm vi A4.
-        DEFAULT_COMPLETION không được:
-            1. Tạo dữ kiện trái với user input.
-            2. Tạo nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
-            3. Tạo phù nếu user không cung cấp hoặc không có căn cứ.
-            4. Tạo hạch ngoại vi bất thường.
-            5. Tạo bất thường tuyến giáp.
-            6. Tạo mạch, huyết áp, nhịp thở hoặc SpO₂.
-            7. Tạo khám tim, phổi, bụng, thận - tiết niệu, thần kinh, cơ xương khớp hoặc cơ quan khác.
-            8. Biến triệu chứng cơ năng, bệnh sử, chẩn đoán hoặc mã bệnh thành dấu khám.
-            9. Tạo bất thường tình trạng chung vô căn cứ.
-        Nếu user cung cấp bất thường toàn thân:
-            - A4 phải giữ đúng bất thường đó.
-            - Không tự phủ định bất thường user đã cung cấp.
-        Nếu thiếu dữ kiện khám toàn thân cần thiết cho output và không thể hoàn thiện hợp lệ trong phạm vi A4:
-            - A4_CHECK = NEEDS_FIX.
-            - A4_ERROR ghi rõ thiếu dữ kiện khám toàn thân trong phạm vi A4.
-        Trong DEFAULT_COMPLETION bệnh án thường quy, A4_FOR_O1 và A4_FOR_O8 không được chứa no-data placeholder; nếu user không cung cấp bất thường toàn thân và không có dữ kiện trái ngược, dùng fallback:
-            - A4_FOR_O1 = Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
-            - A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-
-    A4.5.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        Chỉ AUTO_SAMPLE mới được tạo khám toàn thân mẫu phù hợp ca mẫu.
-        A4 không đọc ngược A12 hoặc A5-A15 của ROUND hiện tại.
-        Các module chạy sau chịu trách nhiệm giữ nhất quán với A4.
-        Nếu bệnh cảnh mẫu ổn định:
-            - A4 có thể tạo khám toàn thân ổn định.
-        Nếu bệnh cảnh mẫu cấp tính nặng:
-            - A4 phải tạo khám toàn thân phù hợp bệnh cảnh, không ghi quá bình thường nếu không hợp lý.
-        Không dùng logic AUTO_SAMPLE cho ca bệnh thật.
-
-A4.6. Phạm vi khám toàn thân
-    A4.6.1. Thành phần thuộc A4
-        A4 xử lý các nội dung toàn thân:
-            1. Ý thức.
-            2. Tiếp xúc.
-            3. Thể trạng.
-            4. Tình trạng chung.
-            5. Da niêm mạc toàn thân.
-            6. Phù.
-            7. Sốt / nhiệt độ nếu là nhận định toàn thân.
-            8. Hạch ngoại vi.
-            9. Tuyến giáp.
-
-    A4.6.2. Thành phần không thuộc A4
-        A4 không xử lý:
-            1. Mạch.
-            2. Nhịp tim.
-            3. Huyết áp.
-            4. Tiếng tim.
-            5. Tiếng thổi tim.
-            6. Nhịp thở.
-            7. SpO₂.
-            8. Ran phổi.
-            9. Rì rào phế nang.
-            10. Khám bụng.
-            11. Gan lách.
-            12. Điểm đau bụng.
-            13. Khám thận - tiết niệu.
-            14. Khám thần kinh.
-            15. Khám cơ xương khớp.
-            16. Khám cơ quan khác thuộc A11.
-            17. Triệu chứng cơ năng.
-            18. Kết quả cận lâm sàng.
-
-    A4.6.3. Phân ranh với A5 — Tuần hoàn
-        Mạch thuộc A5.
-        Nhịp tim thuộc A5.
-        Huyết áp thuộc A5.
-        Tiếng tim và tiếng thổi tim thuộc A5.
-        A4 không đưa các dữ kiện này vào A4_FOR_O1 hoặc A4_FOR_O8.
-
-    A4.6.4. Phân ranh với A6 — Hô hấp
-        Nhịp thở thuộc A6.
-        SpO₂ thuộc A6.
-        Ran phổi thuộc A6.
-        Rì rào phế nang thuộc A6.
-        Khó thở nếu là triệu chứng cơ năng thuộc A3; nếu là dấu hiệu/thông số hô hấp thuộc A6.
-        A4 không viết thay A6.
-
-    A4.6.5. Phân ranh với A7-A11
-        Khám tiêu hóa thuộc A7.
-        Khám thận - tiết niệu thuộc A8.
-        Khám thần kinh thuộc A9.
-        Khám cơ xương khớp thuộc A10.
-        Khám cơ quan khác thuộc A11.
-        A4 không viết thay A7-A11.
-
-A4.7. Quy tắc chuẩn hóa ý thức / tiếp xúc / thể trạng / tình trạng chung
-    A4.7.1. Ý thức
-        Nếu user cung cấp ý thức, A4 phải giữ đúng.
-        Các cách ghi có thể gồm:
-            1. Tỉnh.
-            2. Lơ mơ.
-            3. Kích thích.
-            4. Mê.
-            5. Hôn mê.
-            6. Rối loạn ý thức khác nếu user cung cấp.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, user không cung cấp ý thức và không có dữ kiện trái ngược:
-            - Có thể ghi “Tỉnh” nếu bệnh cảnh không trái ngược.
-        Không tự ghi “tỉnh” nếu user đã cung cấp rối loạn ý thức.
-
-    A4.7.2. Tiếp xúc
-        Nếu user cung cấp tiếp xúc, A4 phải giữ đúng.
-        Các cách ghi có thể gồm:
-            1. Tiếp xúc tốt.
-            2. Tiếp xúc chậm.
-            3. Tiếp xúc hạn chế.
-            4. Không tiếp xúc.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, user không cung cấp tiếp xúc và không có dữ kiện trái ngược:
-            - Có thể ghi “tiếp xúc tốt” nếu bệnh cảnh không trái ngược.
-        Không tự ghi “tiếp xúc tốt” nếu user đã cung cấp không tiếp xúc hoặc tiếp xúc hạn chế.
-
-    A4.7.3. Thể trạng
-        Nếu user cung cấp thể trạng, A4 phải giữ đúng.
-        Các cách ghi có thể gồm:
-            1. Thể trạng trung bình.
-            2. Thể trạng gầy.
-            3. Thể trạng béo.
-            4. Thể trạng suy kiệt.
-            5. Thể trạng khác nếu user cung cấp.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, user không cung cấp thể trạng và không có dữ kiện trái ngược:
-            - Có thể ghi “thể trạng trung bình” nếu bệnh cảnh không trái ngược.
-        Không biến triệu chứng “mệt mỏi”, “ăn uống kém” thành “suy kiệt” nếu user không cung cấp dấu khám hoặc bệnh cảnh không đủ căn cứ.
-
-    A4.7.4. Tình trạng chung / toàn trạng
-        Nếu user cung cấp tình trạng chung hoặc toàn trạng, A4 phải giữ đúng.
-        Các cách ghi có thể gồm:
-            1. Tình trạng chung ổn.
-            2. Tình trạng chung trung bình.
-            3. Toàn trạng kém.
-            4. Tình trạng chung nặng.
-            5. Mệt nhiều hoặc toàn trạng mệt nếu user mô tả như nhận định toàn thân.
-            6. Mô tả tình trạng chung khác nếu user cung cấp.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, user không cung cấp tình trạng chung và không có dữ kiện trái ngược:
-            - Không tự thêm “tình trạng chung ổn” vào A4_FOR_O1 hoặc mẫu A4_FOR_O8 thường quy.
-            - Chỉ ghi tình trạng chung trong A4_FOR_O1 / A4_FOR_O8 khi user cung cấp hoặc có căn cứ hợp lệ cần thay thế phần tương ứng.
-        Không tự biến triệu chứng cơ năng như “mệt mỏi”, “ăn uống kém” hoặc “đau” thành “toàn trạng kém” nếu user không cung cấp nhận định toàn trạng hoặc bệnh cảnh không đủ căn cứ.
-        Nếu tình trạng chung bất thường, A4_FOR_O1 và A4_FOR_O8 phải thể hiện đúng bất thường đó.
-        Không tự tạo bất thường tình trạng chung vô căn cứ.
-
-A4.8. Quy tắc chuẩn hóa sốt / phù / da niêm mạc
-    A4.8.1. Sốt / nhiệt độ
-        Nếu user cung cấp sốt hoặc nhiệt độ:
-            - A4 phải ghi đúng.
-        Nếu user cung cấp nhiệt độ cụ thể:
-            - A4 ghi đúng nhiệt độ.
-            - Không tự đổi đơn vị hoặc làm tròn sai.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE và user không cung cấp sốt / nhiệt độ:
-            - Có thể ghi “không sốt” nếu bệnh cảnh không gợi ý sốt và không có dữ kiện trái ngược.
-        Nếu bệnh cảnh nhiễm trùng/sốt nhưng user không cung cấp nhiệt độ:
-            - Không tự tạo nhiệt độ sốt hoặc nhiệt độ cụ thể nếu user không cung cấp.
-            - Có thể cần A4_CHECK = NEEDS_FIX hoặc để C1 hỏi thêm tùy pipeline.
-
-    A4.8.2. Phù
-        Nếu user cung cấp phù:
-            - A4 phải ghi đúng vị trí và mức độ nếu có.
-        Ví dụ:
-            - Phù nhẹ hai chi dưới.
-            - Phù mềm hai chân.
-            - Phù toàn thân.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE và user không cung cấp phù:
-            - Có thể ghi “không phù” nếu bệnh cảnh không gợi ý phù và không có dữ kiện trái ngược.
-        Không tự tạo phù nếu user không cung cấp hoặc không có căn cứ.
-        Không tự phủ định phù nếu user đã cung cấp phù.
-
-    A4.8.3. Da niêm mạc
-        A4 xử lý da niêm mạc ở mức toàn thân.
-        Nếu user cung cấp da niêm mạc toàn thân bình thường:
-            - A4 có thể ghi “da niêm mạc bình thường”.
-        Nếu user cung cấp bất thường da niêm mạc toàn thân:
-            - A4 phải ghi đúng bất thường đó.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, user không cung cấp bất thường toàn thân và không có dữ kiện trái ngược:
-            - Có thể ghi “da niêm mạc bình thường”.
-        Bất thường da niêm mạc toàn thân có thể gồm:
-            1. Da niêm mạc nhợt.
-            2. Da niêm mạc vàng.
-            3. Da niêm mạc tím.
-            4. Xuất huyết lan tỏa.
-            5. Da niêm mạc khô, môi khô nếu user cung cấp như dấu khám toàn thân.
-            6. Tình trạng toàn thân khác nếu user cung cấp.
-        A4 không xử lý tổn thương da/niêm mạc khu trú thuộc cơ quan khác nếu phần đó sẽ được A11 xử lý.
-        Nếu user input chỉ ghi bất thường khu trú không thuộc khám toàn thân, A4 không tự kéo vào A4 nếu không phù hợp.
-        A4 không đọc A11 để tránh mâu thuẫn vì A11 chạy sau.
-        Khi cần xử lý bất thường khu trú, A11 sẽ đọc A4 và xử lý theo phạm vi A11.
-
-A4.9. Quy tắc chuẩn hóa hạch ngoại vi / tuyến giáp
-    A4.9.1. Hạch ngoại vi
-        Nếu user cung cấp hạch ngoại vi bất thường:
-            - A4 phải ghi đúng.
-        Nếu user cung cấp vị trí hạch:
-            - A4 giữ đúng vị trí.
-        Nếu user cung cấp tính chất hạch:
-            - A4 giữ đúng tính chất.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, user không cung cấp hạch ngoại vi và không có dữ kiện trái ngược:
-            - A4_FOR_O8 thường quy phải ghi “Hạch ngoại vi không sưng đau”.
-            - A4_FOR_O1 thường quy không ghi hạch ngoại vi bình thường.
-        Không tự tạo hạch ngoại vi bất thường nếu user không cung cấp và bệnh cảnh không có căn cứ.
-
-    A4.9.2. Tuyến giáp
-        Nếu user cung cấp tuyến giáp bất thường:
-            - A4 phải ghi đúng.
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, user không cung cấp tuyến giáp và không có dữ kiện trái ngược:
-            - A4_FOR_O8 thường quy phải ghi “tuyến giáp không sờ thấy”.
-            - A4_FOR_O1 thường quy không ghi tuyến giáp bình thường.
-        Không tự tạo bất thường tuyến giáp nếu user không cung cấp.
-        Không tự tạo bướu giáp, đau tuyến giáp hoặc nhân tuyến giáp nếu user không cung cấp.
-
-A4.10. Quy tắc tạo A4_FOR_O1
-    A4.10.1. Vai trò của A4_FOR_O1
-        A4_FOR_O1 là bản khám toàn thân ngắn dùng cho O1.
-        A4_FOR_O1 phải ngắn gọn, cụ thể.
-        A4_FOR_O1 không làm O1 bị dài.
-        A4_FOR_O1 không lặp lại các phần thuộc A5-A11.
-
-    A4.10.2. Nội dung A4_FOR_O1
-        A4_FOR_O1 nên gồm:
-            1. Ý thức / tiếp xúc.
-            2. Thể trạng hoặc tình trạng chung nếu cần.
-            3. Bất thường toàn thân nổi bật nếu có.
-            4. Phù nếu có hoặc cần ghi.
-            5. Sốt / nhiệt độ nếu có hoặc cần ghi.
-            6. Da niêm mạc toàn thân nếu cần.
-        A4_FOR_O1 có thể bỏ:
-            - Hạch ngoại vi nếu không bất thường.
-            - Tuyến giáp nếu không bất thường.
-            - Chi tiết da niêm mạc nếu không cần cho khám sơ bộ.
-
-    A4.10.3. Mẫu mặc định khi không có bất thường toàn thân
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, không có bất thường toàn thân và không có dữ kiện trái ngược:
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
-        A4_FOR_O1 thường quy không ghi hạch ngoại vi hoặc tuyến giáp bình thường.
-        Chỉ đưa hạch ngoại vi hoặc tuyến giáp vào A4_FOR_O1 khi user cung cấp bất thường hoặc dữ kiện rõ cần ghi theo dữ liệu hợp lệ.
-
-    A4.10.4. Khi có sốt
-        Nếu user cung cấp sốt hoặc nhiệt độ cụ thể:
-            - A4_FOR_O1 phải giữ đúng dữ kiện đó.
-            - Trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE, có thể giữ các thành phần thường quy còn lại nếu không trái dữ kiện user.
-            - Trong USER_ONLY, không tự thêm dấu khám bình thường hoặc âm tính chưa được user cung cấp.
-
-    A4.10.5. Khi có phù
-        Nếu user cung cấp phù:
-            - A4_FOR_O1 phải giữ đúng mức độ / vị trí phù nếu có.
-            - Trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE, có thể giữ các thành phần thường quy còn lại nếu không trái dữ kiện user.
-            - Trong USER_ONLY, không tự thêm dấu khám bình thường hoặc âm tính chưa được user cung cấp.
-
-    A4.10.6. Khi có rối loạn ý thức
-        Nếu user cung cấp rối loạn ý thức:
-            - A4_FOR_O1 phải giữ đúng tình trạng ý thức / tiếp xúc đã có.
-            - Không tự thêm dấu khám bình thường hoặc âm tính chưa được user cung cấp.
-        Không tự sửa rối loạn ý thức thành tỉnh nếu user đã cung cấp rõ.
-
-    A4.10.7. Khi có tình trạng chung bất thường
-        Nếu user cung cấp tình trạng chung bất thường:
-            - A4_FOR_O1 phải ghi ngắn gọn tình trạng chung bất thường đó.
-            - Không tự làm nhẹ hoặc phủ định tình trạng chung bất thường user đã cung cấp.
-        Nếu user không cung cấp tình trạng chung và A4_FOR_O1 đã có ý thức / tiếp xúc / thể trạng phù hợp, A4_FOR_O1 có thể bỏ tình trạng chung để giữ ngắn gọn.
-
-    A4.10.8. Khi có bất thường hạch ngoại vi / tuyến giáp
-        Nếu user cung cấp bất thường hạch ngoại vi hoặc tuyến giáp:
-            - A4_FOR_O1 phải ghi đúng bất thường đó nếu liên quan khám toàn thân.
-        Nếu hạch ngoại vi hoặc tuyến giáp không bất thường và chỉ là mẫu âm tính do DEFAULT_COMPLETION hoặc AUTO_SAMPLE:
-            - A4_FOR_O1 phải bỏ để giữ bản O1 ngắn.
-
-    A4.10.9. Cấm trong A4_FOR_O1
-        A4_FOR_O1 không chứa:
-            1. Mạch.
-            2. Huyết áp.
-            3. Nhịp thở.
-            4. SpO₂.
-            5. Triệu chứng cơ năng.
-            6. Khám tuần hoàn.
-            7. Khám hô hấp.
-            8. Khám tiêu hóa.
-            9. Khám thận - tiết niệu.
-            10. Khám thần kinh.
-            11. Khám cơ xương khớp.
-            12. Khám cơ quan khác thuộc A11.
-
-A4.11. Quy tắc tạo A4_FOR_O8
-    A4.11.1. Vai trò của A4_FOR_O8
-        A4_FOR_O8 là bản khám toàn thân dùng cho O8.
-        A4_FOR_O8 có thể chi tiết hơn A4_FOR_O1 ở cách diễn đạt.
-        A4_FOR_O8 không thêm dữ kiện ngoài phạm vi A4.
-
-    A4.11.2. Nội dung A4_FOR_O8
-        A4_FOR_O8 nên gồm:
-            1. Ý thức.
-            2. Tiếp xúc.
-            3. Thể trạng.
-            4. Phù.
-            5. Sốt / nhiệt độ nếu user cung cấp nhiệt độ cụ thể hoặc chỉ ghi không sốt theo mẫu thường quy.
-            6. Da niêm mạc toàn thân.
-            7. Hạch ngoại vi.
-            8. Tuyến giáp.
-            9. Tình trạng chung chỉ khi user cung cấp hoặc có căn cứ hợp lệ.
-        A4_FOR_O8 không chứa mạch, huyết áp, nhịp thở, SpO₂.
-        A4_FOR_O8 không chứa triệu chứng cơ năng.
-        A4_FOR_O8 không chứa khám cơ quan chuyên biệt.
-
-    A4.11.3. Mẫu mặc định khi không có bất thường toàn thân
-        Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, không có bất thường toàn thân và không có dữ kiện trái ngược:
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-
-    A4.11.4. Quy tắc thay thế theo bất thường
-        Bất thường ở đâu thì thay thế phần tương ứng ở đó, không thêm lan man.
-        Nếu user cung cấp da niêm mạc khô, môi khô hoặc mệt mỏi nhiều như nhận định toàn thân / dấu khám toàn thân, A4_FOR_O1 và A4_FOR_O8 được ghi đúng dữ kiện đó.
-        Không tự suy dấu mất nước, da niêm mạc khô hoặc môi khô từ chẩn đoán đái tháo đường, bệnh sử, khát nhiều/tiểu nhiều hoặc triệu chứng cơ năng nếu user chưa cung cấp dấu khám tương ứng.
-
-    A4.11.5. Khi có sốt
-        Nếu user cung cấp sốt hoặc nhiệt độ cụ thể:
-            - A4_FOR_O8 phải giữ đúng dữ kiện đó.
-            - Trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE, có thể giữ các thành phần thường quy còn lại nếu không trái dữ kiện user.
-            - Trong USER_ONLY, không tự thêm dấu khám bình thường hoặc âm tính chưa được user cung cấp.
-
-    A4.11.6. Khi có phù
-        Nếu user cung cấp phù:
-            - A4_FOR_O8 phải giữ đúng mức độ / vị trí phù nếu có.
-            - Trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE, có thể giữ các thành phần thường quy còn lại nếu không trái dữ kiện user.
-            - Trong USER_ONLY, không tự thêm dấu khám bình thường hoặc âm tính chưa được user cung cấp.
-
-    A4.11.7. Khi có rối loạn ý thức
-        Nếu user cung cấp rối loạn ý thức:
-            - A4_FOR_O8 phải giữ đúng tình trạng ý thức / tiếp xúc đã có.
-            - Không tự thêm dấu khám bình thường hoặc âm tính chưa được user cung cấp.
-
-    A4.11.8. Đồng bộ O1/O8
-        A4_FOR_O1 và A4_FOR_O8 không được mâu thuẫn.
-        A4_FOR_O8 có thể diễn đạt đầy đủ hơn nhưng không được thêm dữ kiện mới sai phạm vi hoặc dùng biến thể cũ trong mẫu thường quy.
-        Nếu A4_FOR_O1 ghi có sốt, A4_FOR_O8 cũng phải thể hiện có sốt.
-        Nếu A4_FOR_O1 ghi có phù, A4_FOR_O8 cũng phải thể hiện có phù.
-        Nếu A4_FOR_O1 ghi rối loạn ý thức, A4_FOR_O8 cũng phải thể hiện rối loạn ý thức.
-        Nếu A4_FOR_O1 ghi tình trạng chung bất thường, A4_FOR_O8 cũng phải thể hiện tình trạng chung bất thường.
-        Nếu A4_FOR_O1 ghi bất thường hạch ngoại vi hoặc tuyến giáp, A4_FOR_O8 cũng phải thể hiện bất thường tương ứng.
-
-A4.12. Ví dụ cụ thể
-    A4.12.1. Ví dụ DEFAULT_COMPLETION tự hoàn thiện mẫu khám toàn thân
-        Input:
-            RUN_MODE = DEFAULT_COMPLETION.
-            Không có bất thường toàn thân và không có dữ kiện trái ngược.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-        Ghi chú vận hành:
-            A4_FOR_O1 là bản ngắn, không tự thêm hạch ngoại vi hoặc tuyến giáp bình thường trong mẫu thường quy.
-            A4_FOR_O8 là bản đầy đủ hơn O1 và dùng đúng câu hạch ngoại vi / tuyến giáp thường quy đã chuẩn hóa.
-
-    A4.12.2. Ví dụ có sốt
-        Input:
-            Bệnh nhân tỉnh, tiếp xúc tốt, sốt 38,5°C.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt, sốt 38,5°C, không phù, da niêm mạc bình thường.
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, sốt 38,5°C, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-        Ghi chú vận hành:
-            A4 giữ đúng nhiệt độ user cung cấp và không tự tạo nhiệt độ khác.
-
-    A4.12.3. Ví dụ có phù
-        Input:
-            Bệnh nhân tỉnh, tiếp xúc tốt, phù nhẹ hai chi dưới.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt, phù nhẹ hai chi dưới, không sốt, da niêm mạc bình thường.
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, phù nhẹ hai chi dưới, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-        Ghi chú vận hành:
-            A4 giữ đúng vị trí và mức độ phù user cung cấp; không tự phủ định phù.
-
-    A4.12.4. Ví dụ rối loạn ý thức
-        Input:
-            Bệnh nhân lơ mơ, tiếp xúc chậm.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Lơ mơ, tiếp xúc chậm.
-            A4_FOR_O8 = Bệnh nhân lơ mơ, tiếp xúc chậm.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-        Ghi chú vận hành:
-            Không tự sửa rối loạn ý thức thành tỉnh.
-
-    A4.12.5. Ví dụ input có mạch / huyết áp / SpO₂ kèm dữ kiện thuộc A4
-        Input:
-            RUN_MODE = USER_ONLY.
-            Bệnh nhân tỉnh, tiếp xúc tốt. Mạch 88 lần/phút, huyết áp 120/80 mmHg, SpO₂ 98%.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt.
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-        Ghi chú vận hành:
-            A4 chỉ lấy phần thuộc khám toàn thân; mạch, huyết áp và SpO₂ không được đưa vào A4_FOR_O1 / A4_FOR_O8.
-
-    A4.12.6. Ví dụ USER_ONLY thiếu dữ kiện khám toàn thân
-        Input:
-            RUN_MODE = USER_ONLY.
-            Không có dữ kiện khám toàn thân.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Chưa có dữ kiện khám toàn thân.
-            A4_FOR_O8 = Chưa có dữ kiện khám toàn thân.
-            A4_CHECK = NEEDS_FIX
-            A4_ERROR = Thiếu dữ kiện khám toàn thân.
-
-    A4.12.7. Ví dụ input chỉ là triệu chứng cơ năng
-        Input:
-            Mệt mỏi, ăn uống kém.
-            RUN_MODE = USER_ONLY.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Chưa có dữ kiện khám toàn thân.
-            A4_FOR_O8 = Chưa có dữ kiện khám toàn thân.
-            A4_CHECK = NEEDS_FIX
-            A4_ERROR = Thiếu dữ kiện khám toàn thân.
-        Ghi chú vận hành:
-            Không biến triệu chứng cơ năng thành dấu khám toàn thân hoặc toàn trạng kém nếu user không cung cấp nhận định toàn trạng.
-
-    A4.12.8. Ví dụ bất thường khu trú để A11 xử lý sau
-        Input:
-            Da vùng cẳng chân có vết loét khu trú; không có dữ kiện da niêm mạc toàn thân.
-            RUN_MODE = USER_ONLY.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Chưa có dữ kiện khám toàn thân.
-            A4_FOR_O8 = Chưa có dữ kiện khám toàn thân.
-            A4_CHECK = NEEDS_FIX
-            A4_ERROR = Thiếu dữ kiện khám toàn thân.
-        Ghi chú vận hành:
-            A4 không kéo tổn thương da khu trú vào da niêm mạc toàn thân.
-            A4_FOR_O1 và A4_FOR_O8 không ghi tổn thương khu trú.
-            Tổn thương da khu trú sẽ được A11 xử lý sau theo phạm vi A11.
-
-    A4.12.9. Ví dụ REUSE full A4_STATE
-        A4_STATE hiện hành mới nhất:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt.
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-        A4_REV hiện hành = 1
-        Input ROUND hiện tại:
-            User bổ sung tiền sử gia đình; input không ảnh hưởng A4 và dependency hợp lệ không làm nội dung thật của A4 thay đổi.
-        Full A4_STATE dùng lại trong ROUND hiện tại:
-            STATE_VERSION = V2
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt.
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-        A4_REV sau REUSE = 1
-        Ghi chú vận hành:
-            A4 in full nội dung thật; không ghi “reuse A4” hoặc “giữ nguyên như trước”.
-
-    A4.12.10. Ví dụ AUTO_SAMPLE được tạo khám toàn thân mẫu
-        Input:
-            RUN_MODE = AUTO_SAMPLE.
-            User yêu cầu tạo ca mẫu ổn định.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-
-    A4.12.11. Ví dụ có dấu mất nước được user cung cấp
-        Input:
-            Bệnh nhân tỉnh, tiếp xúc tốt, mệt mỏi nhiều, da niêm mạc khô, môi khô.
-        A4_STATE:
-            STATE_VERSION = V1
-            A4_FOR_O1 = Tỉnh, tiếp xúc tốt, mệt mỏi nhiều, da niêm mạc khô, môi khô, không phù, không sốt.
-            A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, mệt mỏi nhiều, da niêm mạc khô, môi khô, không phù, không sốt. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-            A4_CHECK = PASS
-            A4_ERROR = NONE
-        Ghi chú vận hành:
-            Chỉ dùng mẫu này khi user/source cung cấp dữ kiện khám toàn thân tương ứng; không tự suy dấu mất nước từ đái tháo đường, bệnh sử hoặc triệu chứng cơ năng.
-
-A4.13. Schema A4_STATE
-    A4.13.1. Schema chuẩn
-        A4_STATE:
-            STATE_VERSION = ...
-            A4_FOR_O1 = ...
-            A4_FOR_O8 = ...
-            A4_CHECK = PASS / NEEDS_FIX
-            A4_ERROR = ...
-
-    A4.13.2. Nguyên tắc schema
-        A4_STATE không cần in trạng thái tạo mới / cập nhật / dùng lại.
-        A4_STATE không cần STATUS.
-        A4_STATE không cần UPDATED_AT.
-        A4_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        A4_FOR_O1 là khám toàn thân dùng cho O1.
-        A4_FOR_O8 là khám toàn thân dùng cho O8.
-        A4_CHECK là kết quả tự kiểm của A4.
-        A4_ERROR chỉ dùng khi A4_CHECK = NEEDS_FIX.
-
-    A4.13.3. Khi A4_CHECK = PASS
-        Nếu A4_CHECK = PASS:
-            - A4_FOR_O1 có giá trị hợp lệ.
-            - A4_FOR_O8 có giá trị hợp lệ.
-            - A4_ERROR = NONE.
-
-    A4.13.4. Khi A4_CHECK = NEEDS_FIX
-        Nếu A4_CHECK = NEEDS_FIX:
-            - A4_ERROR phải ghi rõ lỗi.
-            - A4_ERROR phải nêu dữ liệu cần user bổ sung hoặc phần cần sửa.
-            - Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-A4.14. Lỗi không được mắc
-    A4.14.1. Lỗi sai phạm vi A4
-        Không đưa mạch vào A4.
-        Không đưa nhịp tim vào A4.
-        Không đưa huyết áp vào A4.
-        Không đưa tiếng tim hoặc tiếng thổi tim vào A4.
-        Không đưa nhịp thở vào A4.
-        Không đưa SpO₂ vào A4.
-        Không đưa ran phổi vào A4.
-        Không đưa rì rào phế nang vào A4.
-        Không đưa triệu chứng cơ năng vào A4.
-        Không đưa khám tiêu hóa vào A4.
-        Không đưa khám thận - tiết niệu vào A4.
-        Không đưa khám thần kinh vào A4.
-        Không đưa khám cơ xương khớp vào A4.
-        Không đưa khám cơ quan khác thuộc A11 vào A4.
-        Không đưa kết quả cận lâm sàng vào A4 như dấu khám toàn thân.
-
-    A4.14.2. Lỗi tự tạo dữ kiện
-        Không tự tạo sốt nếu user không cung cấp hoặc không có căn cứ.
-        Không tự tạo nhiệt độ cụ thể nếu user không cung cấp.
-        Không tự tạo phù nếu user không cung cấp hoặc không có căn cứ.
-        Không tự tạo hạch ngoại vi bất thường nếu user không cung cấp.
-        Không tự tạo tuyến giáp bất thường nếu user không cung cấp.
-        Không tự tạo rối loạn ý thức nếu user không cung cấp hoặc không có căn cứ.
-        Không tự phủ định bất thường user đã cung cấp.
-        Không ghi toàn thân bình thường nếu có dữ kiện bất thường rõ.
-
-    A4.14.3. Lỗi mâu thuẫn với A khác
-        Không biến triệu chứng trong A3 thành dấu khám thực thể nếu user không cung cấp dữ kiện khám.
-        Không dùng A5-A15 làm nguồn cho A4 vì các module này chạy sau A4.
-        Không dùng A12_STATE làm nguồn cho A4 vì A12 chạy sau A4.
-        Không tự xử lý bất thường cơ quan khác thuộc A11 nếu A4 không có dữ kiện toàn thân tương ứng.
-        Khi có nguy cơ mâu thuẫn giữa A4 và A11, A11 là module chạy sau và có trách nhiệm đọc A4 để điều chỉnh phần A11.
-        Không ghi toàn thân quá bình thường nếu user input / A1 / A2 / A3 đã có dữ kiện rõ gợi ý bệnh cảnh toàn thân nặng.
-
-    A4.14.4. Lỗi trình bày A4_FOR_O1 / A4_FOR_O8
-        Không viết A4_FOR_O1 quá dài.
-        Không viết A4_FOR_O8 dài nhưng thêm dữ kiện sai phạm vi.
-        Không để A4_FOR_O1 và A4_FOR_O8 mâu thuẫn nhau.
-        Không viết A4_FOR_O1 như bệnh sử.
-        Không viết A4_FOR_O8 như bệnh sử.
-        Không dùng cụm mơ hồ nếu user đã cung cấp dữ kiện cụ thể.
-        Không bỏ mất bất thường toàn thân user cung cấp.
-        Không để A4_FOR_O8 thường quy dùng biến thể cũ: tình trạng chung ổn, hạch ngoại vi không sờ thấy, tuyến giáp không to.
-        Không để A4_FOR_O1 hoặc A4_FOR_O8 tự thêm nhiệt độ 36,7°C khi user không cung cấp nhiệt độ.
-        Không để A4_FOR_O1 thường quy chứa hạch ngoại vi hoặc tuyến giáp bình thường.
-        Không để A4_FOR_O8 thường quy thiếu “Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy”.
-
-    A4.14.5. Lỗi vận hành state
-        Không tạo state của A khác.
-        Không dùng patch/delta làm A4_STATE chính thức.
-        Không ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không đưa metadata không cần thiết vào A4_STATE.
-        Không render O trong A4.
-        Không chạy C trong A4.
-        Không suy ngược A4 từ O_OUTPUT.
-        Không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
-        Không dùng triệu chứng, bệnh sử, chẩn đoán hoặc mã bệnh để tạo dấu khám mới.
-        USER_ONLY không được tự tạo dấu khám bình thường.
-        DEFAULT_COMPLETION được tự hoàn thiện mẫu khám toàn thân trong phạm vi A4 nếu không có dữ kiện trái ngược.
-        AUTO_SAMPLE được tạo khám toàn thân mẫu cho ca mẫu.
-        Không mode nào được tạo dữ kiện ngoài phạm vi A4 hoặc trái với user input.
-
-A4.15. A4_CHECK
-    A4.15.1. Kiểm A4_FOR_O1
-        Kiểm:
-            1. A4_FOR_O1 có dữ liệu khám toàn thân.
-            2. A4_FOR_O1 ngắn gọn.
-            3. A4_FOR_O1 đúng phạm vi khám toàn thân.
-            4. A4_FOR_O1 không chứa mạch.
-            5. A4_FOR_O1 không chứa huyết áp.
-            6. A4_FOR_O1 không chứa nhịp thở.
-            7. A4_FOR_O1 không chứa SpO₂.
-            8. A4_FOR_O1 không chứa triệu chứng cơ năng.
-            9. A4_FOR_O1 không chứa khám cơ quan chuyên biệt.
-            10. A4_FOR_O1 không mâu thuẫn với user input.
-            11. A4_FOR_O1 thường quy đúng mẫu: Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
-            12. A4_FOR_O1 thường quy không chứa hạch ngoại vi, tuyến giáp, tình trạng chung ổn hoặc nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
-
-    A4.15.2. Kiểm A4_FOR_O8
-        Kiểm:
-            1. A4_FOR_O8 có dữ liệu khám toàn thân.
-            2. A4_FOR_O8 không thêm dữ kiện ngoài phạm vi A4.
-            3. A4_FOR_O8 không chứa mạch.
-            4. A4_FOR_O8 không chứa huyết áp.
-            5. A4_FOR_O8 không chứa nhịp thở.
-            6. A4_FOR_O8 không chứa SpO₂.
-            7. A4_FOR_O8 không chứa triệu chứng cơ năng.
-            8. A4_FOR_O8 không chứa khám cơ quan chuyên biệt.
-            9. A4_FOR_O8 không mâu thuẫn với A4_FOR_O1.
-            10. A4_FOR_O8 không mâu thuẫn với user input.
-            11. A4_FOR_O8 thường quy đúng mẫu: Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-            12. A4_FOR_O8 thường quy không chứa tình trạng chung ổn, hạch ngoại vi không sờ thấy, tuyến giáp không to hoặc nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
-            13. Nếu A4_FOR_O8 thường quy thiếu hạch ngoại vi không sưng đau hoặc tuyến giáp không sờ thấy, A4_CHECK = NEEDS_FIX.
-            14. Nếu A4_FOR_O1/A4_FOR_O8 biến bệnh sử, chẩn đoán hoặc triệu chứng cơ năng thành dấu khám không có căn cứ hợp lệ, A4_CHECK = NEEDS_FIX.
-
-    A4.15.3. Kiểm dependency và đồng bộ
-        Kiểm:
-            1. Nếu dùng A1_STATE, A4 chỉ đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn; không chép lý do vào viện vào A4.
-            2. Nếu dùng A2_STATE, A4 chỉ đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn; không biến tiền sử/bệnh nền thành dấu khám hiện tại.
-            3. Nếu dùng A3_STATE, A4 chỉ đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn; không biến triệu chứng cơ năng hoặc bệnh sử thành dấu khám thực thể.
-            4. A4 không đọc A5-A15 của ROUND hiện tại.
-            5. A4 không đọc A12_STATE của ROUND hiện tại.
-            6. A4 không đọc C_STATE hoặc O_OUTPUT.
-            7. A4 không tạo dữ kiện mâu thuẫn với user input.
-            8. Nếu có vấn đề khu trú thuộc A11, A4 không tự xử lý thay A11.
-
-    A4.15.4. Kiểm A4_STATE
-        Kiểm:
-            1. A4_STATE có STATE_VERSION.
-            2. A4_STATE có A4_FOR_O1.
-            3. A4_STATE có A4_FOR_O8.
-            4. A4_STATE có A4_CHECK.
-            5. Nếu A4_CHECK = NEEDS_FIX, có A4_ERROR rõ.
-            6. Nếu A4_CHECK = PASS, A4_ERROR = NONE.
-            7. A4_STATE sẵn sàng đưa vào full current A_STATE.
-
-    A4.15.5. Kết quả A4_CHECK
-        Nếu đạt:
-            A4_CHECK = PASS.
-            A4_ERROR = NONE.
-        Nếu chưa đạt:
-            A4_CHECK = NEEDS_FIX.
-            A4_ERROR = ghi rõ lỗi.
-
-A4.16. Kết thúc module
-    A4.16.1. Điều kiện hoàn tất A4
-        A4 hoàn tất khi:
-            1. Đã tạo mới, cập nhật hoặc dùng lại A4_STATE.
-            2. Đã kiểm A4_CHECK.
-            3. Không tạo dữ liệu ngoài A4_STATE.
-            4. Không tạo state của A khác.
-            5. Không chạy C.
-            6. Không render O.
-
-    A4.16.2. Chuyển module tiếp theo
-        Sau khi hoàn tất A4_STATE, chuyển sang A5 theo A_RUN_ORDER.
-        Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
+Version: BA S-G-A-C-O v4
+Update: ALLOWLIST COMPACT
+
+A4_ROLE
+    A4 là module chuẩn hóa phần khám toàn thân.
+    A4 tạo mới, cập nhật hoặc dùng lại A4_STATE để đưa vào full current A_STATE của ROUND hiện tại.
+    A4_STATE là source of truth / nguồn chính thức cho C/O khi cần dữ liệu khám toàn thân.
+    A4 tạo hai bản nội dung:
+        1. A4_FOR_O1: bản ngắn dùng cho O1.
+        2. A4_FOR_O8: bản chi tiết hơn dùng cho O8.
+    Nếu khám toàn thân sai, lẫn module khác hoặc mâu thuẫn dữ liệu nguồn hợp lệ, phải sửa tại A4.
+
+A4_ALLOWED_SOURCE
+    A4 chỉ được đọc:
+        1. User input của ROUND hiện tại, chỉ phần thuộc khám toàn thân.
+        2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
+        3. Latest/current A4_STATE nếu đã có, chỉ để UPDATE hoặc REUSE.
+        4. File/module A4.
+        5. A1_STATE, A2_STATE, A3_STATE: chỉ để đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn.
+    A1_STATE / A2_STATE / A3_STATE không được dùng để tạo dấu khám mới.
+    A4 không chép lý do vào viện, tiền sử hoặc bệnh sử vào A4_FOR_O1 / A4_FOR_O8.
+    A4 không biến triệu chứng trong A3, bệnh sử, chẩn đoán hoặc mã bệnh thành dấu khám thực thể/toàn thân.
+    Nếu phát hiện mâu thuẫn rõ giữa user input và A1-A3, A4_CHECK có thể NEEDS_FIX và A4_ERROR ghi rõ mâu thuẫn hoặc phần cần cập nhật; A4 không tự sửa A1-A3.
+    Nguồn ngoài allowlist này không hợp lệ cho A4, gồm A5-A15 để tạo A4_STATE, C_STATE, O_OUTPUT, output đã render, trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+    A4 không chờ A12 hoặc đọc ngược A12/A5-A15 của ROUND hiện tại để tạo A4_STATE.
+
+A4_ALLOWED_ACTION
+    A4 chỉ được làm:
+        1. CREATE A4_STATE.
+        2. UPDATE A4_STATE.
+        3. REUSE A4_STATE.
+        4. CHECK A4_STATE.
+        5. Quản lý A4_REV của chính A4.
+    CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ, không phải RUN_MODE.
+
+A4_ALLOWED_WRITE
+    Chỉ ghi A4_STATE.
+    Không ghi A1-A3, A5-A15, C/O hoặc A_GATE.
+    A4 không tự tạo toàn bộ A_MODULE_REV; A4 chỉ cung cấp/quản lý A4_REV để A_GATE / full current A_STATE tổng hợp.
+    A4 không render output bệnh án và không chạy C.
+
+A4_STATE_SCHEMA
+    A4_STATE:
+        STATE_VERSION = ...
+        A4_FOR_O1 = ...
+        A4_FOR_O8 = ...
+        A4_CHECK = PASS / NEEDS_FIX
+        A4_ERROR = ...
+    Giữ nguyên tên field A4_FOR_O1 và A4_FOR_O8.
+    Không thêm STATUS, UPDATED_AT, A4_TIME hoặc field mới khác.
+    A4_STATE phải dùng STATE_VERSION của ROUND hiện tại.
+    Nếu A4_CHECK = PASS thì A4_ERROR = NONE.
+    Nếu A4_CHECK = NEEDS_FIX thì A4_ERROR phải ghi lỗi cụ thể.
+
+A4_LOGIC_RULES
+    CREATE:
+        - Áp dụng khi chưa có latest/current A4_STATE hợp lệ.
+        - Tạo A4_STATE mới từ user input ROUND hiện tại và dependency được phép nếu cần.
+        - Phải xác định A4_FOR_O1, A4_FOR_O8, A4_CHECK, A4_ERROR nếu cần.
+    UPDATE:
+        - Áp dụng khi user input hiện tại hoặc dependency hợp lệ làm nội dung thật của A4_FOR_O1 / A4_FOR_O8 thay đổi.
+        - Dữ liệu ảnh hưởng A4 gồm: ý thức, tiếp xúc, thể trạng, tình trạng chung/toàn trạng, da niêm mạc toàn thân, phù, sốt/nhiệt độ nếu là nhận định toàn thân, hạch ngoại vi, tuyến giáp, chỉnh sửa khám toàn thân, dependency hợp lệ phát hiện mâu thuẫn cần sửa A4.
+        - UPDATE chỉ thay phần bị ảnh hưởng bằng dữ liệu mới; phần không bị ảnh hưởng lấy từ latest/current A4_STATE.
+        - Sau UPDATE, A4_STATE dùng STATE_VERSION của ROUND hiện tại.
+    RUN_MODE:
+        - RUN_MODE lấy từ G_STATE; A4 không tự xác định RUN_MODE.
+        - RUN_MODE độc lập với CREATE / UPDATE / REUSE.
+    USER_ONLY:
+        - Chỉ dùng dữ kiện khám toàn thân user cung cấp.
+        - Không tự tạo bất thường, không tự tạo khám toàn thân bình thường, không tự tạo mẫu mặc định nếu user không cung cấp dữ kiện và không có state hợp lệ để REUSE.
+        - Nếu không có A4_STATE hợp lệ để REUSE và user không cung cấp dữ kiện khám toàn thân: A4_FOR_O1 = Chưa có dữ kiện khám toàn thân; A4_FOR_O8 = Chưa có dữ kiện khám toàn thân; A4_CHECK = NEEDS_FIX; A4_ERROR = Thiếu dữ kiện khám toàn thân.
+        - Nếu user cung cấp một phần khám toàn thân, A4 dùng phần đã có và không tự thêm phần chưa có nếu RUN_MODE không cho phép.
+        - Không biến triệu chứng/bệnh sử/chẩn đoán/mã bệnh thành dấu khám.
+    DEFAULT_COMPLETION:
+        - Được chuẩn hóa dữ kiện user cung cấp và hoàn thiện mẫu khám toàn thân thường quy nếu không trái user input và nằm đúng phạm vi A4.
+        - Mặc định hợp lệ: ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường; với O8 thêm hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
+        - Không tự thêm “tình trạng chung ổn”.
+        - Không tự thêm nhiệt độ cụ thể như “36,7°C”.
+        - Không tự thêm mạch, huyết áp, nhịp thở, SpO2.
+        - Không tạo dấu khám chuyên khoa thuộc A5-A11.
+        - Không tạo dữ kiện trái user input; nếu user cung cấp bất thường toàn thân thì phải giữ đúng và không tự phủ định.
+        - Nếu thiếu dữ kiện khám toàn thân cần thiết cho output và không thể hoàn thiện hợp lệ trong phạm vi A4, A4_CHECK = NEEDS_FIX và A4_ERROR ghi rõ thiếu dữ kiện khám toàn thân trong phạm vi A4.
+        - Trong bệnh án thường quy, A4_FOR_O1 và A4_FOR_O8 không được chứa no-data placeholder; nếu user không cung cấp bất thường toàn thân và không có dữ kiện trái ngược, dùng mẫu mặc định của A4_FOR_O1/A4_FOR_O8.
+    AUTO_SAMPLE:
+        - Chỉ dùng cho ca mẫu; không dùng logic AUTO_SAMPLE cho ca bệnh thật đã có dữ liệu user.
+        - Có thể tạo khám toàn thân mẫu phù hợp bệnh cảnh.
+        - Nếu bệnh cảnh mẫu ổn định, có thể tạo khám toàn thân ổn định.
+        - Nếu bệnh cảnh mẫu cấp tính nặng, phải tạo khám toàn thân phù hợp bệnh cảnh, không ghi quá bình thường nếu không hợp lý.
+        - Không đọc ngược A12 hoặc A5-A15 của ROUND hiện tại để tạo A4.
+
+A4_SPECIAL_RULES
+    A4_SCOPE_INCLUDE:
+        A4 xử lý: ý thức; tiếp xúc; thể trạng; tình trạng chung/toàn trạng; da niêm mạc toàn thân; phù; sốt/nhiệt độ nếu là nhận định toàn thân; hạch ngoại vi; tuyến giáp.
+    A4_SCOPE_EXCLUDE:
+        A4 không phải module sinh tồn rộng.
+        A4 không quản lý: mạch; nhịp tim; huyết áp; nhịp thở; SpO2/SpO₂; tiếng tim; tiếng thổi tim; ran phổi; rì rào phế nang; khám tim mạch chi tiết; khám hô hấp chi tiết; khám bụng; gan lách; điểm đau bụng; khám thận - tiết niệu; khám thần kinh; khám cơ xương khớp; khám cơ quan chuyên khoa khác thuộc A11; triệu chứng cơ năng; kết quả cận lâm sàng.
+        Các dữ kiện trên thuộc A5-A11 hoặc module khác theo contract, không đưa vào A4 nếu user không cung cấp rõ dưới dạng khám toàn thân hợp lệ.
+    PHÂN_RANH_MODULE:
+        - A5 quản lý mạch, nhịp tim, huyết áp, tiếng tim và tiếng thổi tim; A4 không đưa các dữ kiện này vào A4_FOR_O1 hoặc A4_FOR_O8.
+        - A6 quản lý nhịp thở, SpO2/SpO₂, ran phổi, rì rào phế nang; khó thở nếu là triệu chứng cơ năng thuộc A3, nếu là dấu hiệu/thông số hô hấp thuộc A6; A4 không viết thay A6.
+        - A7 quản lý tiêu hóa; A8 quản lý thận - tiết niệu; A9 quản lý thần kinh; A10 quản lý cơ xương khớp; A11 quản lý cơ quan khác/tổn thương khu trú; A4 không viết thay A7-A11.
+    Ý_THỨC_TIẾP_XÚC_THỂ_TRẠNG_TOÀN_TRẠNG:
+        - Dữ kiện user cung cấp phải giữ đúng.
+        - Không tự sửa rối loạn ý thức thành tỉnh; không tự ghi “tỉnh” nếu user đã cung cấp rối loạn ý thức.
+        - Không tự ghi “tiếp xúc tốt” nếu user đã cung cấp không tiếp xúc, tiếp xúc chậm hoặc tiếp xúc hạn chế.
+        - Không biến triệu chứng “mệt mỏi”, “ăn uống kém” hoặc “đau” thành “suy kiệt” hoặc “toàn trạng kém” nếu user không cung cấp nhận định toàn trạng/dấu khám hoặc bệnh cảnh không đủ căn cứ.
+        - Không tự thêm “tình trạng chung ổn” vào A4_FOR_O1 hoặc mẫu A4_FOR_O8 thường quy; chỉ ghi khi user cung cấp hoặc có căn cứ hợp lệ.
+        - Nếu user ghi bất thường toàn thân rõ, A4_FOR_O1 và A4_FOR_O8 phải giữ đúng bất thường đó ở mức phù hợp.
+    SỐT_NHIỆT_ĐỘ_PHÙ_DA_NIÊM_MẠC:
+        - Nếu user cung cấp sốt hoặc nhiệt độ, A4 phải ghi đúng; nếu user cung cấp nhiệt độ cụ thể, không đổi đơn vị hoặc làm tròn sai.
+        - Không tự tạo nhiệt độ cụ thể nếu user không cung cấp.
+        - DEFAULT_COMPLETION/AUTO_SAMPLE có thể ghi “không sốt” nếu bệnh cảnh không gợi ý sốt và không có dữ kiện trái ngược.
+        - Nếu bệnh cảnh nhiễm trùng/sốt nhưng user không cung cấp nhiệt độ, không tự tạo nhiệt độ sốt hoặc nhiệt độ cụ thể; có thể NEEDS_FIX hoặc để C1 hỏi thêm tùy pipeline.
+        - Nếu user cung cấp phù, giữ đúng vị trí và mức độ nếu có; không tự phủ định phù user đã cung cấp.
+        - DEFAULT_COMPLETION/AUTO_SAMPLE có thể ghi “không phù” nếu bệnh cảnh không gợi ý phù và không có dữ kiện trái ngược.
+        - A4 xử lý da niêm mạc ở mức toàn thân; bất thường có thể gồm da niêm mạc nhợt, vàng, tím, xuất huyết lan tỏa, da niêm mạc khô/môi khô nếu user cung cấp như dấu khám toàn thân.
+        - Không kéo tổn thương da/niêm mạc khu trú thuộc module chuyên khoa vào A4 nếu không phải nhận định toàn thân; A11 xử lý phần khu trú sau theo phạm vi A11.
+    HẠCH_NGOẠI_VI_TUYẾN_GIÁP:
+        - Bất thường hạch ngoại vi/tuyến giáp user cung cấp phải ghi đúng, gồm vị trí và tính chất hạch nếu có.
+        - Trong mẫu thường quy O8 phải dùng literal “Hạch ngoại vi không sưng đau” và “tuyến giáp không sờ thấy”.
+        - Trong mẫu thường quy O1 không ghi hạch ngoại vi/tuyến giáp bình thường.
+        - Không tự tạo hạch ngoại vi bất thường, tuyến giáp bất thường, bướu giáp, đau tuyến giáp hoặc nhân tuyến giáp nếu user không cung cấp.
+        - Không dùng wording cũ: “hạch ngoại vi không sờ thấy”, “tuyến giáp không to” trong mẫu thường quy.
+    A4_FOR_O1:
+        - A4_FOR_O1 là bản khám toàn thân ngắn, cụ thể, không làm O1 dài và không lặp phần thuộc A5-A11.
+        - A4_FOR_O1 nên gồm ý thức/tiếp xúc, thể trạng hoặc tình trạng chung nếu cần, bất thường toàn thân nổi bật nếu có, phù, sốt/nhiệt độ nếu có hoặc cần ghi, da niêm mạc toàn thân nếu cần.
+        - Mẫu mặc định khi DEFAULT_COMPLETION/AUTO_SAMPLE, không có bất thường toàn thân và không có dữ kiện trái ngược: A4_FOR_O1 = Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
+        - A4_FOR_O1 thường quy không ghi hạch ngoại vi hoặc tuyến giáp bình thường; chỉ đưa hạch ngoại vi/tuyến giáp vào O1 khi user cung cấp bất thường hoặc dữ kiện rõ cần ghi theo dữ liệu hợp lệ.
+        - Nếu user cung cấp sốt, phù, rối loạn ý thức, tình trạng chung bất thường, hạch ngoại vi/tuyến giáp bất thường hoặc bất thường A4 rõ, O1 phải phản ánh tương ứng ở mức ngắn và không phủ định/làm nhẹ dữ kiện user.
+        - A4_FOR_O1 không chứa mạch, huyết áp, nhịp thở, SpO2/SpO₂, triệu chứng cơ năng hoặc khám cơ quan chuyên khoa ngoài scope A4.
+    A4_FOR_O8:
+        - A4_FOR_O8 là bản khám toàn thân dùng cho O8, có thể chi tiết hơn O1 nhưng không thêm dữ kiện ngoài phạm vi A4.
+        - A4_FOR_O8 nên gồm ý thức, tiếp xúc, thể trạng, phù, sốt/nhiệt độ nếu user cung cấp nhiệt độ cụ thể hoặc chỉ ghi không sốt theo mẫu thường quy, da niêm mạc toàn thân, hạch ngoại vi, tuyến giáp, tình trạng chung chỉ khi user cung cấp hoặc có căn cứ hợp lệ.
+        - Mẫu mặc định khi DEFAULT_COMPLETION/AUTO_SAMPLE, không có bất thường toàn thân và không có dữ kiện trái ngược: A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
+        - A4_FOR_O8 có hạch ngoại vi/tuyến giáp thường quy theo literal trên.
+        - Nếu user cung cấp bất thường A4 rõ, O8 phải phản ánh tương ứng đầy đủ hơn O1.
+        - Bất thường ở đâu thì thay thế phần tương ứng ở đó, không thêm lan man.
+        - Nếu user cung cấp da niêm mạc khô, môi khô hoặc mệt mỏi nhiều như nhận định toàn thân/dấu khám toàn thân, A4_FOR_O1 và A4_FOR_O8 được ghi đúng dữ kiện đó.
+        - Không tự suy dấu mất nước, da niêm mạc khô hoặc môi khô từ chẩn đoán đái tháo đường, bệnh sử, khát nhiều/tiểu nhiều hoặc triệu chứng cơ năng nếu user chưa cung cấp dấu khám tương ứng.
+        - A4_FOR_O8 không chứa mạch, huyết áp, nhịp thở, SpO2/SpO₂, triệu chứng cơ năng hoặc khám cơ quan chuyên khoa ngoài scope A4.
+    ĐỒNG_BỘ_O1_O8:
+        - A4_FOR_O1 và A4_FOR_O8 không được mâu thuẫn nhau.
+        - Nếu O1 ghi có sốt, phù, rối loạn ý thức, tình trạng chung bất thường, bất thường hạch ngoại vi hoặc tuyến giáp thì O8 cũng phải thể hiện tương ứng.
+        - Nếu O8 có bất thường A4 rõ thì O1 không được ghi bình thường trái lại.
+        - Nếu O1/O8 mâu thuẫn nhau thì A4_CHECK = NEEDS_FIX và A4_ERROR ghi rõ.
+
+A4_CHECK_PASS_IF
+    A4_CHECK = PASS khi tất cả điều kiện sau đạt:
+        1. A4_STATE đủ schema: STATE_VERSION, A4_FOR_O1, A4_FOR_O8, A4_CHECK, A4_ERROR.
+        2. A4_FOR_O1 có dữ liệu khám toàn thân hợp lệ, ngắn gọn, đúng scope A4, đúng RUN_MODE.
+        3. A4_FOR_O8 có dữ liệu khám toàn thân hợp lệ, đúng scope A4, đúng RUN_MODE, có thể chi tiết hơn O1 nhưng không thêm dữ kiện ngoài phạm vi A4.
+        4. O1/O8 không trái user input và không mâu thuẫn nhau.
+        5. O1/O8 không tự tạo dấu khám từ A1-A3, triệu chứng, bệnh sử, chẩn đoán hoặc mã bệnh.
+        6. O1/O8 không chứa mạch, huyết áp, nhịp thở, SpO2/SpO₂ hoặc khám chuyên khoa ngoài scope A4.
+        7. Mẫu thường quy O1 đúng literal/ý nghĩa: Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
+        8. Mẫu thường quy O1 không chứa hạch ngoại vi, tuyến giáp, “tình trạng chung ổn” hoặc nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
+        9. Mẫu thường quy O8 đúng literal/ý nghĩa: Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
+        10. Mẫu thường quy O8 không chứa “tình trạng chung ổn”, “hạch ngoại vi không sờ thấy”, “tuyến giáp không to” hoặc nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
+        11. Nếu A4_CHECK = PASS thì A4_ERROR = NONE.
+
+A4_NEEDS_FIX_IF
+    A4_CHECK = NEEDS_FIX nếu có bất kỳ điều kiện sau:
+        1. USER_ONLY thiếu dữ kiện khám toàn thân và không có A4_STATE hợp lệ để REUSE.
+        2. A4_FOR_O1 hoặc A4_FOR_O8 thiếu dữ liệu cần thiết hoặc chứa no-data placeholder không hợp lệ với RUN_MODE.
+        3. A4_FOR_O1 hoặc A4_FOR_O8 chứa dữ liệu ngoài scope A4.
+        4. A4_FOR_O1 hoặc A4_FOR_O8 chứa mạch, huyết áp, nhịp thở, SpO2/SpO₂ hoặc khám chuyên khoa ngoài scope.
+        5. A4_FOR_O1 hoặc A4_FOR_O8 tự tạo dấu khám từ A1-A3, triệu chứng, bệnh sử, chẩn đoán hoặc mã bệnh.
+        6. A4_FOR_O1 hoặc A4_FOR_O8 mâu thuẫn user input hoặc mâu thuẫn nhau.
+        7. DEFAULT_COMPLETION tạo mẫu trái dữ kiện user.
+        8. O8 thường quy thiếu “Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy”.
+        9. O1 thường quy đưa hạch ngoại vi/tuyến giáp bình thường vào sai.
+        10. O1/O8 tự thêm “tình trạng chung ổn” hoặc nhiệt độ cụ thể như “36,7°C” khi user không cung cấp.
+        11. State thiếu field bắt buộc.
+        12. A4_ERROR không rõ khi NEEDS_FIX hoặc A4_ERROR không phải NONE khi PASS.
+        13. Có mâu thuẫn rõ giữa user input và A1-A3 cần user/module liên quan sửa trước khi khóa A4.
+
+A4_ERROR_RULE
+    Nếu A4_CHECK = PASS thì A4_ERROR = NONE.
+    Nếu A4_CHECK = NEEDS_FIX thì A4_ERROR phải ghi lỗi cụ thể.
+    Nếu thiếu dữ liệu, A4_ERROR phải nêu dữ liệu cần user bổ sung.
+    Nếu mâu thuẫn, A4_ERROR phải nêu điểm mâu thuẫn hoặc module liên quan cần cập nhật.
+    Nếu sai phạm vi, A4_ERROR phải nêu phần cần sửa.
+    Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
+
+A4_REUSE_RULE
+    REUSE áp dụng khi latest/current A4_STATE hợp lệ đã có và user input/dependency hợp lệ không ảnh hưởng A4 hoặc không làm đổi nội dung thật của A4_FOR_O1 / A4_FOR_O8.
+    Khi REUSE, A4 dùng lại nội dung thật của latest/current A4_STATE.
+    Khi REUSE, vẫn in full A4_STATE với STATE_VERSION hiện tại.
+    Không ghi “giữ nguyên như trước”, “reuse A4”, “theo bản trước”, “không đổi” thay cho A4_FOR_O1/A4_FOR_O8.
+    Không dùng patch/delta thay cho A4_STATE chính thức; A4_REV giữ nguyên nếu A4_FOR_O1/A4_FOR_O8 không thay đổi thật.
+
+A4_REV_RULE
+    Nếu CREATE A4_STATE: A4_REV = 1.
+    Nếu UPDATE và nội dung thật của A4_FOR_O1 hoặc A4_FOR_O8 thay đổi: A4_REV tăng so với A4_REV hiện hành.
+    Nếu REUSE hoặc input/dependency hợp lệ không làm đổi nội dung thật A4_FOR_O1/A4_FOR_O8: A4_REV giữ nguyên.
+    Nếu dependency hợp lệ làm nội dung thật thay đổi: A4 phải UPDATE và A4_REV tăng.
+    A4_REV tăng/giữ theo thay đổi thật của A4_FOR_O1/A4_FOR_O8, không theo tên RUN_MODE.
+    A4_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
+    A4 không tự tạo toàn bộ A_MODULE_REV.
+    A4_STATE vẫn phải là full state, không patch/delta.
+
+A4_END
+    A4 hoàn tất khi đã CREATE / UPDATE / REUSE full A4_STATE, đã CHECK A4_STATE, và không ghi ngoài A4_ALLOWED_WRITE.
+    Sau khi hoàn tất A4_STATE, chuyển sang A5 theo A_RUN_ORDER.
+    Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
 
 <<< END A4
 
