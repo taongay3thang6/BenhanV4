@@ -140,436 +140,188 @@ A1_END
 <<< END A1
 
 A2 — TIỀN SỬ
-Version: BA S-G-A-C-O v3
-Update 00:00 30/05/2026 GMT+7
+Version: BA S-G-A-C-O v4
+Update 00:00 30/05/2026 GMT+7 — allowlist compact
 
->>> READ-LOCK: A2
-- Bắt buộc đọc tuần tự toàn bộ A2 từ A2.1 đến A2.12.
-- Không được bỏ qua mục nào.
-- Chỉ tạo A2_STATE.
-- Không tạo state của A khác.
-- Không chạy C.
-- Không render O.
-- Sau khi hoàn tất A2_STATE, chuyển sang A3 theo A_RUN_ORDER.
-<<< END READ-LOCK: A2
+A2_ROLE
+    A2 chuẩn hóa tiền sử bệnh nhân.
+    A2 tạo / cập nhật / dùng lại A2_STATE để đưa vào full current A_STATE của ROUND hiện tại.
+    A2_FINAL là nội dung tiền sử đã chuẩn hóa.
+    A2_STATE là source of truth cho dữ liệu tiền sử khi C/O cần.
+    Nếu tiền sử sai, thiếu hoặc bị lẫn với bệnh sử hiện tại, triệu chứng hiện tại, khám hiện tại, cận lâm sàng hiện tại hoặc chẩn đoán hiện tại, phải sửa tại A2.
 
-A2.1. Nhiệm vụ của A2
-    A2.1.1. Vai trò chính của A2
-        A2 là module chuẩn hóa tiền sử của bệnh nhân.
-        A2 tạo A2_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-        A2_STATE là nguồn chính thức cho C/O khi cần dữ liệu tiền sử.
+A2_ALLOWED_SOURCE
+    A2 chỉ được đọc:
+        1. User input của ROUND hiện tại.
+        2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật:
+            - ROUND_ID.
+            - STATE_VERSION.
+            - RUN_MODE.
+        3. Latest/current A2_STATE nếu đã có, chỉ để UPDATE hoặc REUSE.
+        4. File/module A2.
+    A2 không có dependency nội bộ.
+    A2 không đọc A1 hoặc A3-A15 để tạo A2_STATE.
+    Mọi nguồn ngoài allowlist này không thuộc phạm vi A2.
 
-    A2.1.2. Nội dung A2 tạo ra
-        A2 tạo:
-            1. A2_FINAL.
-            2. A2_CHECK.
-            3. A2_ERROR nếu A2_CHECK = NEEDS_FIX.
+A2_ALLOWED_ACTION
+    A2 chỉ được làm:
+        1. CREATE A2_STATE.
+        2. UPDATE A2_STATE.
+        3. REUSE A2_STATE.
+        4. CHECK A2_STATE.
+        5. Quản lý A2_REV của chính A2.
 
-    A2.1.3. Nguyên tắc trách nhiệm
-        A2 chỉ chịu trách nhiệm với dữ liệu tiền sử.
-        Nếu tiền sử sai, phải sửa A2.
-        Nếu tiền sử bị lẫn với bệnh sử hiện tại, triệu chứng hiện tại, khám hiện tại hoặc chẩn đoán hiện tại, phải sửa A2.
+    CREATE áp dụng khi chưa có latest/current A2_STATE.
+    UPDATE áp dụng khi user input ROUND hiện tại sửa hoặc bổ sung dữ liệu ảnh hưởng A2, gồm:
+        - Tiền sử bệnh lý.
+        - Bệnh nền / bệnh cũ / bệnh mạn tính.
+        - Tiền sử phẫu thuật.
+        - Tiền sử chấn thương.
+        - Dị ứng nếu user cung cấp rõ.
+        - Thuốc đang dùng lâu dài cho bệnh nền nếu user cung cấp rõ.
+        - Tiền sử gia đình nếu user cung cấp rõ.
+        - Yếu tố nguy cơ liên quan tiền sử nếu user cung cấp rõ và phù hợp phần tiền sử.
+    Khi UPDATE, A2 chỉ thay phần bị ảnh hưởng bằng dữ liệu mới; phần không bị ảnh hưởng phải lấy từ latest/current A2_STATE.
+    A2_STATE sau CREATE hoặc UPDATE phải dùng STATE_VERSION của ROUND hiện tại.
+    REUSE áp dụng khi đã có latest/current A2_STATE và user input ROUND hiện tại không ảnh hưởng A2.
 
-A2.2. Nguồn được đọc
-    A2.2.1. Nguồn được đọc
-        A2 được đọc:
-            1. User input của ROUND hiện tại.
-            2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật như ROUND_ID, STATE_VERSION, RUN_MODE.
-            3. A2_STATE hiện hành mới nhất nếu đã có.
-            4. File/module A2.
-    A2.2.2. Nguồn không được đọc
-        A2 không đọc C_STATE.
-        A2 không đọc O_OUTPUT.
-        A2 không dùng output đã render để suy ngược A2.
-        A2 không đọc state A khác để tạo A2_STATE, trừ khi có dependency hợp lệ được khai báo rõ.
-        A2 không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+A2_ALLOWED_WRITE
+    A2 chỉ ghi A2_STATE.
+    A2 không ghi A1, không ghi A3-A15, không ghi C/O, không ghi A_GATE.
+    A2 chỉ quản lý A2_REV của chính A2 trong A_MODULE_REV; A2 không tự tạo toàn bộ A_MODULE_REV.
+    A2 không đổi pipeline A_RUN_ORDER và không đổi full current A_STATE schema.
 
-A2.3. Dependency nội bộ
-    A2.3.1. Dependency của A2
-        A2 không có dependency nội bộ.
-        A2 không cần đọc A khác để tạo A2_STATE.
+A2_STATE_SCHEMA
+    A2_STATE giữ nguyên schema:
+        STATE_VERSION = ...
+        A2_FINAL = ...
+        A2_CHECK = PASS / NEEDS_FIX
+        A2_ERROR = ...
 
-A2.4. Quy tắc tạo mới / cập nhật / dùng lại A2_STATE
-    A2.4.1. Tạo mới A2_STATE
-        Áp dụng khi chưa có A2_STATE hiện hành.
-        A2 tạo A2_STATE mới từ user input của ROUND hiện tại.
-        A2 phải xác định:
-            1. A2_FINAL.
-            2. A2_CHECK.
-            3. A2_ERROR nếu cần.
+    Không thêm STATUS, UPDATED_AT, A2_TIME hoặc field mới khác.
+    Không đổi tên A2_FINAL.
+    A2_FINAL là tiền sử đã chuẩn hóa.
+    A2_ERROR chỉ dùng để ghi lỗi khi A2_CHECK = NEEDS_FIX; khi A2_CHECK = PASS thì A2_ERROR = NONE.
 
-    A2.4.2. Cập nhật A2_STATE
-        Áp dụng khi user input của ROUND hiện tại sửa hoặc bổ sung dữ liệu ảnh hưởng A2.
-        Dữ liệu có thể ảnh hưởng A2 gồm:
-            1. Tiền sử bệnh lý.
-            2. Bệnh nền / bệnh cũ / bệnh mạn tính.
-            3. Tiền sử phẫu thuật.
-            4. Tiền sử chấn thương.
-            5. Tiền sử dị ứng nếu user cung cấp rõ.
-            6. Thuốc đang dùng lâu dài cho bệnh nền nếu user cung cấp rõ.
-            7. Tiền sử gia đình nếu user cung cấp rõ và cần đưa vào tiền sử.
-            8. Yếu tố nguy cơ liên quan tiền sử nếu user cung cấp rõ.
+A2_LOGIC_RULES
+    RUN_MODE:
+        - RUN_MODE lấy từ G_STATE.
+        - A2 không tự xác định RUN_MODE.
+        - RUN_MODE độc lập với trạng thái xử lý nội bộ CREATE / UPDATE / REUSE.
 
-        Khi cập nhật:
-            - A2 đọc A2_STATE hiện hành mới nhất nếu có.
-            - A2 thay phần bị ảnh hưởng bằng dữ liệu mới.
-            - A2 giữ phần không bị ảnh hưởng bằng nội dung hiện hành mới nhất.
-            - A2_STATE sau cập nhật phải mang STATE_VERSION của ROUND hiện tại.
+    USER_ONLY:
+        - Chỉ dùng dữ liệu tiền sử user cung cấp.
+        - Không tự thêm bệnh nền.
+        - Không tự thêm tiền sử phẫu thuật / chấn thương.
+        - Không tự thêm dị ứng.
+        - Không tự thêm thuốc nền.
+        - Không tự thêm dữ kiện âm tính.
+        - Nếu thiếu dữ liệu tiền sử mà output cần xác minh, A2_CHECK = NEEDS_FIX và A2_ERROR nêu dữ liệu cần user bổ sung.
 
-    A2.4.3. Dùng lại A2_STATE
-        Áp dụng khi đã có A2_STATE hiện hành và user input của ROUND hiện tại không ảnh hưởng A2.
-        A2 dùng lại nội dung thật của A2_STATE hiện hành mới nhất.
-        A2_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong full current A_STATE.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được chỉ ghi “reuse A2” thay cho A2_FINAL.
-    A2.4.4. Quy tắc A2_REV
-        CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A2 đối với A2_STATE; không phải RUN_MODE.
-        A2 chỉ quản lý revision của chính A2 trong A_MODULE_REV.
-        A2 không tự tạo toàn bộ A_MODULE_REV.
-        Nếu CREATE A2_STATE:
-            - A2_REV = 1.
-        Nếu UPDATE và A2_FINAL thay đổi thật:
-            - A2_REV tăng so với A2_REV hiện hành.
-        Nếu REUSE hoặc input ROUND hiện tại không làm thay đổi nội dung thật của A2_FINAL:
-            - A2_REV giữ nguyên.
-        A2_REV tăng hoặc giữ nguyên theo thay đổi thật của A2_FINAL; không theo tên RUN_MODE.
-        A2_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
-        A2_STATE vẫn phải là full state; không được in patch/delta.
+    DEFAULT_COMPLETION:
+        - Dùng dữ liệu user cung cấp làm nền và được chuẩn hóa cách trình bày tiền sử.
+        - Không biến triệu chứng hiện tại, chẩn đoán hiện tại hoặc mã ICD hiện tại thành tiền sử nếu user không nói đó là bệnh cũ / bệnh nền.
+        - Không tự thêm dữ kiện âm tính về dị ứng, bệnh gan thận, chống chỉ định hoặc thuốc đang dùng nếu user không cung cấp.
+        - Nếu không có dữ kiện tiền sử hợp lệ, A2_FINAL có thể ghi “Chưa ghi nhận tiền sử bệnh lý.” và không suy rộng thành các âm tính khác.
 
-A2.5. Quy tắc xử lý theo RUN_MODE
-    RUN_MODE là chế độ tạo dữ liệu do G_STATE cung cấp.
-    A2 chỉ đọc RUN_MODE từ G_STATE; A2 không tự xác định RUN_MODE.
-    RUN_MODE độc lập với trạng thái xử lý nội bộ CREATE / UPDATE / REUSE của A2.
-    A2.5.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        A2 chỉ dùng dữ liệu tiền sử user cung cấp.
-        Nếu user không cung cấp tiền sử bệnh lý:
-            - Không tự thêm bệnh nền.
-            - Không tự thêm tiền sử phẫu thuật / chấn thương.
-            - Không tự thêm dị ứng thuốc.
-            - Không tự thêm dữ kiện âm tính chưa được user cung cấp.
-            - Chuẩn hóa A2_FINAL theo quy tắc thiếu/không ghi nhận tiền sử của A2.
-        Nếu thiếu dữ liệu tiền sử mà output cần xác minh:
-            - A2_CHECK = NEEDS_FIX.
-            - A2_ERROR ghi rõ dữ liệu cần user bổ sung.
+    AUTO_SAMPLE:
+        - Được tạo tiền sử mẫu phù hợp bệnh cảnh mẫu.
+        - Tiền sử mẫu phải nhất quán với ca mẫu và các A khác.
+        - Không dùng logic AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
 
-    A2.5.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        A2 dùng dữ liệu user cung cấp làm nền.
-        A2 được chuẩn hóa cách trình bày tiền sử.
-        A2 không tự biến triệu chứng hiện tại, chẩn đoán hiện tại hoặc mã ICD hiện tại thành tiền sử nếu user không nói đó là bệnh cũ / bệnh nền.
-        A2 không tự thêm dữ kiện âm tính liên quan dị ứng thuốc, bệnh gan thận, chống chỉ định hoặc thuốc đang dùng nếu user không cung cấp.
-        Nếu user không cung cấp bất kỳ dữ kiện tiền sử hợp lệ nào:
-            - A2_FINAL có thể ghi “Chưa ghi nhận tiền sử bệnh lý.”
-            - Không suy rộng thành “không dị ứng thuốc”, “không bệnh gan thận”, “không chống chỉ định”, “không dùng thuốc”.
-            - Tuyệt đối không nối thêm câu no-data về dị ứng thuốc vào A2_FINAL; trạng thái thiếu dữ liệu dị ứng thuốc, nếu cần, chỉ được để ở check/error/debug nội bộ phù hợp.
-        Nếu user không cung cấp bệnh lý nền nhưng có dữ kiện tiền sử hợp lệ khác:
-            - A2 phải giữ dị ứng, tiền sử phẫu thuật / chấn thương, thuốc đang dùng lâu dài cho bệnh nền, tiền sử gia đình hoặc yếu tố nguy cơ do user cung cấp trong A2_FINAL.
-            - Có thể ghi “Chưa ghi nhận bệnh nền” như một thành phần nếu phù hợp.
-            - Không được ghi đè hoặc làm mất dữ kiện thật user đã cung cấp.
+    Phạm vi tiền sử:
+        - Tiền sử là dữ liệu thuộc quá khứ hoặc nền sẵn có của bệnh nhân trước vấn đề hiện tại.
+        - Phạm vi gồm: tiền sử bệnh lý; bệnh nền / bệnh cũ / bệnh mạn tính; phẫu thuật; chấn thương; dị ứng rõ; thuốc nền lâu dài; tiền sử gia đình rõ; yếu tố nguy cơ phù hợp.
+        - Khi có bệnh nền rõ: giữ bản chất bệnh, thời gian mắc và thuốc điều trị nếu user cung cấp; không tự thêm mức độ ổn định hoặc biến chứng.
+        - Khi có nhiều tiền sử: sắp xếp rõ ràng, có thể tách bằng dấu chấm hoặc dấu chấm phẩy, không làm mất dữ kiện và không tự thêm thông tin.
 
-    A2.5.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        A2 được tạo tiền sử mẫu phù hợp bệnh cảnh mẫu.
-        Tiền sử mẫu phải nhất quán với ca mẫu và các A khác.
-        Không dùng logic AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
+    A2_REV:
+        - Nếu CREATE A2_STATE: A2_REV = 1.
+        - Nếu UPDATE và A2_FINAL thay đổi thật: A2_REV tăng so với A2_REV hiện hành.
+        - Nếu REUSE hoặc input ROUND hiện tại không làm thay đổi nội dung thật của A2_FINAL: A2_REV giữ nguyên.
+        - A2_REV tăng hoặc giữ theo thay đổi thật của A2_FINAL, không theo tên RUN_MODE.
+        - A2_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
+        - A2 không tự tạo toàn bộ A_MODULE_REV.
 
-A2.6. Quy tắc xác định tiền sử
-    A2.6.1. Khái niệm tiền sử trong A2
-        Tiền sử trong A2 là dữ liệu thuộc quá khứ hoặc nền sẵn có của bệnh nhân trước vấn đề hiện tại.
-        A2 có thể bao gồm:
-            1. Tiền sử bệnh lý.
-            2. Bệnh nền / bệnh cũ / bệnh mạn tính.
-            3. Tiền sử phẫu thuật.
-            4. Tiền sử chấn thương.
-            5. Dị ứng nếu user cung cấp rõ.
-            6. Thuốc đang dùng lâu dài cho bệnh nền nếu user cung cấp rõ.
-            7. Tiền sử gia đình nếu user cung cấp rõ.
-            8. Yếu tố nguy cơ nếu user cung cấp rõ và phù hợp phần tiền sử.
+A2_SPECIAL_RULES
+    No-data / âm tính giả:
+        - Nếu không có dữ kiện tiền sử hợp lệ: A2_FINAL = Chưa ghi nhận tiền sử bệnh lý.
+        - “Chưa ghi nhận tiền sử bệnh lý” chỉ có nghĩa là chưa ghi nhận tiền sử bệnh lý trong dữ liệu user cung cấp.
+        - Câu này không đồng nghĩa với: không dị ứng; không bệnh gan thận; không chống chỉ định; không dùng thuốc thường xuyên; không có yếu tố nguy cơ; không có tiền sử gia đình; không thai kỳ / cho con bú.
+        - “Khỏe mạnh”, “tiền sử khỏe mạnh”, “chưa phát hiện bệnh lý gì” hoặc “chưa ghi nhận tiền sử bệnh lý” có thể chuẩn hóa thành “Chưa ghi nhận tiền sử bệnh lý.”
+        - Không mở rộng các cụm trên thành dữ kiện âm tính khác.
+        - Không đưa dữ kiện an toàn thuốc còn thiếu vào A2_FINAL.
+        - Không biến A2_FINAL thành checklist an toàn thuốc.
 
-    A2.6.2. Khi user không cung cấp dữ kiện tiền sử hợp lệ
-        Chỉ khi user không cung cấp bất kỳ dữ kiện tiền sử hợp lệ nào:
-            - A2_FINAL = Chưa ghi nhận tiền sử bệnh lý.
-        Nếu user không cung cấp bệnh lý nền nhưng có dị ứng, tiền sử phẫu thuật / chấn thương, thuốc đang dùng lâu dài cho bệnh nền, tiền sử gia đình hoặc yếu tố nguy cơ:
-            - A2 phải giữ các dữ kiện đó trong A2_FINAL.
-            - Có thể ghi thêm “Chưa ghi nhận bệnh nền” như một thành phần nếu phù hợp.
-            - Không được ghi đè hoặc làm mất dữ kiện thật user đã cung cấp.
-        “Chưa ghi nhận tiền sử bệnh lý” chỉ có nghĩa là chưa ghi nhận tiền sử bệnh lý trong dữ liệu user cung cấp.
-        Câu này không đồng nghĩa với:
-            - Không dị ứng thuốc.
-            - Không bệnh gan thận.
-            - Không chống chỉ định thuốc.
-            - Không dùng thuốc thường xuyên.
-            - Không có yếu tố nguy cơ.
-            - Không có tiền sử gia đình.
+    Dị ứng:
+        - Chỉ ghi dị ứng nếu user cung cấp rõ.
+        - Nếu user ghi dị ứng thuốc, đưa vào A2_FINAL.
+        - Nếu user ghi không dị ứng thuốc, được đưa vào A2_FINAL.
+        - Nếu user không nhắc dị ứng, không tự ghi “không dị ứng thuốc” và không ghi câu no-data về dị ứng thuốc trong A2_FINAL.
+        - Không tự suy dị ứng từ thuốc đang dùng hoặc chẩn đoán.
 
-    A2.6.3. Khi user ghi “khỏe mạnh” hoặc câu tương tự
-        Nếu user ghi:
-            - “Tiền sử khỏe mạnh.”
-            - “Khỏe mạnh.”
-            - “Chưa phát hiện bệnh lý gì.”
-            - “Chưa ghi nhận tiền sử bệnh lý.”
-        A2 có thể chuẩn hóa:
-            - Chưa ghi nhận tiền sử bệnh lý.
-        Không tự mở rộng thành dữ kiện âm tính khác nếu user không cung cấp rõ.
+    Thuốc nền:
+        - Thuốc đang dùng lâu dài chỉ đưa vào A2_FINAL nếu user cung cấp rõ đó là thuốc nền / thuốc điều trị bệnh nền lâu dài.
+        - Không đưa thuốc điều trị đợt hiện tại vào A2_FINAL nếu user không nói đó là thuốc nền.
+        - Không tự thêm liều thuốc, mức độ tuân thủ hoặc câu “đang điều trị thường xuyên” nếu user không cung cấp.
 
-    A2.6.4. Khi user có tiền sử bệnh lý rõ
-        Nếu user cung cấp bệnh nền / bệnh cũ / bệnh mạn tính:
-            - Giữ đúng bản chất bệnh.
-            - Giữ thời gian mắc bệnh nếu user cung cấp.
-            - Giữ thuốc điều trị bệnh nền nếu user cung cấp.
-            - Không tự thêm mức độ ổn định nếu user không cung cấp.
-            - Không tự thêm biến chứng nếu user không cung cấp.
-        Ví dụ:
-            Input:
-                Tăng huyết áp 5 năm, đang dùng amlodipin 5 mg/ngày.
-            A2_FINAL:
-                Tăng huyết áp 5 năm, đang điều trị amlodipin 5 mg/ngày.
+    Tiền sử gia đình / phẫu thuật / chấn thương:
+        - Chỉ ghi khi user cung cấp rõ.
+        - Tiền sử gia đình phải được phân biệt với tiền sử bản thân.
+        - Giữ thời điểm phẫu thuật / chấn thương nếu user cung cấp.
+        - Không tự thêm âm tính hoặc biến chứng.
 
-    A2.6.5. Khi có nhiều tiền sử
-        Nếu có nhiều tiền sử:
-            - Sắp xếp thành câu rõ ràng.
-            - Có thể tách bằng dấu chấm hoặc dấu chấm phẩy.
-            - Không làm mất dữ kiện user cung cấp.
-            - Không tự thêm thông tin chưa có.
-        Ví dụ:
-            Input:
-                Tăng huyết áp 5 năm. Đái tháo đường type 2 8 năm. Dị ứng penicillin.
-            A2_FINAL:
-                Tăng huyết áp 5 năm; đái tháo đường type 2 8 năm. Dị ứng penicillin.
+    Ranh giới với dữ liệu hiện tại:
+        - Không biến triệu chứng hiện tại thành tiền sử nếu user không nói là bệnh cũ / bệnh nền.
+        - Không biến chẩn đoán hiện tại thành tiền sử nếu user không nói là bệnh cũ / bệnh nền.
+        - Không biến mã ICD hiện tại thành tiền sử nếu user không nói là bệnh cũ / bệnh nền.
+        - Không biến cận lâm sàng hiện tại thành tiền sử nếu user không nói là bệnh cũ / bệnh nền.
+        - HbA1c cao hoặc glucose cao không tự tạo tiền sử đái tháo đường nếu user không cung cấp chẩn đoán hoặc bệnh nền.
+        - Hình ảnh thoái hóa / thoát vị / gút / viêm khớp hiện tại không tự trở thành tiền sử nếu user không nói là bệnh cũ / bệnh nền.
+        - Không đưa bệnh sử hiện tại, triệu chứng hiện tại, khám hiện tại, cận lâm sàng hiện tại, chẩn đoán hiện tại hoặc thuốc điều trị đợt này vào A2_FINAL nếu không thuộc tiền sử.
 
-    A2.6.6. Khi có thuốc điều trị bệnh nền
-        Thuốc đang dùng lâu dài được đưa vào A2_FINAL nếu user cung cấp rõ đó là thuốc đang dùng cho bệnh nền.
-        Không đưa thuốc điều trị đợt hiện tại vào tiền sử nếu user không nói đó là thuốc nền.
-        Không tự thêm liều thuốc nếu user không cung cấp.
-        Không tự thêm tình trạng tuân thủ thuốc nếu user không cung cấp.
+A2_CHECK_PASS_IF
+    A2_CHECK = PASS khi:
+        1. A2_STATE đủ schema: STATE_VERSION, A2_FINAL, A2_CHECK, A2_ERROR.
+        2. A2_FINAL hợp lệ theo phạm vi tiền sử.
+        3. A2_FINAL giữ đúng ý nghĩa dữ liệu user cung cấp.
+        4. A2_FINAL không làm mất dữ kiện tiền sử user cung cấp.
+        5. A2_FINAL không tự thêm dữ kiện chưa được user cung cấp.
+        6. A2_FINAL không tự thêm âm tính giả.
+        7. A2_FINAL không lẫn triệu chứng hiện tại.
+        8. A2_FINAL không lẫn chẩn đoán hiện tại.
+        9. A2_FINAL không lẫn mã ICD hiện tại.
+        10. A2_FINAL không lẫn cận lâm sàng hiện tại.
+        11. A2_FINAL không lẫn dữ kiện an toàn thuốc còn thiếu.
+        12. A2_ERROR = NONE.
 
-    A2.6.7. Khi có dị ứng
-        Chỉ ghi dị ứng nếu user cung cấp rõ.
-        Nếu user ghi dị ứng thuốc:
-            - Đưa vào A2_FINAL.
-        Nếu user ghi không dị ứng thuốc:
-            - Được đưa vào A2_FINAL.
-        Nếu user không nhắc dị ứng:
-            - Không tự ghi “không dị ứng thuốc”.
-            - Không ghi câu no-data về dị ứng thuốc trong A2_FINAL.
-            - Nếu cần theo dõi thiếu dữ liệu dị ứng thuốc phục vụ an toàn thuốc, chỉ ghi ở field nội bộ/check/debug phù hợp; không đưa vào A2_FINAL thường quy.
+A2_NEEDS_FIX_IF
+    A2_CHECK = NEEDS_FIX khi có bất kỳ lỗi nào sau:
+        1. Thiếu field schema.
+        2. A2_FINAL lẫn dữ liệu ngoài tiền sử.
+        3. A2_FINAL tự thêm âm tính hoặc dữ kiện chưa được user cung cấp.
+        4. A2_FINAL làm mất hoặc sai nghĩa dữ kiện tiền sử user đã cung cấp.
+        5. User/output cần xác minh dữ liệu tiền sử nhưng dữ liệu không đủ rõ.
+        6. A2_FINAL chứa dị ứng, thuốc nền, tiền sử gia đình, phẫu thuật hoặc chấn thương khi user chưa cung cấp rõ.
+        7. A2_FINAL biến triệu chứng, chẩn đoán, mã ICD hoặc cận lâm sàng hiện tại thành tiền sử.
 
-    A2.6.8. Khi có tiền sử gia đình
-        Chỉ đưa tiền sử gia đình vào A2_FINAL nếu user cung cấp rõ.
-        Tiền sử gia đình phải được phân biệt với tiền sử bản thân.
-        Không tự tạo tiền sử gia đình âm tính nếu user không cung cấp.
+A2_ERROR_RULE
+    Nếu A2_CHECK = PASS: A2_ERROR = NONE.
+    Nếu A2_CHECK = NEEDS_FIX: A2_ERROR phải ghi lỗi cụ thể.
+    Nếu thiếu dữ liệu: A2_ERROR phải nêu dữ liệu cần user bổ sung.
+    Nếu sai phạm vi: A2_ERROR phải nêu phần cần sửa.
+    Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
 
-    A2.6.9. Khi có tiền sử phẫu thuật / chấn thương
-        Chỉ ghi tiền sử phẫu thuật / chấn thương nếu user cung cấp rõ.
-        Giữ thời điểm phẫu thuật / chấn thương nếu user cung cấp.
-        Không tự thêm biến chứng sau phẫu thuật / chấn thương nếu user không cung cấp.
+A2_REUSE_RULE
+    REUSE áp dụng khi latest/current A2_STATE có và user input ROUND hiện tại không ảnh hưởng A2.
+    Khi REUSE, A2 dùng lại nội dung thật của latest/current A2_STATE và vẫn in full A2_STATE với STATE_VERSION của ROUND hiện tại.
+    Không được ghi “giữ nguyên như trước”, “reuse A2”, “theo bản trước”, “không đổi” hoặc patch/delta thay cho A2_FINAL.
+    Khi REUSE hoặc input ROUND hiện tại không làm thay đổi nội dung thật của A2_FINAL, A2_REV giữ nguyên.
 
-A2.7. Quy tắc không biến dữ liệu hiện tại thành tiền sử
-    A2.7.1. Không biến triệu chứng hiện tại thành tiền sử
-        Triệu chứng hiện tại thuộc A3 hoặc các A khám tương ứng, không thuộc A2 nếu user không nói đó là bệnh cũ.
-        Ví dụ:
-            Input:
-                Đau thắt lưng lan chân phải 3 ngày.
-            Không được ghi A2_FINAL:
-                Tiền sử đau thắt lưng.
-            A2_FINAL đúng nếu không có tiền sử:
-                Chưa ghi nhận tiền sử bệnh lý.
-
-    A2.7.2. Không biến chẩn đoán hiện tại thành tiền sử
-        Chẩn đoán hiện tại thuộc A12, không tự đưa vào A2 nếu user không nói đó là bệnh cũ / bệnh nền.
-        Ví dụ:
-            Input:
-                Chẩn đoán hiện tại: viêm phổi cộng đồng.
-                Không ghi tiền sử bệnh lý.
-            A2_FINAL:
-                Chưa ghi nhận tiền sử bệnh lý.
-
-    A2.7.3. Không biến mã ICD hiện tại thành tiền sử
-        Mã ICD hiện tại không tự trở thành tiền sử.
-        Nếu user chỉ cung cấp mã ICD của bệnh hiện tại, A2 không đưa mã đó vào A2_FINAL.
-        Chỉ đưa vào tiền sử nếu user nói rõ bệnh đó đã có từ trước hoặc là bệnh nền.
-
-    A2.7.4. Không dùng cận lâm sàng hiện tại để suy ra tiền sử
-        Kết quả xét nghiệm, chẩn đoán hình ảnh hoặc thăm dò hiện tại không tự tạo thành tiền sử.
-        Ví dụ:
-            HbA1c cao không tự tạo tiền sử “đái tháo đường” nếu user không cung cấp chẩn đoán hoặc bệnh nền.
-        Nếu cần đánh giá bệnh mới phát hiện, xử lý ở A12/C liên quan, không xử lý thành tiền sử trong A2.
-
-    A2.7.5. Không đưa dữ kiện an toàn thuốc còn thiếu vào A2_FINAL
-        A2_FINAL không phải nơi liệt kê mọi dữ kiện an toàn thuốc còn thiếu.
-        Không ghi trong A2_FINAL các câu no-data về dị ứng thuốc, bệnh gan thận, chống chỉ định hoặc thai kỳ / cho con bú.
-        Các dữ kiện thiếu liên quan an toàn thuốc sẽ được module phù hợp xử lý nếu cần.
-
-A2.8. Ví dụ cụ thể
-    A2.8.1. Ví dụ có tiền sử bệnh lý rõ
-        Input:
-            Tiền sử tăng huyết áp 5 năm, đang dùng amlodipin 5 mg/ngày.
-        A2_STATE:
-            STATE_VERSION = V1
-            A2_FINAL = Tăng huyết áp 5 năm, đang điều trị amlodipin 5 mg/ngày.
-            A2_CHECK = PASS
-            A2_ERROR = NONE
-
-    A2.8.2. Ví dụ có tiền sử bệnh lý và dị ứng thuốc user cung cấp rõ
-        Input:
-            Tiền sử đái tháo đường type 2 8 năm. Dị ứng penicillin.
-        A2_STATE:
-            STATE_VERSION = V1
-            A2_FINAL = Đái tháo đường type 2 8 năm. Dị ứng penicillin.
-            A2_CHECK = PASS
-            A2_ERROR = NONE
-
-    A2.8.3. Ví dụ user không cung cấp tiền sử bệnh lý
-        Input:
-            Bệnh nhân đau thắt lưng lan chân phải 3 ngày.
-        A2_STATE:
-            STATE_VERSION = V1
-            A2_FINAL = Chưa ghi nhận tiền sử bệnh lý.
-            A2_CHECK = PASS
-            A2_ERROR = NONE
-
-    A2.8.4. Ví dụ không biến chẩn đoán hiện tại thành tiền sử
-        Input:
-            Chẩn đoán hiện tại: viêm phổi cộng đồng.
-            Không ghi tiền sử bệnh lý.
-        A2_STATE:
-            STATE_VERSION = V1
-            A2_FINAL = Chưa ghi nhận tiền sử bệnh lý.
-            A2_CHECK = PASS
-            A2_ERROR = NONE
-
-    A2.8.5. Ví dụ không tự thêm dữ kiện âm tính
-        Input:
-            Tiền sử tăng huyết áp.
-            Không có thông tin dị ứng thuốc, bệnh gan thận, chống chỉ định.
-        A2_STATE:
-            STATE_VERSION = V1
-            A2_FINAL = Tăng huyết áp.
-            A2_CHECK = PASS
-            A2_ERROR = NONE
-
-A2.9. Schema A2_STATE
-    A2.9.1. Schema chuẩn
-        A2_STATE:
-            STATE_VERSION = ...
-            A2_FINAL = ...
-            A2_CHECK = PASS / NEEDS_FIX
-            A2_ERROR = ...
-
-    A2.9.2. Nguyên tắc schema
-        A2_STATE không cần in trạng thái tạo mới / cập nhật / dùng lại.
-        A2_STATE không cần STATUS.
-        A2_STATE không cần UPDATED_AT.
-        A2_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        A2_FINAL là tiền sử đã chuẩn hóa.
-        A2_CHECK là kết quả tự kiểm của A2.
-        A2_ERROR chỉ dùng khi A2_CHECK = NEEDS_FIX.
-
-    A2.9.3. Khi A2_CHECK = PASS
-        Nếu A2_CHECK = PASS:
-            - A2_FINAL có giá trị hợp lệ.
-            - A2_ERROR = NONE.
-
-    A2.9.4. Khi A2_CHECK = NEEDS_FIX
-        Nếu A2_CHECK = NEEDS_FIX:
-            - A2_ERROR phải ghi rõ lỗi.
-            - A2_ERROR phải nêu dữ liệu cần user bổ sung hoặc phần cần sửa.
-            - Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-A2.10. Lỗi không được mắc
-    A2.10.1. Lỗi tự thêm tiền sử
-        Không tự thêm tiền sử nếu user không cung cấp.
-        Không tự thêm bệnh nền.
-        Không tự thêm tiền sử phẫu thuật / chấn thương.
-        Không tự thêm dị ứng thuốc âm tính.
-        Không tự thêm bệnh gan thận âm tính.
-        Không tự thêm chống chỉ định âm tính.
-        Không tự thêm tiền sử gia đình âm tính.
-        Không tự thêm thời gian mắc bệnh nếu user không cung cấp.
-        Không tự thêm mức độ ổn định / không ổn định nếu user không cung cấp.
-
-    A2.10.2. Lỗi biến dữ liệu hiện tại thành tiền sử
-        Không biến triệu chứng hiện tại thành tiền sử.
-        Không biến chẩn đoán hiện tại thành tiền sử nếu user không nói đó là bệnh cũ.
-        Không biến mã ICD hiện tại thành tiền sử.
-        Không dùng kết quả cận lâm sàng hiện tại để tự tạo tiền sử.
-        Không đưa thuốc đợt hiện tại vào tiền sử nếu user không nói đó là thuốc điều trị bệnh nền.
-        Không đưa bệnh trình hoặc tình trạng ra viện vào A2_FINAL.
-        Không đưa đơn thuốc điều trị đợt hiện tại vào A2_FINAL, trừ khi user nói rõ đó là thuốc đang dùng lâu dài cho bệnh nền.
-        Không đưa thuốc dùng trong đợt hiện tại vào A2_FINAL như tiền sử thuốc nền.
-        Không đưa chẩn đoán hiện tại vào A2_FINAL nếu user không nói rõ đó là bệnh cũ / bệnh nền.
-
-    A2.10.3. Lỗi trình bày A2_FINAL
-        Không ghi dữ kiện an toàn thuốc còn thiếu vào A2_FINAL.
-        Không ghi câu no-data về dị ứng thuốc, bệnh gan thận, thuốc đang dùng trong A2_FINAL.
-        Không nối thêm nội dung sau “Chưa ghi nhận tiền sử bệnh lý.” nếu user không cung cấp tiền sử.
-        Không trộn tiền sử với bệnh sử hiện tại.
-        Không trộn tiền sử với khám hiện tại.
-        Không trộn tiền sử với chẩn đoán hiện tại.
-        Không trộn tiền sử với hướng điều trị hiện tại.
-
-    A2.10.4. Lỗi vận hành state
-        Không tạo state của A khác.
-        Không dùng patch/delta làm A2_STATE chính thức.
-        Không ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không đưa metadata không cần thiết vào A2_STATE.
-        Không render O trong A2.
-        Không chạy C trong A2.
-        Không suy ngược A2 từ O_OUTPUT.
-
-A2.11. A2_CHECK
-    A2.11.1. Kiểm nguồn tiền sử
-        Kiểm:
-            1. User có cung cấp tiền sử hay không.
-            2. Có dữ kiện bệnh nền / bệnh cũ / bệnh mạn tính hay không.
-            3. Có tiền sử phẫu thuật / chấn thương nếu user cung cấp hay không.
-            4. Có tiền sử dị ứng nếu user cung cấp rõ hay không.
-            5. Có thuốc đang dùng lâu dài cho bệnh nền nếu user cung cấp rõ hay không.
-            6. Có tiền sử gia đình nếu user cung cấp rõ hay không.
-            7. Có yếu tố nguy cơ nếu user cung cấp rõ hay không.
-
-    A2.11.2. Kiểm A2_FINAL
-        Kiểm:
-            1. Nếu user cung cấp tiền sử, A2_FINAL giữ đúng ý nghĩa user cung cấp.
-            2. Nếu user không cung cấp tiền sử bệnh lý, A2_FINAL theo quy tắc của A2.
-            3. A2_FINAL không chứa triệu chứng hiện tại bị biến thành tiền sử.
-            4. A2_FINAL không chứa chẩn đoán hiện tại nếu user không nói đó là bệnh cũ.
-            5. A2_FINAL không chứa mã ICD hiện tại.
-            6. A2_FINAL không chứa dữ kiện an toàn thuốc còn thiếu.
-            7. A2_FINAL không tự thêm dữ kiện âm tính chưa được user cung cấp.
-            8. A2_FINAL không tự thêm thời gian mắc bệnh, thuốc nền hoặc tiền sử gia đình nếu user không cung cấp.
-
-    A2.11.3. Kiểm A2_STATE
-        Kiểm:
-            1. A2_STATE có STATE_VERSION.
-            2. A2_STATE có A2_FINAL.
-            3. A2_STATE có A2_CHECK.
-            4. Nếu A2_CHECK = NEEDS_FIX, có A2_ERROR rõ.
-            5. Nếu A2_CHECK = PASS, A2_ERROR = NONE.
-            6. A2_STATE sẵn sàng đưa vào full current A_STATE.
-
-    A2.11.4. Kết quả A2_CHECK
-        Nếu đạt:
-            A2_CHECK = PASS.
-            A2_ERROR = NONE.
-        Nếu chưa đạt:
-            A2_CHECK = NEEDS_FIX.
-            A2_ERROR = ghi rõ lỗi.
-
-A2.12. Kết thúc module
-    A2.12.1. Điều kiện hoàn tất A2
-        A2 hoàn tất khi:
-            1. Đã tạo mới, cập nhật hoặc dùng lại A2_STATE.
-            2. Đã kiểm A2_CHECK.
-            3. Không tạo dữ liệu ngoài A2_STATE.
-            4. Không tạo state của A khác.
-            5. Không chạy C.
-            6. Không render O.
-
-    A2.12.2. Chuyển module tiếp theo
-        Sau khi hoàn tất A2_STATE, chuyển sang A3 theo A_RUN_ORDER.
-        Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
+A2_END
+    A2 hoàn tất khi đã CREATE / UPDATE / REUSE A2_STATE, đã CHECK A2_STATE, và không ghi ngoài A2_ALLOWED_WRITE.
+    Sau khi hoàn tất A2_STATE, chuyển sang A3 theo A_RUN_ORDER.
+    Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
 
 <<< END A2
 
