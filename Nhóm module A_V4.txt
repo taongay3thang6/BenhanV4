@@ -992,856 +992,205 @@ A5_END
 ####################################################################################################
 
 A6 — KHÁM HÔ HẤP
-Version: BA S-G-A-C-O v3
+Version: BA S-G-A-C-O v4
 Update 00:31 30/05/2026 GMT+7
 
->>> READ-LOCK: A6
-- Bắt buộc đọc tuần tự toàn bộ A6 từ A6.1 đến A6.17.
-- Không được bỏ qua mục nào.
-- Chỉ tạo A6_STATE.
-- Không tạo state của A khác.
-- Không chạy C.
-- Không render O.
-- Sau khi hoàn tất A6_STATE, chuyển sang A7 theo A_RUN_ORDER.
-<<< END READ-LOCK: A6
+A6_ROLE
+    A6 chuẩn hóa khám hô hấp thực thể / khám phổi để tạo, cập nhật hoặc dùng lại A6_STATE trong full current A_STATE của ROUND hiện tại.
+    A6_STATE là nguồn chính thức cho dữ liệu khám hô hấp khi C/O cần.
+    A6 tạo hai bản nội dung:
+        1. A6_FOR_O1 = bản ngắn cho O1.
+        2. A6_FOR_O8 = bản chi tiết hơn cho O8.
+    Nếu khám hô hấp sai, lẫn module khác hoặc mâu thuẫn dữ liệu nguồn, phải sửa tại A6.
 
-A6.1. Nhiệm vụ của A6
-    A6.1.1. Vai trò chính của A6
-        A6 là module chuẩn hóa phần khám hô hấp thực thể.
-        A6 tạo A6_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-        A6_STATE là nguồn chính thức cho C/O khi cần dữ liệu khám hô hấp.
-        A6 tạo dữ liệu khám hô hấp dùng cho O1 và O8.
-    A6.1.2. Nội dung A6 tạo ra
-        A6 tạo:
-            1. A6_FOR_O1.
-            2. A6_FOR_O8.
-            3. A6_CHECK.
-            4. A6_ERROR nếu A6_CHECK = NEEDS_FIX.
-            5. UPDATED_AT = HH:MM dd/mm/yyyy.
-    A6.1.3. Nguyên tắc trách nhiệm
-        A6 chỉ chịu trách nhiệm với khám hô hấp thực thể.
-        Nếu khám hô hấp sai, phải sửa A6.
-        Nếu khám hô hấp bị lẫn với bệnh sử, tuần hoàn, tiêu hóa, thận - tiết niệu, thần kinh, cơ xương khớp, cơ quan khác hoặc cận lâm sàng, phải sửa A6.
-        Chất lượng nội dung A6_FOR_O1 và A6_FOR_O8 phải được khóa trong A6.
+A6_ALLOWED_SOURCE
+    A6 chỉ được đọc:
+        1. User input của ROUND hiện tại, chỉ phần thuộc khám hô hấp thực thể / khám phổi hoặc bệnh cảnh được phép dùng theo RUN_MODE.
+        2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
+        3. Latest/current A6_STATE nếu đã có, chỉ để UPDATE / REUSE.
+        4. File/module A6.
+        5. A1_STATE, chỉ để đối chiếu lý do vào viện liên quan hô hấp.
+        6. A2_STATE, chỉ để đối chiếu tiền sử hô hấp, bệnh nền hoặc yếu tố nguy cơ.
+        7. A3_STATE, chỉ để đối chiếu triệu chứng/bệnh sử hô hấp; không bê triệu chứng cơ năng vào khám thực thể.
+        8. A4_STATE, chỉ để đối chiếu tình trạng toàn thân, sốt, tím, nhịp thở/SpO2 nếu A4 ghi, hoặc mâu thuẫn liên quan.
+        9. A5_STATE, chỉ để đối chiếu tuần hoàn trong bệnh cảnh nhiễm trùng/hô hấp/nặng; không dùng A5 để tạo ran phổi hoặc rì rào phế nang giảm.
+    A6 không đọc A7-A15 của ROUND hiện tại để tạo A6_STATE; không đọc A12_STATE hiện tại hoặc cũ để tạo dấu khám hô hấp; không đọc C_STATE/O_OUTPUT; không suy ngược từ output render; không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+    A6 không biến A1/A2/A3/A4/A5, triệu chứng, bệnh sử, chẩn đoán, mã bệnh, X-quang, CT, khí máu, xét nghiệm hoặc thăm dò chức năng hô hấp thành dấu khám hô hấp nếu không có dữ kiện khám tương ứng hoặc rule RUN_MODE hợp lệ.
+    Nếu user input trực tiếp có chẩn đoán/mã bệnh hô hấp, A6 chỉ được dùng như bệnh cảnh trong RUN_MODE hợp lệ; không coi đó là A12_STATE và không thay cho dấu khám thực thể.
 
-A6.2. Nguồn được đọc
-    A6.2.1. Nguồn được đọc
-        A6 được đọc:
-            1. User input của ROUND hiện tại.
-            2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật như ROUND_ID, STATE_VERSION, RUN_MODE.
-            3. A6_STATE hiện hành mới nhất nếu đã có.
-            4. File/module A6.
-            5. A1_STATE nếu cần đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn liên quan lý do vào viện hô hấp.
-            6. A2_STATE nếu cần đối chiếu ngữ cảnh hoặc phát hiện mâu thuẫn liên quan tiền sử hô hấp, bệnh nền hoặc yếu tố nguy cơ.
-            7. A3_STATE nếu cần đối chiếu triệu chứng hô hấp, nhưng không bê triệu chứng cơ năng vào A6.
-            8. A4_STATE nếu cần đối chiếu ranh giới hoặc phát hiện mâu thuẫn với tình trạng toàn thân.
-            9. A5_STATE nếu cần đối chiếu ranh giới hoặc phát hiện mâu thuẫn với khám tuần hoàn.
+A6_ALLOWED_ACTION
+    A6 chỉ được làm:
+        1. CREATE A6_STATE.
+        2. UPDATE A6_STATE.
+        3. REUSE A6_STATE.
+        4. CHECK A6_STATE.
+        5. Quản lý A6_REV của chính A6.
+    CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A6, độc lập với RUN_MODE.
 
-    A6.2.2. Dữ liệu user input có thể dùng cho A6
-        A6 được lấy dữ liệu từ user input nếu dữ liệu đó thuộc khám hô hấp thực thể hoặc giúp chọn mẫu khám hô hấp phù hợp:
-            1. Lồng ngực.
-            2. Di động lồng ngực.
-            3. Hình thức thở.
-            4. Tự thở / thở khí phòng.
-            5. Thở oxy.
-            6. Hỗ trợ hô hấp nếu user cung cấp.
-            7. Nhịp thở.
-            8. SpO2.
-            9. Rì rào phế nang.
-            10. Ran phổi.
-            11. Co kéo cơ hô hấp.
-            12. Tím tái nếu là dấu hiệu thực thể.
-            13. Dấu hiệu hô hấp bất thường khác nếu user cung cấp.
-            14. Triệu chứng hô hấp trong user input hoặc A3 để định hướng bệnh cảnh, nhưng không đưa trực tiếp vào A6_FOR_O1/O8 nếu chỉ là triệu chứng cơ năng.
-            15. Chẩn đoán hoặc mã bệnh hô hấp trong user input nếu có, ví dụ viêm phổi, COPD, hen, suy hô hấp.
+A6_ALLOWED_WRITE
+    A6 chỉ ghi A6_STATE.
+    A6 không ghi A1-A5, A7-A15, C/O, A_GATE hoặc A_STATE_OUTPUT_SCHEMA.
+    A6 không tự tạo toàn bộ A_MODULE_REV; A6 chỉ cung cấp/quản lý A6_REV để A_GATE / full current A_STATE tổng hợp.
+    A6_STATE phải là full state; không dùng patch/delta.
 
-    A6.2.3. Nguồn không dùng do thứ tự chạy
-        A6 không đọc A7-A15 của ROUND hiện tại để viết ngược A6 vì các module này chạy sau A6.
-        A6 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A6 trong A_RUN_ORDER.
-        A6 không dùng A12_STATE cũ từ ROUND trước để tạo A6 trong ROUND hiện tại.
-        A6 không dùng chẩn đoán hoặc mã bệnh từ A12 để tạo dấu khám hô hấp mới.
-        Nếu user input trực tiếp có chẩn đoán, mã bệnh hoặc bệnh cảnh hô hấp, A6 được dùng dữ kiện đó như user input theo rule hiện hành của A6; đây không phải là đọc A12_STATE.
-        Nếu chẩn đoán hô hấp chỉ được tạo sau này ở A12, A6 không được chờ A12 để tạo A6_STATE.
-        Các đối chiếu A6 ↔ A12 hoặc A6 ↔ module chạy sau nếu cần sẽ do tầng tổng hợp/A_GATE hoặc module chạy sau xử lý sau khi các state đó đã có.
+A6_STATE_SCHEMA
+    A6_STATE:
+        STATE_VERSION = ...
+        UPDATED_AT = HH:MM dd/mm/yyyy
+        A6_FOR_O1 = ...
+        A6_FOR_O8 = ...
+        A6_CHECK = PASS / NEEDS_FIX
+        A6_ERROR = ...
+    Không thêm STATUS hoặc field mới khác.
+    Không đổi tên A6_FOR_O1 hoặc A6_FOR_O8.
+    UPDATED_AT là metadata, không render vào bệnh án.
+    UPDATED_AT khác A6_REV; thay đổi UPDATED_AT đơn thuần không làm tăng A6_REV.
+    Nếu A6_CHECK = PASS: A6_ERROR = NONE.
+    Nếu A6_CHECK = NEEDS_FIX: A6_ERROR ghi lỗi cụ thể.
 
-A6.3. Dependency nội bộ
-    A6.3.1. Dependency của A6
-        A6 có thể đọc:
-            1. A1_STATE.
-            2. A2_STATE.
-            3. A3_STATE.
-            4. A4_STATE.
-            5. A5_STATE.
+A6_LOGIC_RULES
+    1. CREATE / UPDATE / REUSE
+        - CREATE khi chưa có latest/current A6_STATE.
+        - UPDATE khi user input hiện tại hoặc dependency hợp lệ làm nội dung thật của A6_FOR_O1 / A6_FOR_O8 thay đổi.
+        - Dữ liệu ảnh hưởng A6 gồm: lồng ngực, di động lồng ngực, hình thức thở, tự thở, thở oxy, hỗ trợ hô hấp, nhịp thở, SpO2/SpO₂, rì rào phế nang, ran phổi, co kéo cơ hô hấp nếu có căn cứ, tím tái nếu là dấu thực thể, dấu hô hấp thực thể khác nếu user cung cấp, chỉnh sửa khám hô hấp, hoặc dependency hợp lệ phát hiện mâu thuẫn cần sửa A6.
+        - UPDATE chỉ thay phần bị ảnh hưởng; phần không bị ảnh hưởng lấy từ latest/current A6_STATE; state sau UPDATE dùng STATE_VERSION của ROUND hiện tại.
+        - REUSE khi đã có latest/current A6_STATE và input/dependency hợp lệ không ảnh hưởng A6 hoặc không làm đổi nội dung thật của A6_FOR_O1 / A6_FOR_O8.
+        - REUSE vẫn phải in nội dung thật, không ghi “giữ nguyên như trước”, “reuse A6”, “theo bản trước” hoặc “không đổi”.
+    2. RUN_MODE
+        - RUN_MODE lấy từ G_STATE; A6 không tự xác định RUN_MODE; RUN_MODE độc lập với CREATE / UPDATE / REUSE.
+        - USER_ONLY: chỉ dùng dữ kiện khám hô hấp user cung cấp; không tự tạo nhịp thở, SpO2, ran phổi, rì rào phế nang bất thường, co kéo cơ hô hấp, tím tái, thở oxy/hỗ trợ hô hấp hoặc khám hô hấp bình thường; không tự tạo mẫu mặc định nếu user không cung cấp dữ kiện và không có state hợp lệ để REUSE; nếu thiếu dữ kiện khám hô hấp và không REUSE được thì A6_FOR_O1 = Chưa có dữ kiện khám hô hấp; A6_FOR_O8 = Chưa có dữ kiện khám hô hấp; A6_CHECK = NEEDS_FIX; A6_ERROR = Thiếu dữ kiện khám hô hấp.
+        - DEFAULT_COMPLETION: dùng dữ kiện user làm nền; giữ đúng trị số user cung cấp; nếu thiếu nhịp thở/SpO2 và bệnh cảnh không suy hô hấp/cấp cứu/mâu thuẫn thì được tự tạo nhịp thở/SpO2 phù hợp bệnh cảnh; không cố định một cặp nhịp thở/SpO2 cho mọi ca; không tự thêm bất thường hô hấp mới nếu không có căn cứ; không tự tạo ran phổi, rì rào phế nang giảm/mất, co kéo cơ hô hấp, tím tái, thở oxy/hỗ trợ hô hấp nếu user không cung cấp hoặc không đủ căn cứ; không trái dữ kiện user hoặc dependency hợp lệ.
+        - AUTO_SAMPLE: chỉ dùng cho ca mẫu; có thể tạo khám hô hấp, nhịp thở và SpO2 phù hợp bệnh cảnh mẫu; không áp dụng cho ca bệnh thật đã có dữ liệu user; không đọc ngược A12/A7-A15 để tạo A6.
+    3. Context A1-A5
+        - A1-A5 chỉ để đối chiếu ngữ cảnh, ranh giới, mâu thuẫn và đồng bộ bệnh cảnh.
+        - Không copy lý do vào viện, tiền sử, bệnh sử, toàn trạng hoặc tuần hoàn vào A6_FOR_O1/A6_FOR_O8.
+        - Không biến A1-A5 thành dữ kiện khám hô hấp mới ngoài phạm vi contract.
 
-    A6.3.2. Mục đích đọc dependency
-        A1_STATE được dùng để không bỏ sót lý do vào viện liên quan hô hấp.
-        A2_STATE được dùng để đồng bộ tiền sử hô hấp, bệnh nền hoặc yếu tố nguy cơ liên quan.
-        A3_STATE được dùng để đối chiếu triệu chứng hô hấp và bệnh sử hiện tại.
-        A4_STATE được dùng để đồng bộ sốt, tím tái hoặc tình trạng toàn thân liên quan hô hấp.
-        A5_STATE được dùng để đồng bộ tuần hoàn trong bệnh cảnh nhiễm trùng, suy hô hấp, thiếu oxy hoặc bệnh cảnh nặng nếu cần.
+A6_SPECIAL_RULES
+    1. A6_SCOPE_INCLUDE
+        A6 quản lý: lồng ngực, di động lồng ngực, hình thức thở, tự thở, thở oxy, hỗ trợ hô hấp, nhịp thở, SpO2/SpO₂, rì rào phế nang, ran phổi, ran ẩm, ran nổ, ran rít, ran ngáy, ran phế quản, ran khác nếu user cung cấp, co kéo cơ hô hấp nếu có căn cứ, tím tái nếu là dấu thực thể, và dấu hô hấp thực thể khác nếu user cung cấp.
+    2. A6_SCOPE_EXCLUDE / BOUNDARY
+        A6 không quản lý triệu chứng cơ năng đơn thuần, khám toàn thân A4, khám tuần hoàn A5, tiêu hóa A7, thận tiết niệu A8, thần kinh A9, cơ xương khớp A10, cơ quan khác A11, chẩn đoán A12, hướng xử trí/điều trị A13 hoặc module tương ứng, cận lâm sàng/hành chính A14, thuốc/đơn thuốc A15.
+        Không đưa vào A6 nếu chỉ là dữ kiện ngoài scope: ho, khạc đờm, khó thở hoặc đau ngực kể bệnh; sốt, thể trạng, da niêm mạc chung, phù chung; mạch, nhịp tim, huyết áp, tiếng tim; tiêu hóa/bụng; thận tiết niệu; thần kinh; cơ xương khớp; cơ quan chuyên khoa khác; cận lâm sàng; chẩn đoán; thuốc/điều trị.
+    3. Phân ranh A3-A6
+        Ho, khạc đờm, khó thở, đau ngực do bệnh nhân kể là triệu chứng cơ năng, thuộc A3/C7 nếu chỉ là triệu chứng.
+        A6 chỉ ghi dấu khám thực thể tương ứng khi có dữ kiện khám: thở nhanh, SpO2 giảm, co kéo cơ hô hấp, tím tái, thở oxy/hỗ trợ hô hấp, rì rào phế nang giảm/mất, ran phổi hoặc dấu hô hấp thực thể khác.
+        Không bê triệu chứng cơ năng vào A6_FOR_O1/O8; có thể dùng triệu chứng/bệnh cảnh để chọn nhịp thở/SpO2 trong DEFAULT_COMPLETION nếu RUN_MODE cho phép và không trái dữ kiện; không biến bệnh sử hiện tại thành dấu khám thực thể.
+    4. Phân ranh A4-A6
+        Sốt, thể trạng, da niêm, phù chung và toàn trạng thuộc A4.
+        Tím tái có thể thuộc A6 nếu là dấu hô hấp thực thể có căn cứ.
+        A4 có thể cung cấp tình trạng toàn thân, sốt, tím, nhịp thở/SpO2 nếu A4 ghi để A6 đối chiếu mâu thuẫn hoặc đồng bộ khi phù hợp.
+        Không chép toàn trạng/sốt/da niêm/phù chung vào A6_FOR_O1/O8 nếu không phải dấu khám hô hấp.
+        Nếu A4 và A6 mâu thuẫn về tím, nhịp thở/SpO2 hoặc tình trạng hô hấp, A6_CHECK có thể NEEDS_FIX và A6_ERROR ghi rõ.
+    5. Phân ranh A5-A6
+        Mạch, nhịp tim, huyết áp và tiếng tim thuộc A5.
+        A6 không ghi mạch/huyết áp/tiếng tim trong A6_FOR_O1/O8.
+        A5 có thể dùng để đối chiếu bệnh cảnh nặng/nhiễm trùng/hô hấp.
+        A6 không dùng A5 để tự tạo ran phổi hoặc rì rào phế nang giảm.
+        A6 không tạo suy hô hấp nặng nếu A4/A5 ổn định và thiếu dữ kiện hô hấp.
+    6. Phân ranh A12/A14-A6
+        A6 không đọc A12_STATE hiện tại hoặc cũ để tạo dấu khám hô hấp.
+        Không dùng chẩn đoán/mã bệnh đơn thuần để tạo ran phổi, rì rào phế nang giảm, SpO2 giảm, co kéo cơ hô hấp, tím tái hoặc thở oxy.
+        Nếu user input trực tiếp có chẩn đoán/mã bệnh hô hấp thì có thể dùng như bệnh cảnh trong RUN_MODE hợp lệ, nhưng không thay cho dấu khám nếu user không cung cấp.
+        X-quang, CT, khí máu, xét nghiệm và thăm dò chức năng hô hấp thuộc A14; không biến cận lâm sàng thành khám thực thể nếu không có dữ kiện khám tương ứng.
+    7. Nhịp thở / SpO2
+        Nhịp thở dùng đơn vị ck/p; SpO2 dùng đơn vị %.
+        Giữ đúng trị số user cung cấp; không tự đổi, không làm tròn, không thay trị số, không đổi đơn vị sai.
+        Nếu có nhiều trị số, ưu tiên trị số tại thời điểm khám nếu xác định được; nếu mâu thuẫn không xác minh được thì A6_CHECK = NEEDS_FIX và A6_ERROR ghi rõ.
+        A6_FOR_O1 và A6_FOR_O8 phải dùng cùng nhịp thở/SpO2.
+        Không dùng cụm mơ hồ thay trị số cụ thể như “hô hấp ổn định”, “không khó thở”, “SpO2 bình thường”, “nhịp thở bình thường”.
+        Nếu DEFAULT_COMPLETION tự tạo nhịp thở/SpO2 thì phải phù hợp bệnh cảnh và không cố định một cặp trị số cho mọi ca.
+    8. Lồng ngực / di động lồng ngực
+        Lồng ngực/di động lồng ngực giữ đúng nếu user cung cấp.
+        O1 thường quy không bắt buộc ghi di động lồng ngực; O8 thường quy phải có “di động đều theo nhịp thở”.
+        Không tự tạo lồng ngực biến dạng, co kéo hoặc di động lệch nếu user không cung cấp hoặc không đủ căn cứ.
+    9. Rì rào phế nang
+        Rì rào phế nang phải giữ đúng dữ kiện user cung cấp; nếu giảm/mất thì ghi đúng vị trí nếu user cung cấp.
+        Nếu không bất thường và RUN_MODE cho phép default thì dùng cụm “rì rào phế nang hai phổi rõ”.
+        Không tự tạo rì rào phế nang giảm/mất nếu không đủ căn cứ; không dùng X-quang/CT/chẩn đoán đơn thuần để tạo rì rào phế nang giảm/mất.
+    10. Ran phổi
+        Ran phổi phải giữ đúng loại/vị trí nếu user cung cấp; các loại có thể gồm ran ẩm, ran nổ, ran rít, ran ngáy, ran phế quản hoặc ran khác nếu user cung cấp.
+        Không tự tạo ran phổi nếu không đủ căn cứ; không bỏ mất ran user cung cấp.
+        Nếu không bất thường và RUN_MODE cho phép default thì dùng cụm “không ran”.
+        Không dùng X-quang/CT/chẩn đoán đơn thuần để tạo ran phổi.
+    11. Co kéo / tím tái / thở oxy
+        Co kéo cơ hô hấp chỉ ghi khi user cung cấp hoặc bệnh cảnh đủ căn cứ/RUN_MODE cho phép.
+        Tím tái chỉ ghi trong A6 nếu là dấu hô hấp thực thể có căn cứ.
+        Thở oxy/hỗ trợ hô hấp chỉ ghi khi user cung cấp hoặc bệnh cảnh đủ căn cứ/RUN_MODE cho phép.
+        Không tự thêm phủ định “không co kéo cơ hô hấp” vào mẫu thường quy nếu không có căn cứ.
+        Không tự tạo thở oxy/hỗ trợ hô hấp nếu user không cung cấp hoặc không đủ căn cứ.
+    12. A6_FOR_O1
+        A6_FOR_O1 là bản ngắn, phải có lồng ngực, hình thức thở, nhịp thở, SpO2, rì rào phế nang, ran phổi.
+        Mẫu thường quy: “Lồng ngực cân đối, tự thở, nhịp thở [x] ck/p, SpO2 [y]%, rì rào phế nang hai phổi rõ, không ran”.
+        Dùng “tự thở”; không dùng “bệnh nhân tự thở” hoặc “tự thở khí phòng”; không tự thêm “không co kéo cơ hô hấp” trong mẫu thường quy nếu không có căn cứ.
+        Không chứa mạch, huyết áp, tiếng tim, triệu chứng cơ năng, CLS, chẩn đoán hoặc khám ngoài scope A6.
+        Nếu user cung cấp bất thường hô hấp thực thể rõ, O1 phải phản ánh tương ứng ở mức ngắn.
+    13. A6_FOR_O8
+        A6_FOR_O8 là bản chi tiết hơn, phải có lồng ngực, di động lồng ngực, hình thức thở, nhịp thở, SpO2, rì rào phế nang, ran phổi.
+        Mẫu thường quy: “Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở [x] ck/p, SpO2 [y]%, rì rào phế nang hai phổi rõ, không ran”.
+        Dùng “di động đều theo nhịp thở” và “tự thở”; không dùng “bệnh nhân tự thở” hoặc “tự thở khí phòng”; không tự thêm “không co kéo cơ hô hấp” trong mẫu thường quy nếu không có căn cứ.
+        Không chứa mạch, huyết áp, tiếng tim, triệu chứng cơ năng, CLS, chẩn đoán hoặc khám ngoài scope A6.
+        Nếu user cung cấp bất thường hô hấp thực thể rõ, O8 phải phản ánh tương ứng đầy đủ hơn O1.
+    14. Đồng bộ O1/O8
+        O1 và O8 phải dùng cùng nhịp thở, SpO2, hình thức thở, rì rào phế nang và ran phổi; không được mâu thuẫn nhau.
+        O8 có thể chi tiết hơn O1 nhưng không thêm dữ kiện sai phạm vi.
+        Nếu O1 có bất thường hô hấp thì O8 phải thể hiện tương ứng; nếu O8 có bất thường hô hấp rõ thì O1 không được ghi bình thường trái lại.
+        Nếu O1/O8 mâu thuẫn nhau thì A6_CHECK = NEEDS_FIX và A6_ERROR ghi rõ.
 
-    A6.3.3. Khi không cần dependency
-        Nếu user input đã đủ dữ kiện khám hô hấp và không cần đồng bộ thêm, A6 có thể chỉ đọc user input và A6_STATE hiện hành nếu có.
+A6_CHECK_PASS_IF
+    A6_CHECK = PASS khi tất cả điều kiện sau đạt:
+        1. A6_STATE đủ schema: STATE_VERSION, UPDATED_AT, A6_FOR_O1, A6_FOR_O8, A6_CHECK, A6_ERROR.
+        2. A6_FOR_O1 có dữ liệu khám hô hấp hợp lệ, đúng scope A6, đúng RUN_MODE, đúng format, không trái user input/dependency; có lồng ngực, hình thức thở, nhịp thở ck/p, SpO2 %, rì rào phế nang, ran phổi.
+        3. A6_FOR_O8 có dữ liệu khám hô hấp hợp lệ, đúng scope A6, đúng RUN_MODE, đúng format, không trái user input/dependency; có lồng ngực, di động lồng ngực, hình thức thở, nhịp thở ck/p, SpO2 %, rì rào phế nang, ran phổi.
+        4. O1/O8 không tự tạo dấu khám từ A1-A5, triệu chứng, bệnh sử, chẩn đoán, mã bệnh hoặc CLS; không chứa mạch/huyết áp/tiếng tim, triệu chứng cơ năng đơn thuần, cận lâm sàng, chẩn đoán, thuốc, hướng xử trí hoặc khám ngoài scope.
+        5. O1/O8 không mâu thuẫn nhau; nhịp thở/SpO2, rì rào phế nang và ran phổi đồng bộ; mẫu thường quy dùng literal/format đúng.
+        6. A6_ERROR = NONE.
 
-    A6.3.4. Giới hạn dependency
-        Dependency của A6 chỉ dùng để đối chiếu ngữ cảnh, ranh giới, phát hiện mâu thuẫn và đồng bộ bệnh cảnh.
-        Dependency không được dùng để bê triệu chứng cơ năng vào A6.
-        Dependency không được dùng để tạo dấu khám hô hấp mới nếu không có rule hợp lệ.
-        A6 không chép lý do vào viện, tiền sử, bệnh sử, khám toàn thân hoặc khám tuần hoàn vào A6_FOR_O1/A6_FOR_O8.
-        A6 không đọc A7-A15 của ROUND hiện tại để viết ngược A6 vì các module này chạy sau A6.
-        A6 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A6.
-        A6 không đọc C_STATE.
-        A6 không đọc O_OUTPUT.
-        A6 không suy ngược khám hô hấp từ output đã render.
-        A6 không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+A6_NEEDS_FIX_IF
+    A6_CHECK = NEEDS_FIX nếu có bất kỳ điều kiện sau:
+        1. USER_ONLY thiếu dữ kiện khám hô hấp và không có state hợp lệ để REUSE.
+        2. A6_FOR_O1 hoặc A6_FOR_O8 thiếu dữ liệu cần thiết hoặc state thiếu field bắt buộc.
+        3. Nhịp thở/SpO2 mâu thuẫn không xác minh được.
+        4. A6_FOR_O1 hoặc A6_FOR_O8 chứa dữ liệu ngoài scope A6, tự tạo dấu khám từ triệu chứng/bệnh sử/chẩn đoán/mã bệnh/CLS, mâu thuẫn user input, mâu thuẫn nhau, hoặc DEFAULT_COMPLETION tạo mẫu trái dữ kiện user/dependency.
+        5. Bệnh cảnh có nguy cơ suy hô hấp/cấp cứu/mâu thuẫn khiến không thể tự hoàn thiện an toàn.
+        6. O1/O8 sai format nhịp thở/SpO2/rì rào phế nang/ran phổi hoặc dùng wording bị cấm: “bệnh nhân tự thở”, “tự thở khí phòng”, “hô hấp ổn định” thay dữ kiện cụ thể, “SpO2 bình thường” thay trị số cụ thể, “nhịp thở bình thường” thay trị số cụ thể.
+        7. A6_ERROR không rõ khi NEEDS_FIX hoặc A6_ERROR không phải NONE khi PASS.
 
-A6.4. Quy tắc tạo mới / cập nhật / dùng lại A6_STATE
-    A6.4.1. Tạo mới A6_STATE
-        CREATE là trạng thái xử lý nội bộ của A6, áp dụng khi chưa có A6_STATE hiện hành.
-        A6 tạo A6_STATE mới từ user input của ROUND hiện tại và dependency được phép nếu cần.
-        A6 phải xác định:
-            1. A6_FOR_O1.
-            2. A6_FOR_O8.
-            3. A6_CHECK.
-            4. A6_ERROR nếu cần.
-    A6.4.2. Cập nhật A6_STATE
-        UPDATE là trạng thái xử lý nội bộ của A6, áp dụng khi user input của ROUND hiện tại hoặc dependency hợp lệ làm nội dung thật của A6_FOR_O1 / A6_FOR_O8 thay đổi.
-        Dữ liệu có thể ảnh hưởng A6 gồm:
-            1. Lồng ngực.
-            2. Di động lồng ngực.
-            3. Hình thức thở.
-            4. Nhịp thở.
-            5. SpO2.
-            6. Rì rào phế nang.
-            7. Ran phổi.
-            8. Co kéo cơ hô hấp.
-            9. Tím tái.
-            10. Dấu hiệu hô hấp thực thể khác.
-        Khi cập nhật:
-            - A6 đọc A6_STATE hiện hành mới nhất nếu có.
-            - A6 thay phần bị ảnh hưởng bằng dữ liệu mới.
-            - A6 giữ phần không bị ảnh hưởng bằng nội dung hiện hành mới nhất.
-            - A6_STATE sau cập nhật phải mang STATE_VERSION của ROUND hiện tại.
-            - UPDATED_AT phải là thời điểm cập nhật state theo định dạng HH:MM dd/mm/yyyy.
-    A6.4.3. Dùng lại A6_STATE
-        REUSE là trạng thái xử lý nội bộ của A6, áp dụng khi đã có A6_STATE hiện hành, input không ảnh hưởng A6 hoặc nội dung thật của A6_FOR_O1 / A6_FOR_O8 không thay đổi.
-        Nếu user input có liên quan nhưng sau chuẩn hóa nội dung thật của A6_FOR_O1 / A6_FOR_O8 không thay đổi, A6 REUSE A6_STATE và A6_REV giữ nguyên.
-        Nếu dependency hợp lệ A1-A5 được đọc nhưng không làm nội dung thật của A6_FOR_O1 / A6_FOR_O8 thay đổi, A6 REUSE A6_STATE và A6_REV giữ nguyên.
-        Nếu dependency hợp lệ làm nội dung thật của A6_FOR_O1 / A6_FOR_O8 thay đổi, A6 UPDATE A6_STATE và A6_REV tăng.
-        A6 dùng lại nội dung thật của A6_STATE hiện hành mới nhất.
-        A6_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong full current A_STATE.
-        UPDATED_AT vẫn phải phản ánh thời điểm A6_STATE được đưa vào full current A_STATE của ROUND hiện tại.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được chỉ ghi “reuse A6” thay cho A6_FOR_O1 và A6_FOR_O8.
-    A6.4.4. Quy tắc A6_REV
-        CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A6 đối với A6_STATE; không phải RUN_MODE.
-        A6 chỉ quản lý revision của chính A6 trong A_MODULE_REV.
-        A6 không tự tạo toàn bộ A_MODULE_REV.
-        Nếu CREATE A6_STATE:
-            - A6_REV = 1.
-        Nếu UPDATE và nội dung thật của A6_FOR_O1 / A6_FOR_O8 thay đổi:
-            - A6_REV tăng so với A6_REV hiện hành.
-        Nếu REUSE hoặc input ROUND hiện tại không làm thay đổi nội dung thật của A6_FOR_O1 / A6_FOR_O8:
-            - A6_REV giữ nguyên.
-        A6_REV tăng hoặc giữ nguyên theo thay đổi thật của A6_FOR_O1 / A6_FOR_O8; không theo tên RUN_MODE.
-        A6_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
-        UPDATED_AT là metadata quản lý thời điểm cập nhật A6_STATE, không phải revision nội dung.
-        A6_STATE vẫn phải là full state; không được in patch/delta.
+A6_ERROR_RULE
+    Nếu A6_CHECK = PASS thì A6_ERROR = NONE.
+    Nếu A6_CHECK = NEEDS_FIX thì A6_ERROR phải ghi lỗi cụ thể.
+    Nếu thiếu dữ liệu, A6_ERROR nêu dữ liệu cần user bổ sung.
+    Nếu mâu thuẫn, A6_ERROR nêu điểm mâu thuẫn.
+    Nếu sai phạm vi, A6_ERROR nêu phần cần sửa.
+    Nếu sai format, A6_ERROR nêu format cần sửa.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
 
-A6.5. Quy tắc xử lý theo RUN_MODE
-    RUN_MODE là chế độ tạo dữ liệu do G_STATE cung cấp; không phải CREATE / UPDATE / REUSE.
-    A6 chỉ đọc RUN_MODE từ G_STATE; A6 không tự xác định RUN_MODE.
-    A6.5.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        A6 chỉ dùng dữ liệu khám hô hấp user cung cấp.
-        A6 không tự tạo nhịp thở.
-        A6 không tự tạo SpO2.
-        A6 không tự tạo ran phổi.
-        A6 không tự tạo rì rào phế nang bất thường.
-        A6 không tự tạo co kéo cơ hô hấp.
-        A6 không tự tạo tím tái.
-        A6 không tự tạo thở oxy hoặc hỗ trợ hô hấp.
-        Nếu không có A6_STATE cũ để REUSE và user không cung cấp dữ kiện khám hô hấp:
-            - A6_FOR_O1 = Chưa có dữ kiện khám hô hấp.
-            - A6_FOR_O8 = Chưa có dữ kiện khám hô hấp.
-            - A6_CHECK = NEEDS_FIX.
-            - A6_ERROR = Thiếu dữ kiện khám hô hấp.
-        A6 không đọc O_OUTPUT để quyết định dữ kiện khám hô hấp có bắt buộc hay không.
-        A6 không tự suy “output đang chạy” từ O.
-        Nếu cần metadata output và G_STATE đã có metadata kỹ thuật phù hợp, A6 chỉ được đọc metadata kỹ thuật từ G_STATE; A6 không thêm dependency O.
-        Nếu user cung cấp một phần khám hô hấp:
-            - A6 dùng phần đã có.
-            - Không tự thêm phần chưa có nếu RUN_MODE không cho phép.
-    A6.5.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        A6 dùng dữ liệu user cung cấp làm nền.
-        Nếu user đã cung cấp nhịp thở hoặc SpO2:
-            - A6 phải giữ đúng trị số user cung cấp.
-            - Không tự đổi trị số.
-            - Không tự làm tròn trị số.
-            - Không tự thay bằng trị số khác.
-        Nếu user chưa cung cấp nhịp thở hoặc SpO2 và không có bệnh cảnh suy hô hấp hoặc dữ kiện trái ngược:
-            - A6 được tự tạo nhịp thở và SpO2 phù hợp theo contract.
-            - Trị số tự tạo phải hợp lý với bệnh cảnh, bệnh nền, tuổi, giới tính nếu liên quan, mức độ nặng và dependency hợp lệ A3, A4, A5 nếu có.
-            - Không cố định một cặp nhịp thở/SpO2 cho mọi ca.
-            - Ví dụ ca thường quy ổn định có thể dùng nhịp thở 18 ck/p và SpO2 98%, nhưng đây là ví dụ, không phải trị số cố định cho mọi bệnh nhân.
-            - Mẫu fallback thường quy sau khi chọn trị số phù hợp: Lồng ngực cân đối, tự thở, nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi rõ, không ran.
-            - Không tạo trị số mâu thuẫn với dữ kiện user đã cung cấp.
-        Nếu có bệnh cảnh suy hô hấp hoặc mâu thuẫn khiến không thể tự hoàn thiện an toàn, A6_CHECK = NEEDS_FIX thay vì ghi no-data trong A6_FOR_O1/A6_FOR_O8.
-        A6 được chuẩn hóa khám hô hấp theo mẫu hợp lý nếu module cho phép.
-        Không tự tạo ran phổi nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Không tự tạo rì rào phế nang giảm nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Không tự tạo co kéo cơ hô hấp nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Không tự tạo tím tái nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Không tự tạo thở oxy hoặc hỗ trợ hô hấp nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Không ghi mẫu khám không có bất thường nếu user cung cấp bất thường rõ.
-        Trong DEFAULT_COMPLETION bệnh án thường quy, A6_FOR_O1/A6_FOR_O8 không được chứa no-data placeholder; nếu không có dữ kiện trái ngược, dùng fallback hô hấp ổn định nêu trên.
-    A6.5.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        A6 được tạo khám hô hấp mẫu phù hợp bệnh cảnh mẫu.
-        A6 được tạo nhịp thở và SpO2 phù hợp ca mẫu.
-        Khám hô hấp mẫu phải nhất quán với user input và dependency hợp lệ A3, A4, A5 nếu có.
-        A6 không tự tạo chẩn đoán.
-        Các đối chiếu A6 ↔ A12 hoặc A6 ↔ module chạy sau nếu cần sẽ do tầng tổng hợp/A_GATE hoặc module chạy sau xử lý sau khi các state đó đã có.
-        Nếu bệnh cảnh mẫu ổn định:
-            - A6 có thể tạo đầy đủ các dấu khám thực thể trong giới hạn bình thường gồm lồng ngực, hình thức thở, nhịp thở, SpO2, rì rào phế nang và ran phổi.
-        Nếu bệnh cảnh mẫu có bệnh hô hấp, nhiễm trùng, suy hô hấp, viêm phổi, COPD, hen hoặc bệnh cảnh cấp:
-            - A6 phải tạo khám hô hấp phù hợp bệnh cảnh mẫu.
-        Không dùng logic AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
+A6_REUSE_RULE
+    REUSE khi latest/current A6_STATE có và input/dependency hợp lệ không ảnh hưởng A6 hoặc không làm đổi nội dung thật A6_FOR_O1/A6_FOR_O8.
+    Khi REUSE, dùng lại nội dung thật của latest/current A6_STATE và vẫn in full A6_STATE với STATE_VERSION hiện tại và UPDATED_AT theo ROUND hiện tại nếu contract hiện tại yêu cầu.
+    Không ghi “giữ nguyên như trước”, “reuse A6”, “theo bản trước” hoặc “không đổi”.
+    Không dùng patch/delta thay cho A6_FOR_O1/A6_FOR_O8.
+    A6_REV giữ nguyên nếu A6_FOR_O1/A6_FOR_O8 không thay đổi thật.
+    Thay đổi metadata UPDATED_AT đơn thuần không làm tăng A6_REV.
 
-A6.6. Phạm vi khám hô hấp
-    A6.6.1. Thành phần thuộc A6
-        A6 xử lý:
-            1. Lồng ngực.
-            2. Di động lồng ngực.
-            3. Tự thở / hình thức thở.
-            4. Nhịp thở, đơn vị ck/p.
-            5. SpO2, đơn vị %.
-            6. Rì rào phế nang.
-            7. Ran phổi.
-            8. Co kéo cơ hô hấp nếu user cung cấp hoặc bệnh cảnh đủ căn cứ.
-            9. Tím tái nếu là dấu hiệu thực thể.
-            10. Dấu hiệu hô hấp bất thường khác nếu user cung cấp.
-    A6.6.2. Thành phần không thuộc A6
-        A6 không xử lý:
-            1. Ý thức, tiếp xúc, thể trạng.
-            2. Phù, sốt, da niêm mạc, hạch, tuyến giáp nếu là khám toàn thân.
-            3. Mạch.
-            4. Nhịp tim.
-            5. Huyết áp.
-            6. Tiếng tim.
-            7. Ho, ho khan, khạc đờm, đau ngực, khó thở nếu chỉ là triệu chứng cơ năng.
-            8. Khám họng, họng đỏ, amidan, tai mũi họng.
-            9. Khám tiêu hóa, thận - tiết niệu, thần kinh, cơ xương khớp hoặc cơ quan khác.
-            10. Kết quả X-quang ngực, CT ngực, xét nghiệm, khí máu hoặc thăm dò chức năng hô hấp nếu chỉ là cận lâm sàng.
-            11. Hướng điều trị hoặc thuốc.
-    A6.6.3. Phân ranh với A3
-        Ho, khạc đờm, khó thở, đau ngực do bệnh nhân kể là triệu chứng cơ năng, thuộc A3.
-        A6 chỉ ghi dấu khám thực thể hô hấp.
-        A6 không bê triệu chứng cơ năng từ A3 vào A6_FOR_O1 hoặc A6_FOR_O8.
-    A6.6.4. Phân ranh với A4
-        Sốt, thể trạng, da niêm mạc toàn thân, phù chung thuộc A4.
-        Tím tái nếu là nhận định toàn thân có thể thuộc A4.
-        Tím tái nếu cần ghi như dấu hiệu hô hấp thực thể có thể được A6 ghi khi có căn cứ.
-        A6 không viết lại khám toàn thân thay A4.
-    A6.6.5. Phân ranh với A5
-        Mạch, nhịp tim, huyết áp thuộc A5.
-        A6 không đưa các dữ kiện này vào A6_FOR_O1 hoặc A6_FOR_O8.
-        Nếu A5 có mạch nhanh trong bệnh cảnh sốt/nhiễm trùng/hô hấp, A6 có thể dùng để đồng bộ nhịp thở/SpO2 khi RUN_MODE cho phép.
-    A6.6.6. Phân ranh với A14
-        X-quang ngực, CT ngực, khí máu, xét nghiệm và thăm dò chức năng hô hấp đã có thuộc A14.
-        A6 không biến kết quả cận lâm sàng thành dấu khám thực thể nếu không có dữ kiện khám tương ứng.
-        A6 không tạo kết quả cận lâm sàng.
+A6_REV_RULE
+    CREATE A6_STATE thì A6_REV = 1.
+    UPDATE nếu A6_FOR_O1 hoặc A6_FOR_O8 thay đổi thật thì A6_REV tăng so với A6_REV hiện hành.
+    REUSE hoặc input/dependency hợp lệ không làm đổi nội dung thật A6_FOR_O1/A6_FOR_O8 thì A6_REV giữ nguyên.
+    Dependency hợp lệ làm nội dung thật thay đổi thì A6 phải UPDATE và tăng A6_REV.
+    A6_REV tăng/giữ theo thay đổi thật của A6_FOR_O1/A6_FOR_O8, không theo tên RUN_MODE.
+    UPDATED_AT đơn thuần không làm tăng A6_REV.
+    A6_REV là metadata kỹ thuật để A_GATE/full current A_STATE tổng hợp vào A_MODULE_REV.
+    A6 không tự tạo toàn bộ A_MODULE_REV.
+    A6_STATE vẫn phải là full state, không patch/delta.
 
-A6.7. Quy tắc khám thực thể hô hấp, không phải bệnh sử
-    A6.7.1. Nguyên tắc chung
-        A6 là khám thực thể hô hấp.
-        A6 không phải bệnh sử hô hấp.
-        A6 không phải chẩn đoán hô hấp.
-        A6 không phải điều trị hô hấp.
-        A6 không phải cận lâm sàng hô hấp.
-    A6.7.2. Triệu chứng cơ năng
-        Ho, khạc đờm, đau ngực, khó thở do bệnh nhân kể thuộc A3 hoặc C7, không đưa trực tiếp vào A6_FOR_O1/O8.
-        Nếu có dấu thực thể tương ứng như thở nhanh, SpO2 giảm, co kéo cơ hô hấp, tím tái, thở oxy, rì rào phế nang giảm hoặc ran phổi, A6 phải ghi đúng dấu thực thể đó.
-        Không ghi “ho” trong A6_FOR_O1 hoặc A6_FOR_O8 nếu user chỉ kể ho mà không có dấu khám hô hấp.
-    A6.7.3. Khi user kể ho nhưng khám phổi không bất thường
-        A3 ghi ho trong bệnh sử.
-        A6 ghi đầy đủ các dấu khám hô hấp thực thể không có bất thường nếu có dữ kiện khám phù hợp hoặc RUN_MODE cho phép.
-        Không ghi “ho” trong A6_FOR_O1 hoặc A6_FOR_O8.
-    A6.7.4. Khi user kể khó thở
-        Nếu khó thở chỉ là triệu chứng cơ năng:
-            - A3 ghi khó thở.
-            - A6 không ghi khó thở như dấu khám.
-        Nếu có nhịp thở nhanh, SpO2 giảm, co kéo cơ hô hấp, tím tái, thở oxy hoặc hỗ trợ hô hấp:
-            - A6 ghi các dấu thực thể tương ứng.
-    A6.7.5. Khi user cung cấp chẩn đoán hô hấp
-        Nếu user chỉ cung cấp chẩn đoán hô hấp mà không có khám hô hấp:
-            - USER_ONLY: không tự tạo khám hô hấp.
-            - DEFAULT_COMPLETION: được tạo khám hô hấp phù hợp bệnh cảnh nếu có đủ căn cứ và không mâu thuẫn dữ kiện user.
-            - AUTO_SAMPLE: được tạo khám hô hấp mẫu phù hợp ca mẫu.
-
-A6.8. Quy tắc chuẩn hóa nhịp thở / SpO2 / hình thức thở
-    A6.8.1. Nhịp thở
-        Xác định cách ghi nhịp thở.
-        Đơn vị chuẩn là ck/p.
-        Nếu user cung cấp nhịp thở:
-            - A6 phải giữ đúng trị số.
-            - Không tự đổi, không tự làm tròn và không thay bằng trị số khác.
-        Nếu user không cung cấp nhịp thở:
-            - USER_ONLY: không tự tạo trị số nhịp thở.
-            - DEFAULT_COMPLETION: được tự tạo nhịp thở phù hợp bệnh cảnh, bệnh nền, tuổi, giới tính nếu liên quan, mức độ nặng và dependency hợp lệ A3, A4, A5.
-            - AUTO_SAMPLE: được tự tạo nhịp thở phù hợp ca mẫu.
-        Trị số nhịp thở tự tạo phải hợp lý:
-            - Bệnh cảnh ổn định: thường tạo nhịp thở trong giới hạn bình thường.
-            - Sốt, đau nhiều, lo lắng, nhiễm trùng, thiếu oxy, bệnh hô hấp cấp: có thể tạo nhịp thở nhanh phù hợp.
-            - Suy hô hấp, viêm phổi nặng, hen/COPD cấp, nhiễm khuẩn nặng: có thể tạo nhịp thở nhanh rõ nếu bệnh cảnh cho phép.
-            - Không tự tạo nhịp thở nhanh/chậm hoặc bất thường nếu không có căn cứ.
-            - Không cố định một trị số nhịp thở cho mọi ca.
-        Cách ghi:
-            - Dùng đơn vị ck/p.
-            - Ví dụ: 18 ck/p; 20 ck/p; 24 ck/p; 30 ck/p.
-    A6.8.2. SpO2
-        Xác định cách ghi SpO2.
-        Đơn vị chuẩn là %.
-        Nếu user cung cấp SpO2:
-            - A6 phải giữ đúng trị số.
-            - Không tự đổi, không tự làm tròn và không thay bằng trị số khác.
-        Nếu user không cung cấp SpO2:
-            - USER_ONLY: không tự tạo SpO2.
-            - DEFAULT_COMPLETION: được tự tạo SpO2 phù hợp bệnh cảnh, bệnh nền, tuổi, giới tính nếu liên quan, mức độ nặng và dependency hợp lệ A3, A4, A5.
-            - AUTO_SAMPLE: được tự tạo SpO2 phù hợp ca mẫu.
-        Trị số SpO2 tự tạo phải hợp lý:
-            - Bệnh cảnh ổn định: thường tạo SpO2 trong giới hạn bình thường.
-            - Bệnh hô hấp nhẹ hoặc ho không khó thở: thường có thể tạo SpO2 bình thường nếu không có dữ kiện trái ngược.
-            - Viêm phổi, COPD/hen cấp, suy hô hấp, khó thở nhiều: có thể tạo SpO2 giảm phù hợp nếu bệnh cảnh cho phép.
-            - Không tự tạo SpO2 giảm nếu bệnh cảnh không có căn cứ.
-            - Không tự tạo SpO2 bình thường nếu user đã cung cấp giảm SpO2.
-            - Không cố định một trị số SpO2 cho mọi ca.
-        Cách ghi:
-            - Dùng đơn vị %.
-            - Ví dụ: SpO2 98%; SpO2 95%; SpO2 90%.
-    A6.8.3. Hình thức thở
-        Xác định cách ghi tự thở, thở oxy hoặc hỗ trợ hô hấp.
-        Nếu user cung cấp hình thức thở:
-            - A6 phải giữ đúng.
-        Nếu user không cung cấp và RUN_MODE cho phép tự hoàn thiện:
-            - Có thể ghi tự thở nếu bệnh cảnh không có dữ kiện cần hỗ trợ hô hấp.
-        Mẫu thường quy dùng “tự thở”; không dùng “bệnh nhân tự thở” hoặc “tự thở khí phòng” trong mẫu thường quy.
-        Không tự tạo thở oxy nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Nếu user cung cấp thở oxy:
-            - Ghi rõ hình thức và lưu lượng nếu có.
-        Nếu user cung cấp hỗ trợ hô hấp:
-            - Ghi đúng hình thức hỗ trợ nếu có.
-    A6.8.4. Đồng bộ nhịp thở và SpO2
-        A6_FOR_O1 và A6_FOR_O8 phải dùng cùng nhịp thở và SpO2.
-        Không được để O1 một trị số và O8 một trị số khác nếu không có căn cứ.
-        Nếu user cung cấp nhịp thở/SpO2:
-            - Cả A6_FOR_O1 và A6_FOR_O8 phải giữ đúng trị số user cung cấp.
-        Nếu A6 tự tạo nhịp thở/SpO2 trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE:
-            - Cả A6_FOR_O1 và A6_FOR_O8 phải dùng cùng trị số đã tạo.
-            - Trị số phải phù hợp bệnh cảnh.
-
-A6.9. Quy tắc chuẩn hóa lồng ngực / rì rào phế nang / ran phổi
-    A6.9.1. Lồng ngực và di động lồng ngực
-        Nếu user cung cấp lồng ngực hoặc di động lồng ngực:
-            - A6 phải giữ đúng.
-        Nếu user không cung cấp và RUN_MODE cho phép tự hoàn thiện:
-            - Có thể ghi lồng ngực cân đối, di động đều theo nhịp thở nếu bệnh cảnh không trái ngược.
-        A6_FOR_O1 thường quy dùng “Lồng ngực cân đối” và không bắt buộc ghi di động lồng ngực.
-        A6_FOR_O8 thường quy dùng “Lồng ngực cân đối, di động đều theo nhịp thở”.
-        Nếu user cung cấp bất thường:
-            - Ghi đúng bất thường.
-            - Bất thường ở đâu thì thay thế phần tương ứng ở đó, không thêm lan man.
-        Không tự tạo lồng ngực biến dạng, co kéo, di động lệch nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-    A6.9.2. Rì rào phế nang
-        Nếu user cung cấp rì rào phế nang:
-            - A6 phải giữ đúng.
-        Nếu user cung cấp rì rào phế nang giảm hoặc mất:
-            - A6 phải ghi đúng vị trí nếu có.
-        Nếu user không cung cấp và RUN_MODE cho phép tự hoàn thiện:
-            - Có thể ghi rì rào phế nang hai phổi rõ nếu bệnh cảnh không trái ngược.
-        Nếu không có bất thường, A6_FOR_O1 và A6_FOR_O8 phải dùng cụm “rì rào phế nang hai phổi rõ”.
-        Nếu có bất thường, giữ đúng vị trí và mức độ user cung cấp, ví dụ rì rào phế nang giảm đáy phổi phải, giảm đáy phổi trái, giảm hai đáy phổi, mất vùng tổn thương hoặc thông khí phổi giảm nếu user cung cấp.
-        Không tự tạo rì rào phế nang giảm nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-    A6.9.3. Ran phổi
-        Nếu user cung cấp ran phổi:
-            - A6 phải mô tả đúng loại ran và vị trí nếu có.
-        Các loại ran có thể gồm:
-            1. Ran ẩm.
-            2. Ran nổ.
-            3. Ran rít.
-            4. Ran ngáy.
-            5. Ran phế quản.
-            6. Ran khác nếu user cung cấp.
-        Nếu user không cung cấp và RUN_MODE cho phép tự hoàn thiện:
-            - Có thể ghi không ran nếu bệnh cảnh không có căn cứ trái ngược.
-        Không tự tạo ran phổi nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Không bỏ mất ran phổi user cung cấp.
-    A6.9.4. Co kéo cơ hô hấp
-        Nếu user cung cấp co kéo cơ hô hấp:
-            - A6 phải ghi đúng.
-        Nếu user không cung cấp:
-            - Không tự tạo co kéo cơ hô hấp nếu bệnh cảnh không đủ căn cứ.
-        Nếu bệnh cảnh suy hô hấp rõ và RUN_MODE cho phép:
-            - Có thể ghi co kéo cơ hô hấp nếu phù hợp bệnh cảnh.
-        Chỉ ghi phủ định co kéo cơ hô hấp khi user cung cấp hoặc có căn cứ hợp lệ, không mâu thuẫn user input; không tự thêm “không co kéo cơ hô hấp” vào mẫu không có bất thường nếu không có căn cứ.
-    A6.9.5. Tím tái
-        Nếu user cung cấp tím tái như dấu khám:
-            - A6 phải ghi đúng nếu thuộc bệnh cảnh hô hấp.
-        Nếu user không cung cấp:
-            - Không tự tạo tím tái nếu bệnh cảnh không đủ căn cứ.
-        Nếu SpO2 thấp rõ hoặc bệnh cảnh suy hô hấp nặng và RUN_MODE cho phép:
-            - Có thể đồng bộ dấu tím tái nếu phù hợp, nhưng không được mâu thuẫn với user input.
-
-A6.10. Quy tắc đồng bộ với A1, A2, A3, A4, A5 và user input
-    A6.10.1. Đồng bộ với A1
-        Nếu A1_REASON có lý do vào viện liên quan hô hấp:
-            - A6 phải không bỏ sót bệnh cảnh hô hấp khi chọn mẫu khám.
-        Nếu A1_REASON không liên quan hô hấp:
-            - A6 không tự tạo bất thường hô hấp nếu không có căn cứ khác.
-        A6 không sửa A1_REASON.
-
-    A6.10.2. Đồng bộ với A2
-        Nếu A2_FINAL có tiền sử hô hấp, COPD, hen, lao phổi, bệnh phổi mạn, hút thuốc lá hoặc yếu tố nguy cơ hô hấp:
-            - A6 dùng để định hướng khám hô hấp nếu phù hợp.
-        A6 không biến tiền sử hô hấp thành dấu khám hiện tại nếu không có căn cứ.
-        A6 không sửa A2_FINAL.
-
-    A6.10.3. Đồng bộ với A3
-        Nếu A3 có triệu chứng hô hấp, A6 dùng để định hướng khám hô hấp.
-        Không bê triệu chứng cơ năng từ A3 vào A6.
-        Nếu A3 ghi ho, khạc đờm, khó thở, đau ngực:
-            - A6 chỉ ghi dấu khám thực thể nếu có hoặc được phép tự hoàn thiện theo RUN_MODE.
-        Nếu A3 ghi triệu chứng hô hấp đã hết:
-            - A6 không được ghi dấu hiện tại mâu thuẫn nếu không có căn cứ.
-
-    A6.10.4. Đồng bộ với A4
-        Nếu A4 có sốt, tím tái hoặc tình trạng toàn thân nặng liên quan hô hấp:
-            - A6 phải cân nhắc đồng bộ bệnh cảnh.
-        Nếu A4_STATE có nhịp thở nhanh:
-            - A6 phải phản ánh nhịp thở phù hợp và không được ghi nhịp thở trong giới hạn bình thường trái dữ kiện.
-        Nếu A4_STATE có SpO2 giảm:
-            - A6 phải phản ánh SpO2 giảm phù hợp và không được ghi SpO2 bình thường trái dữ kiện.
-        Nếu A4_STATE ghi SpO2 bình thường:
-            - A6 không được ghi suy hô hấp nếu không có dữ kiện khác.
-        Nếu A4 có sốt:
-            - A6 chỉ điều chỉnh bệnh cảnh hô hấp khi liên quan; không tự tạo ran, rì rào phế nang giảm, co kéo cơ hô hấp, SpO2 giảm hoặc thở oxy vô căn cứ.
-        Nếu A4 không có dữ kiện hô hấp thực thể:
-            - A6 không tự tạo bất thường nếu không có căn cứ.
-        Nếu A4 ghi không sốt:
-            - A6 không tự tạo nhiễm trùng hô hấp nặng có sốt nếu không có căn cứ khác.
-
-    A6.10.5. Đồng bộ với A5
-        Nếu A5 có mạch nhanh hoặc huyết áp bất thường trong bệnh cảnh nhiễm trùng/hô hấp:
-            - A6 có thể cân nhắc nhịp thở/SpO2 phù hợp nếu RUN_MODE cho phép.
-        Không dùng A5 để tạo ran phổi hoặc rì rào phế nang bất thường nếu không có căn cứ.
-        Không để A6 tạo suy hô hấp nặng trong khi A5/A4 hoàn toàn ổn định và không có dữ kiện hô hấp tương ứng.
-
-    A6.10.6. Đồng bộ với chẩn đoán/mã bệnh hô hấp trong user input
-        Nếu user input có chẩn đoán/mã bệnh hô hấp trực tiếp:
-            - A6 được dùng để chọn mẫu khám hô hấp phù hợp nếu RUN_MODE cho phép.
-        Nếu user input có viêm phổi, COPD, hen, suy hô hấp hoặc bệnh hô hấp khác:
-            - A6 phải cân nhắc nhịp thở, SpO2, ran phổi, rì rào phế nang và hình thức thở phù hợp.
-        Nếu không có bệnh hô hấp và user không cung cấp triệu chứng/dấu khám hô hấp:
-            - A6 chỉ được tạo mẫu khám thực thể đầy đủ không có bất thường khi RUN_MODE cho phép; không dùng wording chung chung hoặc bị cấm.
-        Không dùng kết quả X-quang/CT để thay cho khám hô hấp nếu đó là cận lâm sàng.
-        Không tạo chẩn đoán hô hấp trong A6.
-
-A6.11. Quy tắc tạo A6_FOR_O1
-    A6.11.1. Vai trò của A6_FOR_O1
-        A6_FOR_O1 là bản khám hô hấp dùng cho O1.
-        A6_FOR_O1 phải ngắn gọn, cụ thể.
-        A6_FOR_O1 không làm O1 bị dài.
-        A6_FOR_O1 không lặp lại các phần thuộc A3, A4, A5 hoặc A7-A11.
-    A6.11.2. Nội dung bắt buộc của A6_FOR_O1
-        A6_FOR_O1 bắt buộc có:
-            1. Lồng ngực.
-            2. Tự thở / hình thức thở.
-            3. Nhịp thở, đơn vị ck/p.
-            4. SpO2.
-            5. Rì rào phế nang.
-            6. Ran phổi.
-    A6.11.3. Nội dung không đưa vào A6_FOR_O1
-        A6_FOR_O1 không chứa triệu chứng cơ năng.
-        A6_FOR_O1 không ghi ho, khạc đờm, đau ngực hoặc khó thở do bệnh nhân kể nếu không có dấu thực thể kèm theo.
-        A6_FOR_O1 không chứa kết quả cận lâm sàng.
-        A6_FOR_O1 không chứa mạch, huyết áp, nhịp tim.
-        A6_FOR_O1 không chứa khám họng / tai mũi họng.
-        A6_FOR_O1 không dùng bất kỳ wording bị cấm theo chuẩn user hoặc cụm chung chung tương tự thay cho dấu khám thực thể đầy đủ.
-    A6.11.4. Mẫu không có bất thường hô hấp
-        Nếu không có bất thường hô hấp và có nhịp thở/SpO2 hợp lệ:
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi rõ, không ran.
-        A6_FOR_O1 thường quy không có “di động đều theo nhịp thở”.
-        A6_FOR_O1 thường quy không dùng “bệnh nhân tự thở”, không dùng “tự thở khí phòng”, không dùng “không co kéo cơ hô hấp”.
-    A6.11.5. Mẫu có thở nhanh hoặc SpO2 giảm
-        Nếu có thở nhanh hoặc SpO2 giảm:
-            A6_FOR_O1 = Lồng ngực cân đối, [tự thở / thở oxy hình thức-lưu lượng nếu có], nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi [rõ/giảm...], [ran nếu có / không ran].
-    A6.11.6. Mẫu có ran phổi
-        Nếu có ran phổi:
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi [rõ/giảm...], [loại ran và vị trí].
-    A6.11.7. Mẫu có rì rào phế nang giảm
-        Nếu có rì rào phế nang giảm:
-            A6_FOR_O1 = Lồng ngực cân đối, [tự thở / thở oxy hình thức-lưu lượng nếu có], nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang giảm [vị trí], [ran nếu có / không ran].
-    A6.11.8. Mẫu có thở oxy hoặc hỗ trợ hô hấp
-        Nếu có thở oxy hoặc hỗ trợ hô hấp:
-            A6_FOR_O1 = Lồng ngực cân đối, thở oxy [hình thức/lưu lượng nếu có], nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi [rõ/giảm...], [ran nếu có / không ran].
-    A6.11.9. Cấm trong A6_FOR_O1
-        A6_FOR_O1 không chứa:
-            1. Ho.
-            2. Khạc đờm.
-            3. Đau ngực do bệnh nhân kể.
-            4. Khó thở do bệnh nhân kể nếu không có dấu khám.
-            5. X-quang/CT.
-            6. Xét nghiệm.
-            7. Khí máu.
-            8. Chẩn đoán.
-            9. Thuốc.
-            10. Hướng điều trị.
-
-A6.12. Quy tắc tạo A6_FOR_O8
-    A6.12.1. Vai trò của A6_FOR_O8
-        A6_FOR_O8 là bản khám hô hấp dùng cho O8.
-        A6_FOR_O8 đầy đủ hơn A6_FOR_O1.
-        A6_FOR_O8 không thêm dữ kiện ngoài phạm vi A6.
-        A6_FOR_O8 không chứa triệu chứng cơ năng và không dùng wording bị cấm.
-    A6.12.2. Nội dung bắt buộc của A6_FOR_O8
-        A6_FOR_O8 bắt buộc có:
-            1. Lồng ngực.
-            2. Di động lồng ngực.
-            3. Tự thở / hình thức thở.
-            4. Nhịp thở, đơn vị ck/p.
-            5. SpO2.
-            6. Rì rào phế nang.
-            7. Ran phổi.
-            8. Dấu hiệu hô hấp bất thường khác nếu có.
-    A6.12.3. Mẫu không có bất thường hô hấp
-        Nếu không có bất thường hô hấp và có nhịp thở/SpO2 hợp lệ:
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi rõ, không ran.
-        A6_FOR_O8 thường quy phải chi tiết hơn A6_FOR_O1 bằng cụm “di động đều theo nhịp thở”.
-        A6_FOR_O8 thường quy không dùng “bệnh nhân tự thở”, không dùng “tự thở khí phòng”, không dùng “không co kéo cơ hô hấp”.
-    A6.12.4. Mẫu có thở nhanh hoặc SpO2 giảm
-        Nếu có thở nhanh hoặc SpO2 giảm:
-            A6_FOR_O8 = Lồng ngực cân đối, di động theo nhịp thở, [tự thở / thở oxy hình thức-lưu lượng nếu có], nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi [rõ/giảm...], [ran nếu có / không ran], [co kéo cơ hô hấp chỉ khi có căn cứ].
-    A6.12.5. Mẫu có ran phổi
-        Nếu có ran phổi:
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi [rõ/giảm...], [loại ran và vị trí].
-    A6.12.6. Mẫu có rì rào phế nang giảm
-        Nếu có rì rào phế nang giảm:
-            A6_FOR_O8 = Lồng ngực cân đối, di động theo nhịp thở, [tự thở / thở oxy hình thức-lưu lượng nếu có], nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang giảm [vị trí], [ran nếu có / không ran].
-    A6.12.7. Mẫu có thở oxy hoặc hỗ trợ hô hấp
-        Nếu có thở oxy hoặc hỗ trợ hô hấp:
-            A6_FOR_O8 = Lồng ngực cân đối, di động theo nhịp thở, thở oxy [hình thức/lưu lượng nếu có], nhịp thở [nhịp thở] ck/p, SpO2 [SpO2]%, rì rào phế nang hai phổi [rõ/giảm...], [ran nếu có / không ran], [dấu hiệu hô hấp khác nếu có].
-    A6.12.8. Đồng bộ O1/O8
-        A6_FOR_O1 và A6_FOR_O8 phải thống nhất:
-            1. Nhịp thở.
-            2. SpO2.
-            3. Hình thức thở.
-            4. Rì rào phế nang.
-            5. Ran phổi.
-        A6_FOR_O8 có thể chi tiết hơn nhưng không được thêm dữ kiện mới sai phạm vi.
-        Bất thường ở đâu thì thay thế phần tương ứng ở đó, không thêm lan man.
-        Nếu A6_FOR_O1 ghi có ran, A6_FOR_O8 cũng phải ghi có ran.
-        Nếu A6_FOR_O1 ghi SpO2 giảm, A6_FOR_O8 cũng phải ghi cùng trị số SpO2.
-        Nếu A6_FOR_O1 ghi thở oxy, A6_FOR_O8 cũng phải ghi thở oxy.
-
-A6.13. Ví dụ cụ thể
-    A6.13.1. Ví dụ không có bất thường hô hấp
-        Input:
-            Không ghi bất thường hô hấp. RUN_MODE = DEFAULT_COMPLETION.
-        A6_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 00:31 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-    A6.13.2. Ví dụ có ran phổi
-        Input:
-            Nhịp thở 24 ck/p, SpO2 94%, ran ẩm hai đáy phổi.
-        A6_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 00:31 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở 24 ck/p, SpO2 94%, rì rào phế nang hai phổi rõ, có ran ẩm hai đáy phổi.
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở 24 ck/p, SpO2 94%, rì rào phế nang hai phổi rõ, có ran ẩm hai đáy phổi.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-    A6.13.3. Ví dụ USER_ONLY thiếu nhịp thở/SpO2
-        Input:
-            RUN_MODE = USER_ONLY.
-            Rì rào phế nang hai phổi rõ, không ran. Không có nhịp thở và SpO2.
-        A6_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 00:31 30/05/2026
-            A6_FOR_O1 = Chưa có dữ kiện khám hô hấp.
-            A6_FOR_O8 = Chưa có dữ kiện khám hô hấp.
-            A6_CHECK = NEEDS_FIX
-            A6_ERROR = Thiếu nhịp thở và SpO2.
-    A6.13.4. Ví dụ không đưa triệu chứng cơ năng vào A6
-        Input:
-            Bệnh nhân ho khan 3 ngày. Khám phổi chưa ghi bất thường.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A6_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 00:31 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-    A6.13.5. Ví dụ DEFAULT_COMPLETION tự tạo nhịp thở/SpO2 trong bệnh cảnh ổn định
-        Input:
-            RUN_MODE = DEFAULT_COMPLETION.
-            Bệnh nhân đau thắt lưng, không ho, không khó thở, không sốt.
-            Không có nhịp thở và SpO2.
-        A6_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 00:31 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-    A6.13.6. Ví dụ DEFAULT_COMPLETION tự tạo nhịp thở/SpO2 trong bệnh cảnh nhiễm trùng hô hấp
-        Input:
-            RUN_MODE = DEFAULT_COMPLETION.
-            A3 ghi ho, sốt, khó thở nhẹ.
-            A4 ghi sốt 38,5°C.
-            Không có nhịp thở và SpO2.
-        A6_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 00:31 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở 22 ck/p, SpO2 96%, rì rào phế nang hai phổi rõ, không ran.
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở 22 ck/p, SpO2 96%, rì rào phế nang hai phổi rõ, không ran.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-    A6.13.7. Ví dụ thở oxy
-        Input:
-            Bệnh nhân thở oxy gọng kính 3 lít/phút, nhịp thở 28 ck/p, SpO2 92%, ran ẩm hai đáy phổi.
-        A6_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 00:31 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, thở oxy gọng kính 3 lít/phút, nhịp thở 28 ck/p, SpO2 92%, rì rào phế nang hai phổi rõ, có ran ẩm hai đáy phổi.
-            A6_FOR_O8 = Lồng ngực cân đối, di động theo nhịp thở, thở oxy gọng kính 3 lít/phút, nhịp thở 28 ck/p, SpO2 92%, rì rào phế nang hai phổi rõ, có ran ẩm hai đáy phổi.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-    A6.13.8. Ví dụ CREATE A6_STATE
-        Input:
-            RUN_MODE = USER_ONLY.
-            Nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-        Full A6_STATE sau CREATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 00:31 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở 18 ck/p, SpO2 98%, rì rào phế nang hai phổi rõ, không ran.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-        A6_REV sau CREATE = 1
-    A6.13.9. Ví dụ UPDATE A6_STATE khi nội dung thật thay đổi
-        A6_STATE hiện hành mới nhất có A6_REV = 1 và SpO2 98%.
-        Input ROUND hiện tại sửa SpO2 thành 95%.
-        Full A6_STATE sau UPDATE:
-            STATE_VERSION = V2
-            UPDATED_AT = 00:45 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở 18 ck/p, SpO2 95%, rì rào phế nang hai phổi rõ, không ran.
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở 18 ck/p, SpO2 95%, rì rào phế nang hai phổi rõ, không ran.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-        A6_REV sau UPDATE = 2
-    A6.13.10. Ví dụ REUSE full A6_STATE
-        A6_STATE hiện hành mới nhất có A6_REV = 2 và STATE_VERSION = V2.
-        Input ROUND hiện tại không ảnh hưởng A6 hoặc sau chuẩn hóa không làm nội dung thật của A6_FOR_O1 / A6_FOR_O8 thay đổi.
-        Full A6_STATE dùng lại trong ROUND hiện tại:
-            STATE_VERSION = V3
-            UPDATED_AT = 00:50 30/05/2026
-            A6_FOR_O1 = Lồng ngực cân đối, tự thở, nhịp thở 18 ck/p, SpO2 95%, rì rào phế nang hai phổi rõ, không ran.
-            A6_FOR_O8 = Lồng ngực cân đối, di động đều theo nhịp thở, tự thở, nhịp thở 18 ck/p, SpO2 95%, rì rào phế nang hai phổi rõ, không ran.
-            A6_CHECK = PASS
-            A6_ERROR = NONE
-        A6_REV sau REUSE = 2
-    A6.13.11. Ví dụ AUTO_SAMPLE chỉ dùng cho ca mẫu
-        Input:
-            User yêu cầu tạo ca mẫu.
-            RUN_MODE = AUTO_SAMPLE.
-        Kết quả:
-            A6 được tạo khám hô hấp mẫu phù hợp ca mẫu theo rule hiện hành của A6.
-            Không dùng logic AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
-
-A6.14. Schema A6_STATE
-    A6.14.1. Schema chuẩn
-        A6_STATE:
-            STATE_VERSION = ...
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A6_FOR_O1 = ...
-            A6_FOR_O8 = ...
-            A6_CHECK = PASS / NEEDS_FIX
-            A6_ERROR = ...
-    A6.14.2. Nguyên tắc schema
-        A6_STATE không cần in trạng thái tạo mới / cập nhật / dùng lại.
-        A6_STATE không cần STATUS.
-        A6_STATE bắt buộc có UPDATED_AT = HH:MM dd/mm/yyyy.
-        UPDATED_AT là metadata quản lý phiên bản state, không phải dữ liệu bệnh án.
-        O không được render UPDATED_AT vào bệnh án.
-        UPDATED_AT khác A6_REV: UPDATED_AT là thời điểm cập nhật state; A6_REV là revision nội dung theo rule system.
-        A6_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        A6_FOR_O1 là khám hô hấp dùng cho O1.
-        A6_FOR_O8 là khám hô hấp dùng cho O8.
-        A6_CHECK là kết quả tự kiểm của A6.
-        A6_ERROR chỉ dùng khi A6_CHECK = NEEDS_FIX.
-    A6.14.3. Khi A6_CHECK = PASS
-        Nếu A6_CHECK = PASS:
-            - A6_FOR_O1 có giá trị hợp lệ.
-            - A6_FOR_O8 có giá trị hợp lệ.
-            - A6_ERROR = NONE.
-    A6.14.4. Khi A6_CHECK = NEEDS_FIX
-        Nếu A6_CHECK = NEEDS_FIX:
-            - A6_ERROR phải ghi rõ lỗi.
-            - A6_ERROR phải nêu dữ liệu cần user bổ sung hoặc phần cần sửa.
-            - Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-A6.15. Lỗi không được mắc
-    A6.15.1. Lỗi sai phạm vi A6
-        Không đưa ý thức, tiếp xúc, thể trạng vào A6.
-        Không đưa mạch, nhịp tim, huyết áp vào A6.
-        Không đưa triệu chứng cơ năng vào A6.
-        Không đưa ho, khạc đờm, đau ngực, khó thở do bệnh nhân kể vào A6 nếu không phải dấu khám thực thể.
-        Không đưa khám họng / tai mũi họng vào A6.
-        Không đưa khám tiêu hóa vào A6.
-        Không đưa khám thận - tiết niệu vào A6.
-        Không đưa khám thần kinh vào A6.
-        Không đưa khám cơ xương khớp vào A6.
-        Không đưa khám cơ quan khác vào A6.
-        A6 không viết khám toàn thân thay A4.
-        A6 không viết khám tuần hoàn thay A5.
-        A6 không viết khám tiêu hóa, thận - tiết niệu, thần kinh, cơ xương khớp hoặc cơ quan khác thay A7-A11.
-        A6 không viết chẩn đoán thay A12.
-        A6 không viết hướng xử trí thay A13.
-        A6 không viết thuốc hoặc đơn thuốc thay A15.
-        A6 không viết cận lâm sàng hoặc hành chính thay A14.
-        A6 không chạy C/O.
-        Không đưa kết quả X-quang, CT, xét nghiệm, khí máu hoặc thăm dò chức năng hô hấp vào A6 như khám thực thể.
-    A6.15.2. Lỗi tự tạo dữ kiện
-        Không tự tạo nhịp thở nếu user không cung cấp và RUN_MODE không cho phép.
-        Không tự tạo SpO2 nếu user không cung cấp và RUN_MODE không cho phép.
-        Không tự đổi, tự làm tròn hoặc thay trị số nhịp thở/SpO2 user đã cung cấp.
-        Không tạo nhịp thở/SpO2 mâu thuẫn với bệnh cảnh, bệnh nền, tuổi, giới tính nếu liên quan, mức độ nặng hoặc dependency hợp lệ A3, A4, A5.
-        Không cố định một cặp nhịp thở/SpO2 cho mọi ca trong DEFAULT_COMPLETION.
-        Không tự tạo ran phổi nếu user không cung cấp hoặc không có căn cứ.
-        Không tự tạo rì rào phế nang giảm nếu user không cung cấp hoặc không có căn cứ.
-        Không tự tạo thở oxy nếu user không cung cấp hoặc không có căn cứ.
-        Không tự tạo co kéo cơ hô hấp nếu user không cung cấp hoặc không có căn cứ.
-        Không tự tạo tím tái nếu user không cung cấp hoặc không có căn cứ.
-    A6.15.3. Lỗi trình bày A6_FOR_O1 / A6_FOR_O8
-        Không ghi cụm chung chung thay cho dấu khám thực thể đầy đủ.
-        Không ghi bất kỳ wording bị cấm theo chuẩn user thay cho dấu khám thực thể đầy đủ.
-        Không để A6_FOR_O1 và A6_FOR_O8 mâu thuẫn.
-        Không để A6_FOR_O1 thiếu dữ kiện bắt buộc nếu A6_CHECK = PASS.
-        Không để A6_FOR_O8 thiếu dữ kiện bắt buộc nếu A6_CHECK = PASS.
-        Không viết A6_FOR_O1 quá dài.
-        Không viết A6_FOR_O8 dài nhưng thêm dữ kiện sai phạm vi.
-        Không để A6_FOR_O1/A6_FOR_O8 dùng “bệnh nhân tự thở” hoặc “tự thở khí phòng” trong mẫu thường quy.
-        Không để A6_FOR_O1/A6_FOR_O8 có “không co kéo cơ hô hấp” trong mẫu thường quy.
-        Không để A6_FOR_O8 thiếu “di động đều theo nhịp thở” trong mẫu thường quy.
-        Không để A6_FOR_O8 giống hệt A6_FOR_O1 trong mẫu thường quy.
-        Không làm mất bất thường hô hấp user cung cấp.
-    A6.15.4. Lỗi mâu thuẫn với A khác
-        Không bê triệu chứng cơ năng từ A3 vào A6.
-        Không biến sốt trong A4 thành ran phổi nếu không có căn cứ.
-        Không dùng A5 để tạo ran phổi hoặc rì rào phế nang bất thường nếu không có căn cứ.
-        Không dùng A12_STATE của ROUND hiện tại hoặc A12_STATE cũ từ ROUND trước để tạo dấu khám hô hấp mới.
-        Không dùng cận lâm sàng trong A14 để thay cho khám hô hấp thực thể nếu không có dữ kiện khám tương ứng.
-    A6.15.5. Lỗi vận hành state
-        Không tạo state của A khác.
-        Không dùng patch/delta làm A6_STATE chính thức.
-        Không ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không đưa metadata ngoài contract hiện hành vào A6_STATE; UPDATED_AT là metadata bắt buộc của A6_STATE.
-        Không render O trong A6.
-        Không chạy C trong A6.
-        Không suy ngược A6 từ O_OUTPUT.
-
-A6.16. A6_CHECK
-    A6.16.1. Kiểm A6_FOR_O1
-        Kiểm:
-            1. A6_FOR_O1 có lồng ngực.
-            2. A6_FOR_O1 có hình thức thở.
-            3. A6_FOR_O1 có nhịp thở, đơn vị ck/p.
-            4. A6_FOR_O1 có SpO2.
-            5. A6_FOR_O1 có rì rào phế nang.
-            6. A6_FOR_O1 có ran phổi.
-            7. A6_FOR_O1 không chứa triệu chứng cơ năng.
-            8. A6_FOR_O1 không dùng wording bị cấm hoặc cụm chung chung thay cho dấu khám thực thể đầy đủ.
-            9. A6_FOR_O1 thường quy dùng “tự thở”, không dùng “bệnh nhân tự thở” hoặc “tự thở khí phòng”.
-            10. A6_FOR_O1 thường quy không có “không co kéo cơ hô hấp”.
-            11. A6_FOR_O1 dùng chuẩn “SpO2”.
-            12. Nếu nhịp thở/SpO2 do AI tự tạo trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE, trị số phải phù hợp bệnh cảnh, bệnh nền, tuổi, giới tính nếu liên quan, mức độ nặng và dependency hợp lệ A3, A4, A5.
-            13. Nếu user đã cung cấp nhịp thở/SpO2, trị số trong A6_FOR_O1 phải đúng với user input và không bị tự đổi/tự làm tròn.
-    A6.16.2. Kiểm A6_FOR_O8
-        Kiểm:
-            1. A6_FOR_O8 có lồng ngực.
-            2. A6_FOR_O8 có di động lồng ngực.
-            3. A6_FOR_O8 có hình thức thở.
-            4. A6_FOR_O8 có nhịp thở, đơn vị ck/p.
-            5. A6_FOR_O8 có SpO2.
-            6. A6_FOR_O8 có rì rào phế nang.
-            7. A6_FOR_O8 có ran phổi.
-            8. A6_FOR_O8 không chứa triệu chứng cơ năng.
-            9. A6_FOR_O8 dùng cùng nhịp thở và SpO2 với A6_FOR_O1.
-            10. A6_FOR_O8 đồng bộ rì rào phế nang và ran phổi với A6_FOR_O1.
-            11. A6_FOR_O8 thường quy có “di động đều theo nhịp thở” và chi tiết hơn A6_FOR_O1.
-            12. A6_FOR_O8 thường quy dùng “tự thở”, không dùng “bệnh nhân tự thở” hoặc “tự thở khí phòng”.
-            13. A6_FOR_O8 thường quy không có “không co kéo cơ hô hấp”.
-            14. A6_FOR_O8 dùng chuẩn “SpO2”.
-            15. Nếu nhịp thở/SpO2 do AI tự tạo trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE, trị số phải phù hợp bệnh cảnh, bệnh nền, tuổi, giới tính nếu liên quan, mức độ nặng và dependency hợp lệ A3, A4, A5.
-            16. Nếu user đã cung cấp nhịp thở/SpO2, trị số trong A6_FOR_O8 phải đúng với user input và không bị tự đổi/tự làm tròn.
-    A6.16.3. Kiểm dependency và đồng bộ
-        Kiểm:
-            1. Nếu dùng A1_STATE, A6 không bỏ sót lý do vào viện liên quan hô hấp.
-            2. Nếu dùng A2_STATE, A6 không biến tiền sử hô hấp thành dấu khám hiện tại nếu không có căn cứ.
-            3. Nếu dùng A3_STATE, A6 không bê triệu chứng cơ năng vào khám hô hấp.
-            4. Nếu dùng A4_STATE, A6 chỉ đồng bộ tình trạng toàn thân, không tạo dữ kiện không có căn cứ.
-            4a. Nếu A4_STATE có nhịp thở nhanh, SpO2 giảm hoặc SpO2 bình thường, A6 phải phản ánh đúng và không suy hô hấp trái dữ kiện.
-            5. Nếu dùng A5_STATE, A6 chỉ đồng bộ bệnh cảnh, không tạo ran phổi hoặc bất thường phổi không có căn cứ.
-            6. Nếu dùng chẩn đoán/mã bệnh hô hấp trong user input, A6 chọn mẫu phù hợp nếu RUN_MODE cho phép.
-            7. A6 không đọc A7-A15 của ROUND hiện tại.
-            8. A6 không đọc A12_STATE của ROUND hiện tại hoặc A12_STATE cũ từ ROUND trước để tạo A6.
-            9. A6 không đọc C_STATE hoặc O_OUTPUT.
-            10. A6 không tạo dữ kiện mâu thuẫn với user input.
-            11. A6_FOR_O1 và A6_FOR_O8 dùng cùng nhịp thở/SpO2.
-            12. Nếu DEFAULT_COMPLETION tự tạo nhịp thở/SpO2, không cố định một cặp trị số cho mọi ca.
-    A6.16.4. Kiểm A6_STATE
-        Kiểm:
-            1. A6_STATE có STATE_VERSION.
-            2. A6_STATE có A6_FOR_O1.
-            3. A6_STATE có A6_FOR_O8.
-            4. A6_STATE có A6_CHECK.
-            5. Nếu A6_CHECK = NEEDS_FIX, có A6_ERROR rõ.
-            6. Nếu A6_CHECK = PASS, A6_ERROR = NONE.
-            7. A6_STATE có UPDATED_AT đúng định dạng HH:MM dd/mm/yyyy.
-            8. UPDATED_AT là metadata, không phải dữ liệu bệnh án và O không được render.
-            9. A6_STATE sẵn sàng đưa vào full current A_STATE.
-    A6.16.5. Kết quả A6_CHECK
-        Nếu đạt:
-            A6_CHECK = PASS.
-            A6_ERROR = NONE.
-        Nếu chưa đạt:
-            A6_CHECK = NEEDS_FIX.
-            A6_ERROR = ghi rõ lỗi.
-
-A6.17. Kết thúc module
-    A6.17.1. Điều kiện hoàn tất A6
-        A6 hoàn tất khi:
-            1. Đã tạo mới, cập nhật hoặc dùng lại A6_STATE.
-            2. Đã kiểm A6_CHECK.
-            3. Không tạo dữ liệu ngoài A6_STATE.
-            4. Không tạo state của A khác.
-            5. Không chạy C.
-            6. Không render O.
-            7. Không tự dừng STEP A.
-            8. Không tự chuyển sang C/O.
-    A6.17.2. Chuyển module tiếp theo
-        Sau khi hoàn tất A6_STATE, chuyển sang A7 theo A_RUN_ORDER.
-        Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
+A6_END
+    A6 hoàn tất khi đã CREATE/UPDATE/REUSE A6_STATE, đã CHECK A6_STATE, chỉ ghi A6_STATE, không tự dừng STEP A và không tự chuyển sang C/O.
+    Sau khi hoàn tất A6_STATE, chuyển sang A7 theo A_RUN_ORDER.
+    Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
 
 <<< END A6
 
-####################################################################################################
 
 A7 — KHÁM TIÊU HÓA
 Version: BA S-G-A-C-O v3
