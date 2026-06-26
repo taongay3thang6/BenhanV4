@@ -1394,1042 +1394,261 @@ A7_END
 ####################################################################################################
 
 A8 — KHÁM THẬN - TIẾT NIỆU
-Version: BA S-G-A-C-O v3
-Update 03/06/2026 GMT+7 — clinical sync A8.3-A8.11
-
->>> READ-LOCK: A8
-- Bắt buộc đọc tuần tự toàn bộ A8 từ A8.1 đến A8.18.
-- Không được bỏ qua mục nào.
-- Chỉ tạo A8_STATE.
-- Không tạo state của A khác.
-- Không chạy C.
-- Không render O.
-- Sau khi hoàn tất A8_STATE, chuyển sang A9 theo A_RUN_ORDER.
-<<< END READ-LOCK: A8
-
-A8.1. Nhiệm vụ của A8
-    A8.1.1. Vai trò chính của A8
-        A8 là module chuẩn hóa phần khám thận - tiết niệu thực thể.
-        A8 không phải bệnh sử tiết niệu.
-        A8 không phải chẩn đoán thận - tiết niệu.
-        A8 không phải cận lâm sàng thận - tiết niệu.
-        A8 không phải điều trị thận - tiết niệu.
-        A8 tạo A8_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-        A8_STATE là nguồn chính thức cho C/O khi cần dữ liệu khám thận - tiết niệu.
-        A8 tạo dữ liệu khám thận - tiết niệu dùng cho O1 và O8.
-        O chỉ đọc A8_STATE khi cần khám thận - tiết niệu; O không tự viết lại khám thận - tiết niệu.
-
-    A8.1.2. Nội dung A8 tạo ra
-        A8 tạo full A8_STATE gồm:
-            1. STATE_VERSION.
-            2. UPDATED_AT.
-            3. A8_REV.
-            4. A8_FOR_O1.
-            5. A8_FOR_O8.
-            6. A8_CHECK.
-            7. A8_ERROR nếu A8_CHECK = NEEDS_FIX.
-
-    A8.1.3. Nguyên tắc trách nhiệm
-        A8 chỉ chịu trách nhiệm với khám thận - tiết niệu thực thể.
-        Nếu khám thận - tiết niệu sai, phải sửa A8.
-        Nếu khám thận - tiết niệu bị lẫn với bệnh sử, toàn thân, tuần hoàn, hô hấp, tiêu hóa, thần kinh, cơ xương khớp, cơ quan khác hoặc cận lâm sàng, phải sửa A8.
-        Chất lượng nội dung A8_FOR_O1 và A8_FOR_O8 phải được khóa trong A8.
-
-A8.2. Nguồn được đọc
-    A8.2.1. Nguồn được đọc
-        A8 được đọc:
-            1. User input của ROUND hiện tại.
-            2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
-            3. A8_STATE hiện hành mới nhất nếu đã có.
-            4. File/module A8.
-            5. A1_STATE nếu cần đối chiếu lý do vào viện liên quan thận - tiết niệu.
-            6. A2_STATE nếu cần đối chiếu tiền sử thận - tiết niệu, bệnh nền hoặc yếu tố nguy cơ liên quan.
-            7. A3_STATE nếu cần đối chiếu triệu chứng tiết niệu / đau hông lưng, nhưng không bê triệu chứng cơ năng vào A8.
-            8. A4_STATE nếu cần đối chiếu phù, toàn trạng, sốt hoặc bệnh cảnh toàn thân liên quan thận - tiết niệu.
-            9. A5_STATE nếu cần đối chiếu tuần hoàn trong bệnh cảnh mất nước, nhiễm trùng, sốc hoặc bệnh cảnh nặng.
-            10. A6_STATE nếu cần đối chiếu hô hấp/toàn trạng trong bệnh cảnh nặng.
-            11. A7_STATE nếu cần phân biệt đau bụng, đau hông lưng hoặc bệnh cảnh tiêu hóa với thận - tiết niệu.
-
-    A8.2.2. Dữ liệu user input có thể dùng cho A8
-        A8 chỉ được lấy dữ liệu khám thực thể thận - tiết niệu thuộc các nhóm sau:
-            1. Hố thận.
-            2. Điểm niệu quản trên, giữa.
-            3. Chạm thận.
-            4. Rung thận.
-            5. Hạ vị nếu có dấu khám.
-            6. Cầu bàng quang.
-        A8 được dùng triệu chứng tiết niệu trong user input hoặc A3 để định hướng mẫu khám, nhưng không đưa trực tiếp triệu chứng cơ năng vào A8_FOR_O1/O8.
-        A8 được dùng chẩn đoán/mã bệnh/bệnh cảnh thận - tiết niệu do user input trực tiếp cung cấp để chọn mẫu khám phù hợp, ví dụ suy thận mạn, bệnh thận mạn, đái tháo đường, nhiễm khuẩn tiết niệu, sỏi tiết niệu, cơn đau quặn thận, viêm thận - bể thận hoặc bí tiểu.
-        Nếu user cung cấp dấu khám thận - tiết niệu ngoài danh sách được phép của A8, A8 không tự render vào A8_FOR_O1/O8; A8 ghi A8_CHECK = NEEDS_FIX và A8_ERROR yêu cầu mở rộng contract nếu thật sự cần.
-
-    A8.2.3. Nguồn không dùng do thứ tự chạy
-        A8 không đọc A9-A15 của ROUND hiện tại để viết ngược A8 vì các module này chạy sau A8.
-        A8 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A8 trong A_RUN_ORDER.
-        A8 không dùng A12_STATE cũ từ ROUND trước để tạo A8 trong ROUND hiện tại.
-        A8 không dùng chẩn đoán hoặc mã bệnh từ A12 để tạo dấu khám thận - tiết niệu mới.
-        Nếu user input trực tiếp có chẩn đoán/mã bệnh/bệnh cảnh thận - tiết niệu, A8 có thể dùng như user input theo rule hiện hành; đây không phải là đọc A12_STATE.
-        A8 không tự tạo chẩn đoán.
-        Các đối chiếu A8 ↔ A12 hoặc A8 ↔ module chạy sau nếu cần sẽ do tầng tổng hợp/A_GATE hoặc module chạy sau xử lý sau khi các state đó đã có.
-        A8 không đọc C_STATE.
-        A8 không đọc O_OUTPUT.
-        A8 không đọc output đã render.
-        A8 không dùng trí nhớ ẩn.
-        A8 không dùng dữ liệu ngoài state hợp lệ.
-
-A8.3. Dependency nội bộ
-    A8.3.1. Dependency của A8
-        A8 có thể đọc:
-            1. A1_STATE.
-            2. A2_STATE.
-            3. A3_STATE.
-            4. A4_STATE.
-            5. A5_STATE.
-            6. A6_STATE.
-            7. A7_STATE.
-
-    A8.3.2. Mục đích đọc dependency
-        A1_STATE được dùng để không bỏ sót lý do vào viện liên quan thận - tiết niệu.
-        A2_STATE được dùng để đồng bộ tiền sử thận - tiết niệu, bệnh nền hoặc yếu tố nguy cơ liên quan.
-        A3_STATE được dùng để đối chiếu triệu chứng tiết niệu, đau hông lưng và bệnh sử hiện tại.
-        A4_STATE được dùng để đồng bộ phù, sốt, toàn trạng hoặc bệnh cảnh toàn thân.
-        A5_STATE được dùng để đồng bộ tuần hoàn trong bệnh cảnh nhiễm trùng, mất nước, sốc hoặc bệnh cảnh nặng.
-        A6_STATE được dùng để đồng bộ hô hấp/toàn trạng trong bệnh cảnh nặng nếu cần.
-        A7_STATE được dùng để phân biệt bệnh cảnh tiêu hóa với thận - tiết niệu nếu có đau bụng / đau hông lưng / hạ vị.
-
-    A8.3.3. Khi không cần dependency
-        Nếu user input đã đủ dữ kiện khám thận - tiết niệu và không cần đồng bộ thêm, A8 có thể chỉ đọc user input và A8_STATE hiện hành nếu có.
-
-    A8.3.4. Giới hạn dependency
-        Dependency A1-A7 của A8 chỉ dùng để đối chiếu ngữ cảnh, ranh giới, phát hiện mâu thuẫn và đồng bộ bệnh cảnh.
-        Dependency không được dùng để bê triệu chứng cơ năng vào A8.
-        Dependency không được dùng để tạo dấu khám thận - tiết niệu mới nếu không có rule hợp lệ.
-        Không chép lý do vào viện, tiền sử, bệnh sử, khám toàn thân, khám tuần hoàn, khám hô hấp hoặc khám tiêu hóa vào A8_FOR_O1/A8_FOR_O8.
-        A8 không đọc A9-A15 của ROUND hiện tại để viết ngược A8 vì các module này chạy sau A8.
-        A8 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A8.
-        A8 không dùng A12_STATE cũ từ ROUND trước để tạo A8 trong ROUND hiện tại.
-        A8 không đọc C_STATE.
-        A8 không đọc O_OUTPUT.
-        A8 không suy ngược khám thận - tiết niệu từ output đã render.
-        A8 không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
-
-A8.4. Quy tắc CREATE / UPDATE / REUSE A8_STATE
-    CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A8 đối với A8_STATE; không phải RUN_MODE.
-    A8 tự đọc user input ROUND hiện tại và dependency hợp lệ để tự quyết định CREATE / UPDATE / REUSE; A8 không phụ thuộc G chọn A8 cần sửa.
-
-    A8.4.1. CREATE A8_STATE
-        CREATE áp dụng khi chưa có A8_STATE hiện hành.
-        A8 tạo full A8_STATE mới từ user input của ROUND hiện tại và dependency được phép nếu cần.
-        A8 phải xác định:
-            1. STATE_VERSION của ROUND hiện tại.
-            2. UPDATED_AT = HH:MM dd/mm/yyyy.
-            3. A8_REV = 1.
-            4. A8_FOR_O1.
-            5. A8_FOR_O8.
-            6. A8_CHECK.
-            7. A8_ERROR nếu cần.
-
-    A8.4.2. UPDATE A8_STATE
-        UPDATE áp dụng khi user input của ROUND hiện tại hoặc dependency hợp lệ làm A8_FOR_O1 / A8_FOR_O8 thay đổi thật.
-        Dữ liệu có thể ảnh hưởng A8 gồm:
-            1. Hố thận.
-            2. Điểm niệu quản trên, giữa.
-            3. Chạm thận.
-            4. Rung thận.
-            5. Hạ vị nếu có dấu khám.
-            6. Cầu bàng quang.
-        Khi cập nhật:
-            - A8 đọc A8_STATE hiện hành mới nhất nếu có.
-            - A8 thay phần bị ảnh hưởng bằng dữ liệu mới.
-            - A8 giữ phần không bị ảnh hưởng bằng nội dung hiện hành mới nhất.
-            - A8_STATE sau cập nhật phải mang STATE_VERSION của ROUND hiện tại.
-            - A8_STATE sau cập nhật phải có UPDATED_AT mới.
-            - Nếu dependency hợp lệ A1-A7 làm A8_FOR_O1 / A8_FOR_O8 thay đổi thật, A8 UPDATE và A8_REV tăng.
-
-    A8.4.3. REUSE A8_STATE
-        REUSE áp dụng khi đã có A8_STATE hiện hành và input không ảnh hưởng A8 hoặc nội dung thật của A8_FOR_O1 / A8_FOR_O8 không thay đổi.
-        Nếu user input có liên quan nhưng sau chuẩn hóa nội dung thật không đổi, A8 REUSE và A8_REV giữ nguyên.
-        Nếu dependency hợp lệ A1-A7 được đọc nhưng không làm A8_FOR_O1 / A8_FOR_O8 thay đổi thật, A8 REUSE và A8_REV giữ nguyên.
-        A8 dùng lại nội dung thật của A8_STATE hiện hành mới nhất.
-        A8_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong full current A_STATE.
-        A8_STATE dùng lại vẫn phải có UPDATED_AT của lần ghi full current A8_STATE trong ROUND hiện tại.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được chỉ ghi “reuse A8” thay cho A8_FOR_O1 và A8_FOR_O8.
-
-    A8.4.4. Quy tắc A8_REV và UPDATED_AT
-        A8 chỉ quản lý revision của chính A8.
-        A8 không tự tạo toàn bộ A_MODULE_REV.
-        Nếu CREATE A8_STATE: A8_REV = 1.
-        Nếu UPDATE và A8_FOR_O1 hoặc A8_FOR_O8 thay đổi thật: A8_REV tăng so với A8_REV hiện hành.
-        Nếu REUSE hoặc nội dung thật không đổi: A8_REV giữ nguyên.
-        A8_REV tăng hoặc giữ nguyên theo thay đổi thật của A8_FOR_O1 / A8_FOR_O8; không theo tên RUN_MODE.
-        A8_REV là metadata kỹ thuật để A_GATE/full current A_STATE tổng hợp vào A_MODULE_REV.
-        UPDATED_AT là metadata quản lý thời điểm cập nhật state.
-        UPDATED_AT không phải dữ liệu bệnh án.
-        UPDATED_AT khác A8_REV: UPDATED_AT là thời điểm ghi/cập nhật state, A8_REV là revision nội dung theo rule system.
-        O không được render UPDATED_AT vào bệnh án.
-        A8_STATE vẫn là full state, không phải patch/delta.
-
-A8.5. Quy tắc xử lý theo RUN_MODE
-    RUN_MODE là chế độ tạo dữ liệu lấy từ G_STATE; không phải CREATE / UPDATE / REUSE.
-    A8 không tự xác định RUN_MODE; A8 chỉ đọc RUN_MODE từ G_STATE.
-
-    A8.5.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        A8 chỉ dùng dữ liệu khám thận - tiết niệu user cung cấp trong phạm vi A8.
-        A8 không tự tạo khám thận - tiết niệu.
-        A8 không tự tạo chạm thận (+).
-        A8 không tự tạo rung thận (+).
-        A8 không tự tạo đau điểm niệu quản.
-        A8 không tự tạo cầu bàng quang.
-        Nếu không có A8_STATE cũ để REUSE và user không cung cấp dữ kiện khám thận - tiết niệu trong phạm vi A8:
-            - A8_FOR_O1 = Chưa có dữ kiện khám thận - tiết niệu thực thể trong phạm vi A8.
-            - A8_FOR_O8 = Chưa có dữ kiện khám thận - tiết niệu thực thể trong phạm vi A8.
-            - A8_CHECK = NEEDS_FIX.
-            - A8_ERROR = Thiếu dữ kiện khám thận - tiết niệu thực thể trong phạm vi A8.
-        A8 không đọc O_OUTPUT để quyết định dữ kiện khám thận - tiết niệu có bắt buộc hay không.
-        A8 không tự suy “output đang chạy” từ O.
-        Nếu cần metadata output, A8 chỉ được đọc metadata kỹ thuật từ G_STATE nếu đã có; A8 không thêm dependency O.
-        Nếu user cung cấp một phần khám thận - tiết niệu:
-            - A8 dùng phần đã có nếu thuộc phạm vi A8.
-            - Không tự thêm phần chưa có nếu RUN_MODE không cho phép.
-
-    A8.5.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        A8 dùng dữ liệu user cung cấp làm nền.
-        A8 được tự tạo khám thận - tiết niệu phù hợp bệnh cảnh nếu user không cung cấp đủ khám thận - tiết niệu và RUN_MODE cho phép.
-        Nếu không có triệu chứng/chẩn đoán thận - tiết niệu liên quan:
-            - Dùng mẫu khám thường quy mới: A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-); A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-            - A8_FOR_O1/A8_FOR_O8 không được dùng no-data placeholder trong DEFAULT_COMPLETION bệnh án thường quy.
-        Nếu có lý do vào viện, tiền sử, bệnh sử hoặc triệu chứng thận - tiết niệu liên quan trong A1/A2/A3:
-            - A8 được chọn mẫu khám thận - tiết niệu phù hợp, miễn là không mâu thuẫn dữ kiện user.
-        Nếu có chẩn đoán hoặc mã bệnh thận - tiết niệu trực tiếp trong user input:
-            - A8 được chọn mẫu khám phù hợp, miễn là không mâu thuẫn dữ kiện user.
-        Nếu user phủ định đau hông lưng, đau điểm niệu quản, chạm thận/rung thận (+) hoặc cầu bàng quang:
-            - A8 phải giữ đúng phủ định.
-            - Không tự viết ngược lại.
-        Không tự tạo dấu bệnh lý thận - tiết niệu nếu không có căn cứ.
-        Không tự thêm tiểu buốt, tiểu máu hoặc đau hông lưng kiểu thận nếu user không cung cấp.
-        Trong DEFAULT_COMPLETION bệnh án thường quy, A8_FOR_O1/A8_FOR_O8 không được chứa no-data placeholder hoặc câu “chưa ghi nhận bất thường rõ”.
-        Không ghi mẫu bình thường nếu user cung cấp bất thường rõ.
-
-    A8.5.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        A8 được tạo khám thận - tiết niệu mẫu phù hợp bệnh cảnh mẫu.
-        Khám thận - tiết niệu mẫu chỉ đối chiếu A1-A7 theo dependency hợp lệ.
-        Các đối chiếu với module chạy sau nếu cần sẽ do tầng tổng hợp/A_GATE hoặc module chạy sau xử lý sau khi các state đó đã có.
-        Nếu bệnh cảnh mẫu ổn định:
-            - A8 có thể tạo khám thận - tiết niệu trong giới hạn bình thường theo A8.12 và A8.13.
-        Nếu bệnh cảnh mẫu có nhiễm khuẩn tiết niệu, sỏi tiết niệu, cơn đau quặn thận, viêm thận - bể thận, bí tiểu hoặc bệnh thận - tiết niệu khác:
-            - A8 phải tạo khám thận - tiết niệu phù hợp bệnh cảnh mẫu.
-        Không dùng logic AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
-
-A8.6. Phạm vi khám thận - tiết niệu
-    A8.6.1. Thành phần thuộc A8
-        A8_FOR_O1 và A8_FOR_O8 chỉ chứa khám thực thể thận - tiết niệu.
-        A8 output chỉ render các nhóm dữ kiện sau:
-            1. Hố thận.
-            2. Ấn điểm niệu quản trên, giữa.
-            3. Chạm thận.
-            4. Rung thận.
-            5. Hạ vị nếu có dấu khám.
-            6. Cầu bàng quang.
-        A8 không mở field tự do ngoài danh sách này trong A8_FOR_O1 hoặc A8_FOR_O8.
-
-    A8.6.2. Thành phần không thuộc A8_FOR_O1/O8
-        A8_FOR_O1 và A8_FOR_O8 không được chứa:
-            1. Tiểu tiện bình thường.
-            2. Tiểu buốt nếu chỉ là triệu chứng cơ năng.
-            3. Tiểu rắt nếu chỉ là triệu chứng cơ năng.
-            4. Tiểu máu nếu chỉ là triệu chứng/bệnh sử hoặc xét nghiệm.
-            5. Tiểu khó nếu chỉ là triệu chứng cơ năng.
-            6. Tiểu nhiều / tiểu ít nếu chỉ là triệu chứng cơ năng.
-            7. Bí tiểu nếu chỉ là bệnh sử mà không có dấu khám hạ vị/cầu bàng quang phù hợp.
-            8. Đau hông lưng nếu chỉ là câu bệnh sử và chưa được chuẩn hóa thành dấu khám.
-            9. Phù.
-            10. Sốt.
-            11. Khám toàn thân.
-            12. Khám tuần hoàn.
-            13. Khám hô hấp.
-            14. Khám tiêu hóa.
-            15. Khám thần kinh.
-            16. Khám cơ xương khớp.
-            17. Khám cơ quan khác.
-            18. Protein niệu.
-            19. Hồng cầu niệu.
-            20. Bạch cầu niệu.
-            21. Tổng phân tích nước tiểu.
-            22. Ure, creatinin, eGFR.
-            23. Siêu âm thận - tiết niệu.
-            24. CT/MRI hệ tiết niệu.
-            25. Hình ảnh học.
-            26. Xét nghiệm khác.
-            27. Chẩn đoán.
-            28. Hướng điều trị hoặc thuốc.
-        A8 không dùng cận lâm sàng để thay dấu khám thực thể.
-
-    A8.6.3. Wording cấm và wording chuẩn
-        Không ghi trong A8_FOR_O1/O8:
-            - “Khám sơ bộ chưa phát hiện bất thường thận – tiết niệu”.
-            - “thận tiết niệu bình thường”.
-            - “thận - tiết niệu bình thường”.
-            - “tiểu tiện bình thường”.
-            - “điểm niệu quản không đau”.
-        Wording chuẩn:
-            - “ấn điểm niệu quản trên, giữa không đau”.
-            - “ấn điểm niệu quản trên, giữa bên phải đau”.
-            - “ấn điểm niệu quản trên, giữa bên trái đau”.
-            - “Hố thận hai bên không căng gồ”.
-            - “cầu bàng quang (-)”.
-            - “cầu bàng quang (+)”.
-        Không dùng “Hố thận 2 bên”, “không có cầu bàng quang” hoặc “có cầu bàng quang” trong template output chuẩn; nếu nhắc lại các cụm này thì chỉ để mô tả wording cấm/guard, không phải mẫu render thật.
-
-    A8.6.4. Phân ranh với A1
-        A1_REASON là lý do vào viện.
-        A8 không viết lý do vào viện thay A1.
-        A8 được đọc A1_REASON để không bỏ sót vấn đề thận - tiết niệu chính nếu lý do vào viện liên quan thận - tiết niệu.
-        Nếu A1_REASON có đau hông lưng, tiểu buốt, tiểu rắt, tiểu máu, bí tiểu hoặc vấn đề liên quan thận - tiết niệu, A8 dùng để định hướng chọn mẫu khám phù hợp.
-
-    A8.6.5. Phân ranh với A2
-        A2 là tiền sử.
-        A8 không viết tiền sử thay A2.
-        A8 được đọc A2_FINAL để đồng bộ tiền sử thận - tiết niệu, bệnh nền hoặc yếu tố nguy cơ liên quan.
-        Không biến tiền sử thận - tiết niệu thành dấu khám hiện tại nếu không có căn cứ.
-
-    A8.6.6. Phân ranh với A3
-        A3 là bệnh sử và triệu chứng cơ năng.
-        A8 không bê triệu chứng cơ năng từ A3 vào A8_FOR_O1 hoặc A8_FOR_O8.
-        A8 được đọc A3_FINAL để định hướng khám thận - tiết niệu và tránh mâu thuẫn với bệnh sử hiện tại.
-
-    A8.6.7. Phân ranh với A4-A7
-        A4 là khám toàn thân.
-        A5 là khám tuần hoàn.
-        A6 là khám hô hấp.
-        A7 là khám tiêu hóa.
-        A8 không viết lại A4-A7.
-        A8 chỉ dùng A4-A7 để đồng bộ bệnh cảnh nếu cần.
-        Phù thuộc A4, không lặp phù vào A8_FOR_O1/O8.
-        Sốt thuộc A4, không đưa sốt vào A8_FOR_O1/O8; A8 chỉ dùng sốt làm ngữ cảnh nếu có đau hông lưng hoặc bệnh cảnh nhiễm khuẩn tiết niệu phù hợp.
-
-    A8.6.8. Phân ranh với A14
-        Tổng phân tích nước tiểu, protein niệu, hồng cầu niệu, bạch cầu niệu, ure, creatinin, eGFR, siêu âm thận - tiết niệu, CT/MRI hệ tiết niệu và các cận lâm sàng đã có thuộc A14.
-        A8 không biến kết quả cận lâm sàng thành khám thận - tiết niệu nếu không có dữ kiện khám tương ứng.
-        A8 không tạo kết quả cận lâm sàng.
-
-A8.7. Quy tắc khám thực thể thận - tiết niệu, không phải bệnh sử
-    A8.7.1. Nguyên tắc chung
-        A8 là khám thực thể thận - tiết niệu.
-        A8 chỉ ghi dấu khám thận - tiết niệu thực thể thuộc phạm vi A8.
-        Nếu user cung cấp khám thận - tiết niệu cụ thể thuộc phạm vi A8, A8 ưu tiên dữ kiện user cung cấp.
-        Nếu user không cung cấp bất thường và RUN_MODE cho phép, A8 dùng mẫu khám thận - tiết niệu bình thường theo A8.12 và A8.13.
-        Không tự tạo chạm thận (+), rung thận (+), đau điểm niệu quản hoặc cầu bàng quang nếu user không cung cấp và bệnh cảnh không gợi ý.
-        Không để A8_FOR_O1 và A8_FOR_O8 mâu thuẫn nhau.
-
-    A8.7.2. Triệu chứng cơ năng tiết niệu
-        Tiểu buốt, tiểu rắt, tiểu máu, tiểu khó, bí tiểu, tiểu nhiều, tiểu ít, đau hông lưng do bệnh nhân kể thuộc A3 hoặc A14 diễn biến nếu phát sinh trong diễn biến.
-        A8 có thể dùng triệu chứng cơ năng để chọn mẫu khám phù hợp trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE.
-        A8 không đưa trực tiếp triệu chứng cơ năng vào A8_FOR_O1.
-        A8 không đưa trực tiếp triệu chứng cơ năng vào A8_FOR_O8.
-
-    A8.7.3. Khi user kể triệu chứng tiết niệu nhưng không có khám thận - tiết niệu
-        A3 ghi triệu chứng tiết niệu trong bệnh sử.
-        A8 chọn mẫu khám thận - tiết niệu phù hợp nếu RUN_MODE cho phép.
-        Nếu A3 có tiểu buốt, tiểu rắt, tiểu đục, đau tức hạ vị nhưng không có đau hông lưng:
-            - A8 có thể ghi ấn tức nhẹ vùng hạ vị nếu phù hợp.
-            - A8 vẫn có thể ghi ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-) nếu không có dấu hiệu thận trên.
-        Nếu A3 có đau hông lưng, đau vùng thận hoặc sốt rét run kèm đau hông lưng:
-            - A8 phải cân nhắc đau điểm niệu quản, chạm thận hoặc rung thận (+) nếu phù hợp dữ kiện và RUN_MODE.
-        Nếu A3 có bí tiểu hoặc căng tức hạ vị rõ:
-            - A8 phải cân nhắc cầu bàng quang nếu phù hợp dữ kiện và RUN_MODE.
-        Nếu A3 có tiểu nhiều trong bệnh cảnh đái tháo đường:
-            - A8 không ghi “tiểu nhiều” trong khám.
-            - A8 vẫn ghi khám thận - tiết niệu thực thể phù hợp.
-        Nếu A3 có phù:
-            - A4 xử lý phù toàn thân.
-            - A8 chỉ xử lý khám thận - tiết niệu.
-        Nếu triệu chứng tiết niệu đã hết và không có khám bất thường hiện tại:
-            - A8 không tự tạo bất thường khám hiện tại.
-
-    A8.7.4. Khi user cung cấp chẩn đoán hoặc mã bệnh thận - tiết niệu trong user input
-        Nếu user input có chẩn đoán hoặc mã bệnh thận - tiết niệu trực tiếp:
-            - A8 được dùng làm ngữ cảnh để chọn mẫu khám phù hợp trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE.
-        Nếu user phủ định khám thận - tiết niệu bất thường:
-            - A8 phải giữ đúng phủ định.
-        Nếu RUN_MODE = USER_ONLY:
-            - A8 không tự tạo khám thận - tiết niệu từ chẩn đoán nếu user không cung cấp khám thực thể.
-
-A8.8. Quy tắc khám thận - niệu quản
-    A8.8.1. Thành phần khám thận - niệu quản
-        Thành phần khám thận - niệu quản gồm:
-            1. Hố thận.
-            2. Ấn điểm niệu quản trên, giữa.
-            3. Chạm thận.
-            4. Rung thận.
-
-    A8.8.2. Mẫu bình thường nếu không có bất thường và RUN_MODE cho phép
-        A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-).
-        A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-        Trong A8_FOR_O8, hố thận và cầu bàng quang là phần chi tiết hơn A8_FOR_O1.
-        Nếu có bất thường, chỉ thay thế phần tương ứng theo dữ kiện thật, không thêm lan man.
-
-    A8.8.3. Điểm niệu quản trên, giữa
-        Nếu user cung cấp đau điểm niệu quản:
-            - A8 phải giữ đúng vị trí và bên nếu có.
-        Nếu user không cung cấp và RUN_MODE cho phép:
-            - Có thể ghi ấn điểm niệu quản trên, giữa không đau nếu bệnh cảnh không có căn cứ trái ngược.
-        Không ghi chung chung “điểm niệu quản không đau”.
-        Không tự tạo đau điểm niệu quản nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A8.8.4. Khi có đau hông lưng phải / đau vùng thận phải
-        A8_FOR_O1 ghi đau điểm niệu quản bên phải và tình trạng chạm thận/rung thận bên phải theo dữ kiện.
-        A8_FOR_O8 ghi thêm hố thận phải đau tức hoặc ấn đau nếu phù hợp dữ kiện và RUN_MODE.
-        Nếu user cung cấp bên phải, A8 phải giữ đúng bên phải.
-        Không tự tạo bên phải nếu user không cung cấp hoặc không có căn cứ.
-
-    A8.8.5. Khi có đau hông lưng trái / đau vùng thận trái
-        A8_FOR_O1 ghi đau điểm niệu quản bên trái và tình trạng chạm thận/rung thận bên trái theo dữ kiện.
-        A8_FOR_O8 ghi thêm hố thận trái đau tức hoặc ấn đau nếu phù hợp dữ kiện và RUN_MODE.
-        Nếu user cung cấp bên trái, A8 phải giữ đúng bên trái.
-        Không tự tạo bên trái nếu user không cung cấp hoặc không có căn cứ.
-
-    A8.8.6. Chạm thận
-        Nếu user cung cấp chạm thận (+):
-            - A8 ghi đúng bên (+) nếu có.
-        Nếu user cung cấp chạm thận (-):
-            - A8 ghi đúng (-).
-        Nếu user không cung cấp và RUN_MODE cho phép:
-            - Có thể ghi chạm thận (-) nếu bệnh cảnh không có căn cứ trái ngược.
-        Không ghi chạm thận (-) nếu user cung cấp chạm thận (+).
-        Không tự tạo chạm thận (+) nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A8.8.7. Rung thận
-        Nếu user cung cấp rung thận (+) hoặc rung thận đau:
-            - A8 ghi đúng bên và mức độ nếu có.
-        Nếu user cung cấp rung thận (-):
-            - A8 ghi đúng (-).
-        Nếu user không cung cấp và RUN_MODE cho phép:
-            - Có thể ghi rung thận (-) nếu bệnh cảnh không có căn cứ trái ngược.
-        Không ghi rung thận (-) nếu user cung cấp rung thận (+) hoặc rung thận đau.
-        Không tự tạo rung thận (+) nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-A8.9. Quy tắc hạ vị và cầu bàng quang
-    A8.9.1. Hạ vị
-        Hạ vị chỉ thuộc A8 khi có dấu khám liên quan thận - tiết niệu.
-        Nếu user cung cấp đau hạ vị, căng tức hạ vị hoặc dấu khám hạ vị:
-            - A8 phải giữ đúng nếu đó là dấu khám thận - tiết niệu.
-        Nếu có triệu chứng tiết niệu thấp và đau tức hạ vị:
-            - A8 có thể ghi “ấn tức nhẹ vùng hạ vị” nếu phù hợp.
-        Nếu user không cung cấp:
-            - Không tự tạo đau hạ vị nếu không có căn cứ.
-        Không ghi vùng hạ vị bình thường nếu user cung cấp căng tức hạ vị hoặc bí tiểu rõ.
-
-    A8.9.2. Cầu bàng quang
-        A8_FOR_O8 bình thường phải có “cầu bàng quang (-)”.
-        A8_FOR_O1 bình thường không bắt buộc nêu cầu bàng quang nếu không có bất thường.
-        Nếu user cung cấp cầu bàng quang (+):
-            - A8 phải ghi đúng trong cả A8_FOR_O1 và A8_FOR_O8.
-        Nếu user cung cấp cầu bàng quang (-):
-            - A8 phải ghi đúng.
-        Nếu user không cung cấp và RUN_MODE cho phép:
-            - Có thể ghi cầu bàng quang (-) nếu bệnh cảnh không có căn cứ bí tiểu / cầu bàng quang (+).
-        Không tự tạo cầu bàng quang (+) nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-        Không tự thêm tiểu buốt, tiểu máu hoặc đau hông lưng kiểu thận nếu user không cung cấp.
-        Trong DEFAULT_COMPLETION bệnh án thường quy, A8_FOR_O1/A8_FOR_O8 không được chứa no-data placeholder hoặc câu “chưa ghi nhận bất thường rõ”.
-        Không ghi “cầu bàng quang (-)” nếu user cung cấp cầu bàng quang (+).
-
-    A8.9.3. Khi có bí tiểu, căng tức hạ vị hoặc cầu bàng quang
-        Nếu khám ghi nhận cầu bàng quang (+) rõ:
-            - Cả A8_FOR_O1 và A8_FOR_O8 phải ghi cầu bàng quang (+).
-        Nếu có bí tiểu, căng tức hạ vị hoặc cầu bàng quang (+):
-            - A8_FOR_O1 phải ghi vùng hạ vị căng tức hoặc cầu bàng quang (+) nếu phù hợp.
-            - A8_FOR_O8 phải ghi vùng hạ vị và cầu bàng quang rõ hơn.
-        Nếu user chỉ kể bí tiểu nhưng không có dấu khám:
-            - USER_ONLY không tự tạo cầu bàng quang (+).
-            - DEFAULT_COMPLETION chỉ tạo cầu bàng quang (+) nếu bệnh cảnh đủ căn cứ và không mâu thuẫn user input.
-        Nếu user phủ định cầu bàng quang:
-            - A8 phải giữ đúng phủ định.
-
-A8.10. Bệnh thận mạn / suy thận / đái tháo đường
-    A8.10.1. Nguồn bệnh cảnh hợp lệ
-        A8 chỉ dùng bệnh cảnh suy thận mạn, bệnh thận mạn, đái tháo đường, nhiễm khuẩn tiết niệu, sỏi tiết niệu hoặc bí tiểu nếu đến từ user input trực tiếp hoặc nguồn hợp lệ trước A8.
-        A8 không đọc current A12_STATE.
-        A8 không đọc A12_STATE cũ.
-        A8 không dùng A12_STATE để viết ngược A8.
-
-    A8.10.2. Bệnh thận mạn / suy thận mạn
-        Bệnh thận mạn hoặc suy thận mạn có thể không có bất thường khu trú trên khám thận - tiết niệu.
-        A8 không tự tạo chạm thận (+) chỉ vì có suy thận mạn/bệnh thận mạn.
-        A8 không tự tạo rung thận (+) chỉ vì có suy thận mạn/bệnh thận mạn.
-        A8 không tự tạo đau điểm niệu quản chỉ vì có suy thận mạn/bệnh thận mạn.
-        A8 không tự tạo cầu bàng quang chỉ vì có suy thận mạn/bệnh thận mạn.
-        A8 không tự tạo protein niệu, hồng cầu niệu, bạch cầu niệu, creatinin tăng hoặc eGFR giảm.
-
-    A8.10.3. Đái tháo đường
-        Nếu có đái tháo đường và A3 có tiểu nhiều:
-            - A8 không ghi “tiểu nhiều” vào khám.
-            - A8 chỉ ghi khám thận - tiết niệu thực thể phù hợp.
-        A8 không tự tạo protein niệu, creatinin tăng hoặc eGFR giảm trong bệnh cảnh đái tháo đường.
-
-    A8.10.4. Phù và sốt
-        Nếu có phù trong A4_STATE:
-            - A8 không lặp lại phù.
-            - Phù thuộc A4.
-        Nếu có sốt trong A4_STATE:
-            - A8 không đưa sốt vào A8_FOR_O1/O8.
-            - Sốt chỉ được dùng làm ngữ cảnh nếu có đau hông lưng hoặc bệnh cảnh nhiễm khuẩn tiết niệu phù hợp.
-
-A8.11. Quy tắc đồng bộ với A1-A7 và user input
-    A8.11.1. Đồng bộ với A1
-        Nếu A1_REASON có lý do vào viện liên quan thận - tiết niệu:
-            - A8 phải không bỏ sót bệnh cảnh thận - tiết niệu khi chọn mẫu khám.
-        Nếu A1_REASON không liên quan thận - tiết niệu:
-            - A8 không tự tạo bất thường thận - tiết niệu nếu không có căn cứ khác.
-        A8 không sửa A1_REASON.
-
-    A8.11.2. Đồng bộ với A2
-        Nếu A2_FINAL có tiền sử bệnh thận, sỏi tiết niệu, nhiễm khuẩn tiết niệu, bệnh tuyến tiền liệt, bệnh nền liên quan thận hoặc yếu tố nguy cơ:
-            - A8 phản ánh khám hiện tại theo dữ kiện user cung cấp hoặc mẫu phù hợp nếu RUN_MODE cho phép.
-        Nếu tiền sử ổn định và không có triệu chứng hiện tại:
-            - A8 không tự tạo bất thường khám hiện tại.
-        A8 không biến tiền sử thành dấu khám hiện tại nếu không có căn cứ.
-        A8 không sửa A2_FINAL.
-
-    A8.11.3. Đồng bộ với A3
-        Nếu A3 có triệu chứng tiết niệu thấp, A8 chọn mẫu phù hợp nhưng không lặp triệu chứng cơ năng.
-        Nếu A3 có đau hông lưng / đau vùng thận, A8 phản ánh điểm niệu quản, hố thận, chạm thận và rung thận phù hợp.
-        Nếu A3 có bí tiểu / căng tức hạ vị, A8 phản ánh hạ vị / cầu bàng quang phù hợp.
-        Nếu A3 có tiểu nhiều, A8 không ghi “tiểu nhiều” trong khám.
-        Nếu A3 ghi triệu chứng tiết niệu đã hết, A8 không ghi còn dấu khám hiện tại nếu không có dữ kiện.
-        A8 không sửa A3_FINAL.
-
-    A8.11.4. Đồng bộ với A4
-        Nếu A4 có phù, sốt hoặc toàn trạng nặng:
-            - A8 chỉ dùng làm ngữ cảnh.
-        Phù thuộc A4, không đưa phù vào A8_FOR_O1/O8.
-        Sốt thuộc A4, không đưa sốt vào A8_FOR_O1/O8.
-        A8 không tự kết luận bệnh thận khi chỉ có phù hoặc sốt mà thiếu căn cứ thận - tiết niệu.
-        Nếu A4 có sốt và A3 có triệu chứng tiết niệu hoặc đau hông lưng:
-            - A8 phải cân nhắc bệnh cảnh nhiễm khuẩn tiết niệu nếu RUN_MODE cho phép.
-        A8 không sửa A4_STATE.
-
-    A8.11.5. Đồng bộ với A5/A6
-        Nếu A5/A6 gợi ý tình trạng nặng, nhiễm trùng, mất nước, sốc hoặc thiếu oxy:
-            - A8 dùng làm ngữ cảnh toàn trạng nếu cần.
-        A8 không tự tạo bất thường thận - tiết niệu chỉ từ A5/A6 nếu không có căn cứ.
-        Nếu có bệnh cảnh nhiễm trùng nặng và triệu chứng tiết niệu hoặc đau hông lưng:
-            - A8 phải cân nhắc dấu khám thận - tiết niệu phù hợp nếu RUN_MODE cho phép.
-        A8 không sửa A5_STATE hoặc A6_STATE.
-
-    A8.11.6. Đồng bộ với A7
-        Nếu A7 có đau bụng/hạ vị hoặc bệnh cảnh tiêu hóa có thể nhầm với thận - tiết niệu:
-            - A8 dùng để tránh mâu thuẫn và phân ranh vị trí đau nếu cần.
-        Nếu A7 ghi đau hạ vị hoặc đau bụng vùng thấp:
-            - A8 cân nhắc hạ vị/cầu bàng quang nếu có dữ kiện tiết niệu tương ứng.
-        A8 không sửa A7_STATE.
-
-    A8.11.7. Đồng bộ với chẩn đoán/mã bệnh thận - tiết niệu trong user input
-        Nếu user input có chẩn đoán/mã bệnh thận - tiết niệu trực tiếp:
-            - A8 được dùng để chọn mẫu khám phù hợp nếu RUN_MODE cho phép.
-        Nếu user input có nhiễm khuẩn tiết niệu, sỏi tiết niệu, cơn đau quặn thận, viêm thận - bể thận, bí tiểu, suy thận mạn, bệnh thận mạn, đái tháo đường hoặc bệnh cảnh thận - tiết niệu khác:
-            - A8 chọn mẫu khám phù hợp nếu RUN_MODE cho phép, không tự tạo dấu bệnh lý khi không đủ căn cứ.
-        Nếu user phủ định khám thận - tiết niệu bất thường:
-            - A8 giữ đúng phủ định.
-        Nếu không có bệnh cảnh thận - tiết niệu:
-            - A8 có thể dùng mẫu bình thường nếu RUN_MODE cho phép.
-
-A8.12. Quy tắc tạo A8_FOR_O1
-    A8.12.1. Vai trò của A8_FOR_O1
-        A8_FOR_O1 là bản khám thận - tiết niệu dùng cho O1.
-        A8_FOR_O1 phải ngắn gọn, cụ thể.
-        A8_FOR_O1 chỉ chứa khám thận - tiết niệu thực thể.
-        A8_FOR_O1 không chứa triệu chứng cơ năng.
-        A8_FOR_O1 không làm O1 bị dài.
-
-    A8.12.2. Nội dung bắt buộc của A8_FOR_O1
-        A8_FOR_O1 phải có:
-            1. Ấn điểm niệu quản trên, giữa.
-            2. Chạm thận.
-            3. Rung thận.
-        A8_FOR_O1 chỉ thêm hạ vị / cầu bàng quang khi có bất thường liên quan.
-        A8_FOR_O1 không mở field tự do ngoài phạm vi A8.
-        A8_FOR_O1 không được thiếu rung thận nếu A8_CHECK = PASS.
-
-    A8.12.3. Mẫu khám thận - tiết niệu bình thường
-        Nếu không có bất thường thận - tiết niệu và RUN_MODE cho phép:
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-).
-
-    A8.12.4. Mẫu triệu chứng tiết niệu thấp / đau tức hạ vị
-        Nếu có triệu chứng tiết niệu thấp / đau tức hạ vị và RUN_MODE cho phép:
-            A8_FOR_O1 = Ấn tức nhẹ vùng hạ vị, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-        Không bê triệu chứng tiểu buốt, tiểu rắt, tiểu đục, tiểu khó hoặc bí tiểu như câu bệnh sử vào A8_FOR_O1.
-
-    A8.12.5. Mẫu đau hông lưng phải
-        Nếu có đau hông lưng phải / đau vùng thận phải và đủ căn cứ theo RUN_MODE:
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa bên phải đau, chạm thận phải (+), rung thận phải (+).
-        Nếu user cung cấp dữ kiện khác về chạm thận hoặc rung thận, A8 phải giữ đúng dữ kiện user và không phủ định ngược.
-
-    A8.12.6. Mẫu đau hông lưng trái
-        Nếu có đau hông lưng trái / đau vùng thận trái và đủ căn cứ theo RUN_MODE:
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa bên trái đau, chạm thận trái (+), rung thận trái (+).
-        Nếu user cung cấp dữ kiện khác về chạm thận hoặc rung thận, A8 phải giữ đúng dữ kiện user và không phủ định ngược.
-
-    A8.12.7. Mẫu bí tiểu / cầu bàng quang
-        Nếu khám ghi nhận cầu bàng quang (+) rõ:
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (+).
-        Nếu có bí tiểu hoặc căng tức hạ vị nhưng chưa đủ căn cứ cầu bàng quang:
-            - A8_FOR_O1 ghi vùng hạ vị căng tức nếu phù hợp dữ kiện và RUN_MODE.
-        Nếu chỉ có bí tiểu cơ năng mà không có dấu khám:
-            - USER_ONLY không tự tạo cầu bàng quang (+).
-            - DEFAULT_COMPLETION chỉ tạo cầu bàng quang (+) nếu bệnh cảnh đủ căn cứ và không mâu thuẫn user input.
-
-    A8.12.8. Cấm trong A8_FOR_O1
-        A8_FOR_O1 không chứa:
-            1. Tiểu tiện bình thường, tiểu buốt, tiểu rắt, tiểu máu, tiểu khó, bí tiểu, tiểu nhiều, tiểu ít nếu chỉ là triệu chứng.
-            2. Đau hông lưng nếu chỉ là bệnh sử.
-            3. Phù.
-            4. Sốt.
-            5. Protein niệu, hồng cầu niệu, bạch cầu niệu hoặc xét nghiệm nước tiểu.
-            6. Ure, creatinin, eGFR.
-            7. Siêu âm / CT / MRI / hình ảnh học.
-            8. Chẩn đoán.
-            9. Thuốc hoặc hướng điều trị.
-            10. Khám toàn thân, tuần hoàn, hô hấp, tiêu hóa, thần kinh, cơ xương khớp hoặc cơ quan khác.
-            11. “Hố thận 2 bên”, “không có cầu bàng quang”, “có cầu bàng quang” trong output chuẩn.
-            12. Wording cấm tại A8.6.3.
-
-A8.13. Quy tắc tạo A8_FOR_O8
-    A8.13.1. Vai trò của A8_FOR_O8
-        A8_FOR_O8 là bản khám thận - tiết niệu dùng cho bệnh án chi tiết.
-        A8_FOR_O8 đầy đủ hơn A8_FOR_O1.
-        A8_FOR_O8 chỉ chứa khám thận - tiết niệu thực thể.
-        A8_FOR_O8 không chứa triệu chứng cơ năng.
-        A8_FOR_O8 không thêm dữ kiện ngoài phạm vi A8.
-
-    A8.13.2. Nội dung bắt buộc của A8_FOR_O8
-        A8_FOR_O8 phải có:
-            1. Hố thận.
-            2. Ấn điểm niệu quản trên, giữa.
-            3. Chạm thận.
-            4. Rung thận.
-            5. Cầu bàng quang.
-        A8_FOR_O8 phải đồng bộ với A8_FOR_O1, không mâu thuẫn.
-        A8_FOR_O8 không mở field tự do ngoài phạm vi A8.
-
-    A8.13.3. Mẫu khám thận - tiết niệu bình thường
-        Nếu không có bất thường thận - tiết niệu và RUN_MODE cho phép:
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-
-    A8.13.4. Mẫu triệu chứng tiết niệu thấp / đau tức hạ vị
-        Nếu có triệu chứng tiết niệu thấp / đau tức hạ vị và RUN_MODE cho phép:
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn tức nhẹ vùng hạ vị, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-        Không bê triệu chứng tiểu buốt, tiểu rắt, tiểu đục, tiểu khó hoặc bí tiểu như câu bệnh sử vào A8_FOR_O8.
-
-    A8.13.5. Mẫu đau hông lưng phải
-        Nếu có đau hông lưng phải / đau vùng thận phải và đủ căn cứ theo RUN_MODE:
-            A8_FOR_O8 = Hố thận phải đau tức, ấn điểm niệu quản trên, giữa bên phải đau, chạm thận phải (+), rung thận phải (+), cầu bàng quang (-).
-        Nếu user cung cấp dữ kiện khác về hố thận, chạm thận hoặc rung thận, A8 phải giữ đúng dữ kiện user và không phủ định ngược.
-
-    A8.13.6. Mẫu đau hông lưng trái
-        Nếu có đau hông lưng trái / đau vùng thận trái và đủ căn cứ theo RUN_MODE:
-            A8_FOR_O8 = Hố thận trái đau tức, ấn điểm niệu quản trên, giữa bên trái đau, chạm thận trái (+), rung thận trái (+), cầu bàng quang (-).
-        Nếu user cung cấp dữ kiện khác về hố thận, chạm thận hoặc rung thận, A8 phải giữ đúng dữ kiện user và không phủ định ngược.
-
-    A8.13.7. Mẫu bí tiểu / cầu bàng quang
-        Nếu khám ghi nhận cầu bàng quang (+):
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (+).
-        Nếu có bí tiểu hoặc căng tức hạ vị nhưng chưa đủ căn cứ cầu bàng quang:
-            - A8_FOR_O8 ghi vùng hạ vị rõ hơn nếu phù hợp dữ kiện và RUN_MODE.
-        Nếu chỉ có bí tiểu cơ năng:
-            - A8_FOR_O8 chỉ ghi cầu bàng quang (+) khi có dữ kiện khám hoặc RUN_MODE cho phép và bệnh cảnh đủ căn cứ.
-
-    A8.13.8. Cấm trong A8_FOR_O8
-        A8_FOR_O8 không chứa:
-            1. Tiểu tiện bình thường, tiểu buốt, tiểu rắt, tiểu máu, tiểu khó, bí tiểu, tiểu nhiều, tiểu ít nếu chỉ là triệu chứng.
-            2. Đau hông lưng nếu chỉ là bệnh sử.
-            3. Phù.
-            4. Sốt.
-            5. Protein niệu, hồng cầu niệu, bạch cầu niệu hoặc xét nghiệm nước tiểu.
-            6. Ure, creatinin, eGFR.
-            7. Siêu âm / CT / MRI / hình ảnh học.
-            8. Chẩn đoán.
-            9. Thuốc hoặc hướng điều trị.
-            10. Khám toàn thân, tuần hoàn, hô hấp, tiêu hóa, thần kinh, cơ xương khớp hoặc cơ quan khác.
-            11. “Hố thận 2 bên”, “không có cầu bàng quang”, “có cầu bàng quang” trong output chuẩn.
-            12. Wording cấm tại A8.6.3.
-
-A8.14. Đồng bộ A8_FOR_O1 / A8_FOR_O8
-    A8.14.1. Nguyên tắc đồng bộ
-        A8_FOR_O1 và A8_FOR_O8 phải đồng bộ:
-            1. Điểm niệu quản.
-            2. Chạm thận.
-            3. Rung thận.
-            4. Cầu bàng quang.
-        A8_FOR_O8 có thể chi tiết hơn A8_FOR_O1 nhưng không được mâu thuẫn A8_FOR_O1.
-        Nếu A8_FOR_O1 nêu bất thường, A8_FOR_O8 phải mô tả đầy đủ hơn, không được làm nhẹ.
-
-    A8.14.2. Quy tắc đồng bộ bên và phủ định
-        Nếu A8_FOR_O1 ghi đau điểm niệu quản bên phải, A8_FOR_O8 phải giữ đúng bên phải.
-        Nếu A8_FOR_O1 ghi đau điểm niệu quản bên trái, A8_FOR_O8 phải giữ đúng bên trái.
-        Nếu A8_FOR_O1 ghi chạm thận phải/trái (+), A8_FOR_O8 không được ghi chạm thận (-).
-        Nếu A8_FOR_O1 ghi rung thận phải/trái (+) hoặc đau, A8_FOR_O8 không được ghi rung thận (-).
-        Nếu A8_FOR_O1 ghi cầu bàng quang (+), A8_FOR_O8 phải ghi cầu bàng quang (+).
-        Nếu A8_FOR_O1 ghi cầu bàng quang (-), A8_FOR_O8 không được ghi cầu bàng quang (+) trừ khi có dữ kiện user rõ hơn.
-        A8_CHECK phải kiểm đồng bộ các điểm này.
-
-A8.15. Ví dụ cụ thể
-    A8.15.1. Ví dụ khám thận - tiết niệu bình thường
-        Input:
-            Không ghi triệu chứng tiết niệu.
-            Không có dữ kiện bất thường thận - tiết niệu.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-).
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.2. Ví dụ có triệu chứng tiết niệu thấp / đau tức hạ vị nhưng không bê vào A8
-        Input:
-            A3_FINAL = Bệnh nhân tiểu buốt, tiểu rắt 3 ngày, đau tức hạ vị.
-            Không có đau hông lưng.
-            Không có dữ kiện khám thận trên bất thường.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Ấn tức nhẹ vùng hạ vị, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn tức nhẹ vùng hạ vị, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.3. Ví dụ đau hông lưng phải / nghi sỏi tiết niệu
-        Input:
-            Đau hông lưng phải, đau tăng từng cơn.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa bên phải đau, chạm thận phải (+), rung thận phải (+).
-            A8_FOR_O8 = Hố thận phải đau tức, ấn điểm niệu quản trên, giữa bên phải đau, chạm thận phải (+), rung thận phải (+), cầu bàng quang (-).
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.4. Ví dụ đau hông lưng trái / nghi sỏi tiết niệu
-        Input:
-            Đau hông lưng trái, đau vùng thận trái.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa bên trái đau, chạm thận trái (+), rung thận trái (+).
-            A8_FOR_O8 = Hố thận trái đau tức, ấn điểm niệu quản trên, giữa bên trái đau, chạm thận trái (+), rung thận trái (+), cầu bàng quang (-).
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.5. Ví dụ USER_ONLY thiếu khám thận - tiết niệu
-        Input:
-            RUN_MODE = USER_ONLY.
-            Bệnh nhân tiểu buốt, tiểu rắt.
-            Không có dữ kiện khám thận - tiết niệu thực thể.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Chưa có dữ kiện khám thận - tiết niệu thực thể trong phạm vi A8.
-            A8_FOR_O8 = Chưa có dữ kiện khám thận - tiết niệu thực thể trong phạm vi A8.
-            A8_CHECK = NEEDS_FIX
-            A8_ERROR = Thiếu dữ kiện khám thận - tiết niệu thực thể trong phạm vi A8.
-
-    A8.15.6. Ví dụ không biến xét nghiệm nước tiểu thành khám thực thể
-        Input:
-            Tổng phân tích nước tiểu có bạch cầu niệu.
-            Không có dữ kiện khám thận - tiết niệu.
-            RUN_MODE = USER_ONLY.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Chưa có dữ kiện khám thận - tiết niệu thực thể trong phạm vi A8.
-            A8_FOR_O8 = Chưa có dữ kiện khám thận - tiết niệu thực thể trong phạm vi A8.
-            A8_CHECK = NEEDS_FIX
-            A8_ERROR = Thiếu dữ kiện khám thận - tiết niệu thực thể; không dùng xét nghiệm nước tiểu để thay khám thận - tiết niệu.
-
-    A8.15.7. Ví dụ có bí tiểu và cầu bàng quang
-        Input:
-            Bệnh nhân bí tiểu, khám cầu bàng quang (+).
-            RUN_MODE = DEFAULT_COMPLETION.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (+).
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (+).
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.8. Ví dụ tiền sử sỏi tiết niệu nhưng không tự tạo dấu khám bất thường
-        Input:
-            A2_FINAL = Tiền sử sỏi tiết niệu.
-            Không có đau hông lưng hiện tại, không có triệu chứng tiết niệu, không có khám bất thường.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-).
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.9. Ví dụ user phủ định đau hông lưng
-        Input:
-            Bệnh nhân tiểu buốt, tiểu rắt, không đau hông lưng.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-).
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.10. Ví dụ bệnh thận mạn không có bất thường khu trú
-        Input:
-            User input trực tiếp: bệnh thận mạn.
-            Không có đau hông lưng, không có bí tiểu, không có khám bất thường.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A8_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-).
-            A8_FOR_O8 = Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.11. Ví dụ CREATE A8_STATE
-        Input: Chưa có A8_STATE hiện hành; RUN_MODE lấy từ G_STATE = USER_ONLY.
-        Full A8_STATE sau CREATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Nội dung khám thận - tiết niệu theo dữ kiện user trong phạm vi A8.
-            A8_FOR_O8 = Nội dung khám thận - tiết niệu đầy đủ theo dữ kiện user trong phạm vi A8, dùng chuẩn “Hố thận hai bên” và “cầu bàng quang (-)/(+)” khi có thành phần tương ứng.
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.12. Ví dụ UPDATE khi nội dung thật thay đổi
-        Input: A8_STATE hiện hành có A8_REV = 1; user bổ sung dữ kiện làm A8_FOR_O1 / A8_FOR_O8 thay đổi thật.
-        Full A8_STATE sau UPDATE:
-            STATE_VERSION = V2
-            UPDATED_AT = 08:10 03/06/2026
-            A8_REV = 2
-            A8_FOR_O1 = Nội dung khám thận - tiết niệu đã cập nhật theo dữ kiện user trong phạm vi A8.
-            A8_FOR_O8 = Nội dung khám thận - tiết niệu đầy đủ đã cập nhật theo dữ kiện user trong phạm vi A8, dùng chuẩn “Hố thận hai bên” và “cầu bàng quang (-)/(+)” khi có thành phần tương ứng.
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.13. Ví dụ REUSE full A8_STATE
-        Input: A8_STATE hiện hành có STATE_VERSION = V1 và A8_REV = 2; input ROUND hiện tại không ảnh hưởng A8 hoặc nội dung thật sau chuẩn hóa không đổi.
-        Full A8_STATE dùng lại trong ROUND hiện tại:
-            STATE_VERSION = V2
-            UPDATED_AT = 08:20 03/06/2026
-            A8_REV = 2
-            A8_FOR_O1 = Nội dung thật đầy đủ của A8_FOR_O1 hiện hành mới nhất.
-            A8_FOR_O8 = Nội dung thật đầy đủ của A8_FOR_O8 hiện hành mới nhất, đã dùng chuẩn wording hiện hành nếu nội dung được cập nhật.
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-    A8.15.14. Ví dụ AUTO_SAMPLE chỉ cho ca mẫu
-        Input: RUN_MODE lấy từ G_STATE = AUTO_SAMPLE; đây là ca mẫu, không phải ca bệnh thật đã có dữ liệu user.
-        Full A8_STATE sau CREATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 07:45 03/06/2026
-            A8_REV = 1
-            A8_FOR_O1 = Nội dung khám thận - tiết niệu mẫu theo rule hiện hành của A8.
-            A8_FOR_O8 = Nội dung khám thận - tiết niệu mẫu đầy đủ theo rule hiện hành của A8; mẫu thường quy dùng “Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-)”.
-            A8_CHECK = PASS
-            A8_ERROR = NONE
-
-A8.16. Schema A8_STATE
-    A8.16.1. Schema chuẩn
-        A8_STATE:
-            STATE_VERSION = ...
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A8_REV = ...
-            A8_FOR_O1 = ...
-            A8_FOR_O8 = ...
-            A8_CHECK = PASS / NEEDS_FIX
-            A8_ERROR = ...
-
-    A8.16.2. Nguyên tắc schema
-        A8_STATE không cần in trạng thái tạo mới / cập nhật / dùng lại.
-        A8_STATE không cần STATUS.
-        A8_STATE phải có UPDATED_AT.
-        UPDATED_AT là metadata quản lý phiên bản state.
-        UPDATED_AT không phải dữ liệu bệnh án.
-        O không được render UPDATED_AT vào bệnh án.
-        A8_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        A8_REV là metadata kỹ thuật của A8; A8 chỉ quản lý revision của chính A8.
-        A8_STATE là full state, không phải patch/delta.
-        A8_FOR_O1 là khám thận - tiết niệu dùng cho O1.
-        A8_FOR_O8 là khám thận - tiết niệu dùng cho O8.
-        A8_CHECK là kết quả tự kiểm của A8.
-        A8_ERROR chỉ dùng khi A8_CHECK = NEEDS_FIX.
-
-    A8.16.3. Khi A8_CHECK = PASS
-        Nếu A8_CHECK = PASS:
-            - A8_STATE có UPDATED_AT hợp lệ.
-            - A8_FOR_O1 có giá trị hợp lệ.
-            - A8_FOR_O8 có giá trị hợp lệ.
-            - A8_ERROR = NONE.
-
-    A8.16.4. Khi A8_CHECK = NEEDS_FIX
-        Nếu A8_CHECK = NEEDS_FIX:
-            - A8_ERROR phải ghi rõ lỗi.
-            - A8_ERROR phải nêu dữ liệu cần user bổ sung hoặc phần cần sửa.
-            - Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-A8.17. A8_CHECK
-    A8.17.1. Kiểm A8_FOR_O1
-        Kiểm:
-            1. A8_FOR_O1 có ấn điểm niệu quản trên, giữa.
-            2. A8_FOR_O1 có chạm thận.
-            3. A8_FOR_O1 có rung thận.
-            4. A8_FOR_O1 không chứa triệu chứng cơ năng.
-            5. A8_FOR_O1 không chứa phù hoặc sốt.
-            6. A8_FOR_O1 không chứa cận lâm sàng.
-            7. A8_FOR_O1 không chứa wording cấm tại A8.6.3.
-            8. A8_FOR_O1 không chứa thành phần ngoài phạm vi A8.
-            9. A8_FOR_O1 không mâu thuẫn với user input.
-            10. A8_FOR_O1 không mâu thuẫn với A1-A7 nếu có dùng dependency.
-        Nếu A8_FOR_O1 thiếu ấn điểm niệu quản trên, giữa, chạm thận hoặc rung thận thì A8_CHECK không được PASS, trừ khi RUN_MODE = USER_ONLY thiếu dữ kiện và A8_CHECK = NEEDS_FIX.
-
-    A8.17.2. Kiểm A8_FOR_O8
-        Kiểm:
-            1. A8_FOR_O8 có dữ liệu khám thận - tiết niệu đầy đủ hơn A8_FOR_O1.
-            2. A8_FOR_O8 có hố thận.
-            3. A8_FOR_O8 có ấn điểm niệu quản trên, giữa.
-            4. A8_FOR_O8 có chạm thận.
-            5. A8_FOR_O8 có rung thận.
-            6. A8_FOR_O8 có thành phần cầu bàng quang, với chuẩn thường quy “cầu bàng quang (-)” và khi bất thường là “cầu bàng quang (+)”.
-            7. A8_FOR_O8 không chứa triệu chứng cơ năng.
-            8. A8_FOR_O8 không chứa phù hoặc sốt.
-            9. A8_FOR_O8 không chứa cận lâm sàng.
-            10. A8_FOR_O8 không chứa wording cấm tại A8.6.3.
-            11. A8_FOR_O8 không chứa thành phần ngoài phạm vi A8.
-            12. A8_FOR_O8 không mâu thuẫn với A8_FOR_O1.
-            13. A8_FOR_O8 không mâu thuẫn với user input.
-            14. A8_FOR_O8 không mâu thuẫn với A1-A7 nếu có dùng dependency.
-            15. A8_FOR_O8 thường quy dùng đúng “Hố thận hai bên không căng gồ”.
-            16. A8_FOR_O8 thường quy dùng đúng “cầu bàng quang (-)”.
-            17. Khi ghi nhận cầu bàng quang bất thường, A8_FOR_O8 dùng “cầu bàng quang (+)”.
-            18. A8_FOR_O8 không dùng “Hố thận 2 bên”, “không có cầu bàng quang” hoặc “có cầu bàng quang” trong output chuẩn.
-        Nếu A8_FOR_O8 thiếu hố thận, ấn điểm niệu quản trên, giữa, chạm thận, rung thận hoặc cầu bàng quang thì A8_CHECK không được PASS, trừ khi RUN_MODE = USER_ONLY thiếu dữ kiện và A8_CHECK = NEEDS_FIX.
-        Nếu A8_FOR_O8 thường quy thiếu “Hố thận hai bên không căng gồ” hoặc “cầu bàng quang (-)” thì A8_CHECK không được PASS.
-        Nếu A8_FOR_O8 còn dùng “Hố thận 2 bên”, “không có cầu bàng quang” hoặc “có cầu bàng quang” trong output chuẩn thì A8_CHECK không được PASS.
-
-    A8.17.3. Kiểm dependency và đồng bộ
-        Kiểm:
-            1. Nếu dùng A1_STATE, A8 không bỏ sót lý do vào viện liên quan thận - tiết niệu.
-            2. Nếu dùng A2_STATE, A8 không biến tiền sử thận - tiết niệu thành dấu khám hiện tại nếu không có căn cứ.
-            3. Nếu dùng A3_STATE, A8 không bê triệu chứng cơ năng vào khám thận - tiết niệu.
-            4. Nếu dùng A4_STATE, A8 chỉ đồng bộ bệnh cảnh toàn thân, không kết luận bệnh thận nếu không có căn cứ, không đưa phù/sốt vào output.
-            5. Nếu dùng A5_STATE, A8 chỉ đồng bộ tình trạng nặng, không tạo bất thường thận - tiết niệu nếu không có căn cứ.
-            6. Nếu dùng A6_STATE, A8 chỉ đồng bộ tình trạng nặng, không tạo bất thường thận - tiết niệu nếu không có căn cứ.
-            7. Nếu dùng A7_STATE, A8 tránh mâu thuẫn đau bụng/hạ vị với bệnh cảnh thận - tiết niệu.
-            8. Nếu dùng chẩn đoán/mã bệnh thận - tiết niệu trong user input, A8 chọn mẫu phù hợp nếu RUN_MODE cho phép và không tự tạo dấu bệnh lý khi không đủ căn cứ.
-            9. A8_FOR_O1 và A8_FOR_O8 đồng bộ điểm niệu quản.
-            10. A8_FOR_O1 và A8_FOR_O8 đồng bộ chạm thận.
-            11. A8_FOR_O1 và A8_FOR_O8 đồng bộ rung thận.
-            12. A8_FOR_O1 và A8_FOR_O8 đồng bộ cầu bàng quang.
-            13. A8 không đọc A9-A15 của ROUND hiện tại.
-            14. A8 không đọc A12_STATE của ROUND hiện tại.
-            15. A8 không dùng A12_STATE cũ từ ROUND trước.
-            16. A8 không đọc C_STATE hoặc O_OUTPUT.
-            17. A8 không tạo dữ kiện mâu thuẫn với user input.
-
-    A8.17.4. Kiểm A8_STATE
-        Kiểm:
-            1. A8_STATE có STATE_VERSION.
-            2. A8_STATE có UPDATED_AT đúng định dạng HH:MM dd/mm/yyyy.
-            3. UPDATED_AT là metadata, O không render.
-            4. A8_STATE có A8_REV hợp lệ.
-            5. A8_STATE có A8_FOR_O1.
-            6. A8_STATE có A8_FOR_O8.
-            7. A8_STATE có A8_CHECK.
-            8. Nếu A8_CHECK = NEEDS_FIX, có A8_ERROR rõ.
-            9. Nếu A8_CHECK = PASS, A8_ERROR = NONE.
-            10. A8_STATE sẵn sàng đưa vào full current A_STATE.
-
-    A8.17.5. Lỗi không được mắc
-        Không đưa bệnh sử vào A8.
-        Không đưa lý do vào viện vào A8 như khám thực thể.
-        Không đưa tiền sử vào A8 như khám thực thể.
-        Không đưa triệu chứng cơ năng tiết niệu vào A8_FOR_O1/O8 nếu chỉ là lời kể.
-        Không đưa phù hoặc sốt vào A8_FOR_O1/O8.
-        Không đưa khám toàn thân, tuần hoàn, hô hấp, tiêu hóa, thần kinh, cơ xương khớp hoặc cơ quan khác vào A8.
-        Không đưa xét nghiệm nước tiểu, protein niệu, hồng cầu niệu, bạch cầu niệu, ure, creatinin, eGFR, siêu âm, CT/MRI hoặc hình ảnh học vào A8 như khám thực thể.
-        Không viết chẩn đoán thay A12.
-        Không viết hướng xử trí thay A13.
-        Không viết thuốc hoặc đơn thuốc thay A15.
-        Không viết cận lâm sàng/hành chính thay A14.
-        Không tự tạo chạm thận (+) nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo rung thận (+) nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo đau điểm niệu quản nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo cầu bàng quang (+) nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không ghi mẫu bình thường nếu user cung cấp bất thường rõ.
-        Không để A8_FOR_O1 và A8_FOR_O8 mâu thuẫn.
-        Không để A8_FOR_O1 thiếu dữ kiện bắt buộc nếu A8_CHECK = PASS.
-        Không để A8_FOR_O8 thiếu dữ kiện cần thiết nếu A8_CHECK = PASS.
-        Không viết A8_FOR_O1 quá dài.
-        Không viết A8_FOR_O8 dài nhưng thêm dữ kiện sai phạm vi.
-        Không dùng “Hố thận 2 bên”, “không có cầu bàng quang” hoặc “có cầu bàng quang” trong output chuẩn; dùng “Hố thận hai bên”, “cầu bàng quang (-)” và “cầu bàng quang (+)”.
-        Không làm mất bất thường thận - tiết niệu user cung cấp.
-        Không tạo state của A khác.
-        Không dùng patch/delta làm A8_STATE chính thức.
-        Không ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không đưa metadata không cần thiết vào A8_STATE.
-        Không render O trong A8.
-        Không chạy C trong A8.
-        Không suy ngược A8 từ O_OUTPUT.
-        Không đọc output đã render, trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ để tạo A8.
-
-    A8.17.6. Kết quả A8_CHECK
-        Nếu đạt:
-            A8_CHECK = PASS.
-            A8_ERROR = NONE.
-        Nếu chưa đạt:
-            A8_CHECK = NEEDS_FIX.
-            A8_ERROR = ghi rõ lỗi.
-
-A8.18. Kết thúc module
-    A8.18.1. Điều kiện hoàn tất A8
-        A8 hoàn tất khi:
-            1. Đã CREATE, UPDATE hoặc REUSE full A8_STATE.
-            2. Đã xác định UPDATED_AT hợp lệ.
-            3. Đã xác định A8_REV đúng theo thay đổi thật của nội dung A8.
-            4. Đã kiểm A8_CHECK.
-            5. Không tạo dữ liệu ngoài A8_STATE.
-            6. Không tạo state của A khác.
-            7. Không chạy C.
-            8. Không render O.
-
-    A8.18.2. Chuyển module tiếp theo
-        Sau khi hoàn tất A8_STATE, chuyển sang A9 theo A_RUN_ORDER.
-        Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
-        A8 không tự dừng STEP A và không tự chuyển sang C/O.
-
-<<< END A8
-
-```text
-####################################################################################################
+Version: BA S-G-A-C-O v4
+Update 26/06/2026 GMT+7 — allowlist compact A8
+
+A8_ROLE
+    A8 chuẩn hóa khám thận - tiết niệu thực thể.
+    A8 không phải bệnh sử thận - tiết niệu, không phải chẩn đoán, không phải cận lâm sàng, không phải điều trị thận - tiết niệu.
+    A8 tạo / cập nhật / dùng lại full A8_STATE để đưa vào full current A_STATE của ROUND hiện tại.
+    A8_STATE là nguồn chính thức cho C/O khi cần dữ liệu khám thận - tiết niệu.
+    A8 tạo 2 bản nội dung:
+        - A8_FOR_O1: bản khám thận - tiết niệu ngắn.
+        - A8_FOR_O8: bản khám thận - tiết niệu chi tiết hơn.
+    Nếu khám thận - tiết niệu sai, lẫn module khác, ngoài scope A8 hoặc mâu thuẫn nguồn hợp lệ, phải sửa tại A8.
+
+A8_ALLOWED_SOURCE
+    A8 chỉ được đọc:
+        1. User input của ROUND hiện tại, chỉ phần thuộc khám thận - tiết niệu thực thể hoặc bệnh cảnh dùng để chọn mẫu theo RUN_MODE.
+        2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
+        3. Latest/current A8_STATE nếu đã có, chỉ để UPDATE / REUSE.
+        4. File/module A8.
+        5. A1_STATE: chỉ đối chiếu lý do vào viện liên quan thận - tiết niệu.
+        6. A2_STATE: chỉ đối chiếu tiền sử thận - tiết niệu, bệnh nền, yếu tố nguy cơ liên quan.
+        7. A3_STATE: chỉ đối chiếu triệu chứng tiết niệu / đau hông lưng / bệnh sử hiện tại; không bê triệu chứng cơ năng vào khám thực thể.
+        8. A4_STATE: chỉ đối chiếu phù, sốt, toàn trạng hoặc bệnh cảnh toàn thân liên quan thận - tiết niệu.
+        9. A5_STATE: chỉ đối chiếu tuần hoàn trong bệnh cảnh mất nước, nhiễm trùng, sốc hoặc bệnh cảnh nặng.
+        10. A6_STATE: chỉ đối chiếu hô hấp/toàn trạng trong bệnh cảnh nặng nếu cần.
+        11. A7_STATE: chỉ phân biệt đau bụng, đau hạ vị, đau hông lưng hoặc bệnh cảnh tiêu hóa với thận - tiết niệu.
+    A8 không được đọc hoặc suy ngược từ:
+        - A9-A15 của ROUND hiện tại để tạo A8_STATE.
+        - A12_STATE hiện tại hoặc cũ để tạo dấu khám thận - tiết niệu.
+        - A14_STATE hoặc cận lâm sàng để tạo dấu khám thận - tiết niệu nếu không có dữ kiện khám tương ứng.
+        - C_STATE, O_OUTPUT, output đã render, trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+    A8 không được biến A1/A2/A3/A4/A5/A6/A7, chẩn đoán, mã bệnh hoặc cận lâm sàng thành dữ kiện khám thận - tiết niệu mới ngoài contract.
+    Tổng phân tích nước tiểu, protein niệu, hồng cầu niệu, bạch cầu niệu, ure, creatinin, eGFR, cấy nước tiểu, siêu âm thận - tiết niệu, CT/MRI không được biến thành khám thận - tiết niệu nếu user không cung cấp dấu khám tương ứng.
+    Nếu user input trực tiếp có chẩn đoán/mã bệnh/bệnh cảnh thận - tiết niệu, A8 có thể dùng như bệnh cảnh trong RUN_MODE hợp lệ, nhưng không thay cho dấu khám nếu thiếu căn cứ khám.
+
+A8_ALLOWED_ACTION
+    A8 chỉ được làm:
+        1. CREATE A8_STATE.
+        2. UPDATE A8_STATE.
+        3. REUSE A8_STATE.
+        4. CHECK A8_STATE.
+        5. Quản lý A8_REV của chính A8.
+        6. Chọn mẫu khám thận - tiết niệu phù hợp theo RUN_MODE và căn cứ hợp lệ.
+
+A8_ALLOWED_WRITE
+    A8 chỉ ghi full A8_STATE.
+    A8 không ghi A1-A7, A9-A15, C/O, A_GATE hoặc A_STATE_OUTPUT_SCHEMA.
+    A8 không tự tạo toàn bộ A_MODULE_REV; A8 chỉ cung cấp/quản lý A8_REV để A_GATE/full current A_STATE tổng hợp.
+    A8_STATE là full state, không phải patch/delta.
+    A8 không render bệnh án và không chạy C/O.
+
+A8_STATE_SCHEMA
+    A8_STATE:
+        STATE_VERSION = ...
+        UPDATED_AT = HH:MM dd/mm/yyyy
+        A8_REV = ...
+        A8_FOR_O1 = ...
+        A8_FOR_O8 = ...
+        A8_CHECK = PASS / NEEDS_FIX
+        A8_ERROR = ...
+    Không thêm STATUS hoặc field mới khác.
+    Không bỏ UPDATED_AT, A8_REV, A8_FOR_O1, A8_FOR_O8; không đổi tên A8_FOR_O1/A8_FOR_O8.
+    UPDATED_AT là metadata quản lý phiên bản state, không render vào bệnh án.
+    UPDATED_AT khác A8_REV; thay đổi UPDATED_AT đơn thuần không làm tăng A8_REV.
+    A8_REV là metadata kỹ thuật của A8 để A_GATE/full current A_STATE tổng hợp vào A_MODULE_REV.
+    A8_ERROR = NONE khi A8_CHECK = PASS.
+    A8_ERROR ghi lỗi cụ thể khi A8_CHECK = NEEDS_FIX.
+    A8_STATE luôn là full state, không patch/delta.
+
+A8_LOGIC_RULES
+    A8_CREATE_UPDATE_REUSE
+        CREATE khi chưa có latest/current A8_STATE.
+        UPDATE khi user input hiện tại hoặc dependency hợp lệ làm nội dung thật của A8_FOR_O1 / A8_FOR_O8 thay đổi.
+        Dữ liệu có thể ảnh hưởng A8 gồm: hố thận, điểm niệu quản trên, điểm niệu quản giữa, chạm thận, rung thận, đau hông lưng nếu có dữ kiện khám thực thể tương ứng, hạ vị nếu là dấu khám liên quan thận - tiết niệu, cầu bàng quang, chỉnh sửa khám thận - tiết niệu, hoặc dependency hợp lệ phát hiện mâu thuẫn cần sửa A8.
+        UPDATE chỉ thay phần bị ảnh hưởng; phần không bị ảnh hưởng phải lấy từ latest/current A8_STATE.
+        State sau CREATE/UPDATE/REUSE dùng STATE_VERSION của ROUND hiện tại.
+        REUSE khi đã có latest/current A8_STATE và input/dependency hợp lệ không ảnh hưởng A8 hoặc nội dung thật sau chuẩn hóa không đổi.
+        REUSE vẫn phải in nội dung thật, không ghi “giữ nguyên như trước”, “reuse A8”, “theo bản trước”, “không đổi”.
+
+    A8_RUN_MODE
+        RUN_MODE lấy từ G_STATE; A8 không tự xác định RUN_MODE.
+        RUN_MODE độc lập với CREATE / UPDATE / REUSE.
+        USER_ONLY:
+            - Chỉ dùng dữ kiện khám thận - tiết niệu user cung cấp trong phạm vi A8.
+            - Không tự tạo khám thận - tiết niệu, hố thận căng gồ, đau điểm niệu quản, chạm thận (+), rung thận (+), cầu bàng quang (+), bất thường hạ vị hoặc mẫu mặc định nếu user không cung cấp dữ kiện và không có state hợp lệ để reuse.
+            - Nếu không có A8_STATE hợp lệ để reuse và thiếu dữ kiện khám thận - tiết niệu: A8_FOR_O1 = “Chưa có dữ kiện khám thận - tiết niệu”; A8_FOR_O8 = “Chưa có dữ kiện khám thận - tiết niệu”; A8_CHECK = NEEDS_FIX; A8_ERROR = “Thiếu dữ kiện khám thận - tiết niệu”.
+            - Không biến triệu chứng, bệnh sử, chẩn đoán, mã bệnh hoặc CLS thành dấu khám.
+        DEFAULT_COMPLETION:
+            - Được tự tạo khám thận - tiết niệu phù hợp bệnh cảnh nếu user không cung cấp đủ và không có dữ kiện trái ngược.
+            - Nếu không có triệu chứng/chẩn đoán/bệnh cảnh liên quan thì dùng mẫu thường quy đã chốt.
+            - Nếu có bệnh cảnh liên quan thì chọn mẫu phù hợp, không mâu thuẫn user/dependency hợp lệ.
+            - Không dùng no-data placeholder trong bệnh án thường quy.
+            - Không tự thêm bất thường thận - tiết niệu mới nếu không có căn cứ; không tự tạo hố thận căng gồ, đau điểm niệu quản, chạm thận (+), rung thận (+), cầu bàng quang (+), bất thường hạ vị nếu không có căn cứ.
+        AUTO_SAMPLE:
+            - Chỉ dùng cho ca mẫu.
+            - Có thể tạo khám thận - tiết niệu phù hợp bệnh cảnh mẫu.
+            - Không áp dụng cho ca bệnh thật đã có dữ liệu user.
+            - Không đọc ngược A12/A9-A15 để tạo A8.
+
+    A8_FOR_O1_RULE
+        A8_FOR_O1 là bản ngắn, phải có điểm niệu quản trên/giữa, chạm thận, rung thận khi A8_CHECK = PASS, trừ USER_ONLY thiếu dữ kiện và NEEDS_FIX.
+        A8_FOR_O1 thường quy không bắt buộc có hố thận hoặc cầu bàng quang.
+        Chỉ thêm hố thận/hạ vị/cầu bàng quang vào O1 khi bất thường hoặc liên quan.
+        Mẫu bình thường O1: “Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-).”
+        Mẫu triệu chứng tiết niệu thấp / đau tức hạ vị nếu RUN_MODE cho phép và phù hợp: “Ấn tức nhẹ vùng hạ vị, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).”
+        Mẫu đau hông lưng phải đủ căn cứ: “Ấn điểm niệu quản trên, giữa bên phải đau, chạm thận phải (+), rung thận phải (+).”
+        Mẫu đau hông lưng trái đủ căn cứ: “Ấn điểm niệu quản trên, giữa bên trái đau, chạm thận trái (+), rung thận trái (+).”
+        Mẫu cầu bàng quang (+) rõ: “Ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (+).”
+        Nếu user cung cấp bất thường thận - tiết niệu thực thể rõ, O1 phản ánh tương ứng ở mức ngắn và không phủ định ngược.
+
+    A8_FOR_O8_RULE
+        A8_FOR_O8 là bản chi tiết hơn, phải có hố thận, điểm niệu quản trên/giữa, chạm thận, rung thận, cầu bàng quang khi A8_CHECK = PASS, trừ USER_ONLY thiếu dữ kiện và NEEDS_FIX.
+        Mẫu bình thường O8: “Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).”
+        Mẫu triệu chứng tiết niệu thấp / đau tức hạ vị nếu RUN_MODE cho phép và phù hợp: “Hố thận hai bên không căng gồ, ấn tức nhẹ vùng hạ vị, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (-).”
+        Mẫu đau hông lưng phải đủ căn cứ: “Hố thận phải đau tức, ấn điểm niệu quản trên, giữa bên phải đau, chạm thận phải (+), rung thận phải (+), cầu bàng quang (-).”
+        Mẫu đau hông lưng trái đủ căn cứ: “Hố thận trái đau tức, ấn điểm niệu quản trên, giữa bên trái đau, chạm thận trái (+), rung thận trái (+), cầu bàng quang (-).”
+        Mẫu cầu bàng quang (+) rõ: “Hố thận hai bên không căng gồ, ấn điểm niệu quản trên, giữa không đau, chạm thận (-), rung thận (-), cầu bàng quang (+).”
+        Nếu user cung cấp bất thường thận - tiết niệu thực thể rõ, O8 phản ánh tương ứng đầy đủ hơn O1 và không phủ định ngược.
+
+    A8_O1_O8_SYNC_RULE
+        O1 và O8 không được mâu thuẫn về điểm niệu quản, chạm thận, rung thận, cầu bàng quang nếu O1 có nêu, hạ vị nếu có.
+        Nếu O1 ghi “ấn điểm niệu quản trên, giữa không đau” thì O8 không được ghi đau điểm niệu quản ngược lại.
+        Nếu O8 có bất thường rõ thì O1 không được ghi bình thường trái lại.
+        O8 có thể chi tiết hơn O1 nhưng không thêm dữ kiện sai phạm vi.
+        Nếu O1/O8 mâu thuẫn nhau thì A8_CHECK = NEEDS_FIX và A8_ERROR ghi rõ.
+
+A8_SPECIAL_RULES
+    A8_SCOPE_INCLUDE
+        A8 chỉ quản lý khám thận - tiết niệu thực thể trong contract:
+            - Hố thận; hố thận hai bên; “Hố thận hai bên không căng gồ”; hố thận căng gồ nếu user cung cấp hoặc đủ căn cứ.
+            - Điểm niệu quản trên, điểm niệu quản giữa; “ấn điểm niệu quản trên, giữa không đau”; đau điểm niệu quản và vị trí/bên nếu user cung cấp hoặc đủ căn cứ.
+            - Chạm thận; chạm thận (-); chạm thận (+) nếu user cung cấp hoặc đủ căn cứ.
+            - Rung thận; rung thận (-); rung thận (+) nếu user cung cấp hoặc đủ căn cứ.
+            - Đau hông lưng nếu có dữ kiện khám thực thể tương ứng và phải giữ đúng bên.
+            - Hạ vị nếu là dấu khám liên quan thận - tiết niệu.
+            - Cầu bàng quang; cầu bàng quang (-); cầu bàng quang (+) nếu user cung cấp hoặc đủ căn cứ.
+            - Dấu khám thận - tiết niệu thực thể khác nếu đã thuộc contract.
+
+    A8_SCOPE_EXCLUDE_AND_BOUNDARY
+        A8 không quản lý triệu chứng cơ năng tiết niệu đơn thuần, bệnh sử thận - tiết niệu, khám toàn thân A4, khám tuần hoàn A5, khám hô hấp A6, khám tiêu hóa A7 trừ hạ vị nếu là dấu khám tiết niệu trong phạm vi A8, thần kinh A9, cơ xương khớp A10, cơ quan khác A11, chẩn đoán A12, hướng xử trí/điều trị A13, cận lâm sàng A14, thuốc/điều trị A15.
+        A8_FOR_O1/O8 không chứa: tiểu tiện bình thường, nước tiểu bình thường, tiểu buốt, tiểu rắt, tiểu máu, tiểu khó, bí tiểu, tiểu nhiều, tiểu ít, tiểu đục nếu chỉ là triệu chứng; đau hông lưng nếu chỉ là bệnh nhân kể; phù, sốt, thể trạng, da niêm mạc chung; mạch, huyết áp, tiếng tim; nhịp thở, SpO2; bụng/tiêu hóa ngoài phạm vi hạ vị tiết niệu; thần kinh; cơ xương khớp; cơ quan chuyên khoa khác; tổng phân tích nước tiểu, protein niệu, hồng cầu niệu, bạch cầu niệu, ure, creatinin, eGFR, cấy nước tiểu, siêu âm thận - tiết niệu, CT/MRI, hình ảnh học/xét nghiệm khác; chẩn đoán; thuốc/điều trị.
+
+    A3_A8_SYMPTOM_EXAM_BOUNDARY
+        Tiểu buốt, tiểu rắt, tiểu máu, tiểu khó, bí tiểu, tiểu nhiều, tiểu ít, tiểu đục, đau hông lưng do bệnh nhân kể là triệu chứng cơ năng, thuộc A3/C7 nếu chỉ là triệu chứng.
+        A8 chỉ ghi dấu khám thực thể tương ứng khi có dữ kiện khám: đau điểm niệu quản, chạm thận (+), rung thận (+), hố thận căng gồ, cầu bàng quang (+), hạ vị bất thường thuộc tiết niệu hoặc dấu khám thận - tiết niệu thực thể khác thuộc contract.
+        A8 có thể dùng triệu chứng/bệnh cảnh để chọn mẫu khám trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE nếu RUN_MODE cho phép và không trái dữ kiện; không biến bệnh sử hiện tại thành dấu khám thực thể.
+
+    A4_A8_BOUNDARY
+        Phù, sốt, thể trạng, da niêm, toàn trạng thuộc A4; A8 không ghi các dữ kiện này trong A8_FOR_O1/O8.
+        A4 chỉ là ngữ cảnh đối chiếu mâu thuẫn hoặc đồng bộ bệnh cảnh khi phù hợp.
+        Không dùng phù/sốt đơn độc để tự tạo dấu khám thận - tiết niệu bất thường.
+        Nếu A4 và A8 mâu thuẫn về bệnh cảnh liên quan thận - tiết niệu, A8_CHECK có thể NEEDS_FIX và A8_ERROR ghi rõ.
+
+    A5_A8_BOUNDARY
+        Mạch, huyết áp, tiếng tim, tuần hoàn thuộc A5; A8 không ghi trong A8_FOR_O1/O8.
+        A5 chỉ dùng để đối chiếu bệnh cảnh mất nước, nhiễm trùng, sốc hoặc bệnh cảnh nặng nếu có gợi ý hợp lệ.
+        A8 không dùng A5 để tự tạo chạm thận (+), rung thận (+), đau điểm niệu quản hoặc cầu bàng quang (+) nếu thiếu dữ kiện khám thận - tiết niệu.
+
+    A6_A8_BOUNDARY
+        Nhịp thở, SpO2, ran phổi, rì rào phế nang và khám hô hấp thuộc A6; A8 không ghi trong A8_FOR_O1/O8.
+        A6 chỉ dùng để đối chiếu bệnh cảnh toàn thân nặng nếu cần.
+        A8 không dùng A6 để tự tạo dấu khám thận - tiết niệu bất thường nếu thiếu dữ kiện khám thận - tiết niệu.
+
+    A7_A8_BOUNDARY
+        Đau bụng, khám bụng tiêu hóa, phản ứng thành bụng, gan/lách, Mendel thuộc A7.
+        Hạ vị chỉ thuộc A8 khi là dấu khám liên quan thận - tiết niệu.
+        Bí tiểu cơ năng không tự biến thành cầu bàng quang (+) trong USER_ONLY.
+        Cầu bàng quang bình thường bắt buộc trong O8; O1 chỉ nêu cầu bàng quang khi bất thường hoặc liên quan.
+        A8 không dùng A7 để tự tạo cầu bàng quang (+), đau điểm niệu quản, chạm thận (+), rung thận (+) nếu thiếu dữ kiện khám thận - tiết niệu.
+
+    A12_A14_A8_BOUNDARY
+        Không đọc A12_STATE hiện tại hoặc cũ để tạo dấu khám thận - tiết niệu.
+        Không dùng chẩn đoán/mã bệnh đơn thuần để tạo đau điểm niệu quản, chạm thận (+), rung thận (+), hố thận căng gồ, cầu bàng quang (+), hạ vị bất thường.
+        Nếu user input trực tiếp có chẩn đoán/mã bệnh thận - tiết niệu thì có thể dùng như bệnh cảnh trong RUN_MODE hợp lệ, nhưng không thay cho dấu khám nếu user không cung cấp hoặc không đủ căn cứ.
+        Tổng phân tích nước tiểu, ure, creatinin, eGFR, cấy nước tiểu, siêu âm thận - tiết niệu, CT/MRI thuộc A14.
+        Không biến cận lâm sàng thành khám thực thể nếu không có dữ kiện khám tương ứng.
+        Bệnh thận mạn, suy thận mạn, đái tháo đường không tự sinh chạm thận (+), rung thận (+), đau điểm niệu quản, cầu bàng quang, protein niệu, creatinin tăng, eGFR giảm.
+
+    OUT_OF_CONTRACT_RULE
+        Dữ kiện ngoài contract A8 không được tự render vào A8_FOR_O1/O8.
+        Nếu dữ kiện ngoài contract cần xuất hiện trong bệnh án, A8_CHECK = NEEDS_FIX và A8_ERROR nêu cần mở rộng contract hoặc xử lý nguồn phù hợp.
+        Không tự mở rộng A8_FOR_O1/O8 để chứa field ngoài contract.
+
+    EXAM_DETAIL_RULES
+        Điểm niệu quản phải ghi đúng trên/giữa và đúng bên/vị trí nếu user cung cấp.
+        Nếu không đau điểm niệu quản trong mẫu bình thường, dùng “ấn điểm niệu quản trên, giữa không đau”; không dùng “điểm niệu quản không đau”.
+        Chạm thận và rung thận phải giữ đúng dữ kiện user cung cấp; không phủ định ngược dấu (+); không tự tạo (+) nếu không có căn cứ.
+        Cầu bàng quang phải giữ đúng dữ kiện user cung cấp; bình thường dùng “cầu bàng quang (-)”; bất thường dùng “cầu bàng quang (+)”; không dùng “không có cầu bàng quang” hoặc “có cầu bàng quang”; không tự tạo cầu bàng quang (+) nếu không có căn cứ.
+        Hố thận giữ đúng dữ kiện user cung cấp; mẫu bình thường dùng “Hố thận hai bên không căng gồ”; không dùng “Hố thận 2 bên”.
+        Đau hông lưng phải/trái phải giữ đúng bên nếu user cung cấp; không tự tạo bên tổn thương nếu không có căn cứ; không tự biến đau hông lưng do bệnh nhân kể thành chạm thận/rung thận/đau điểm niệu quản nếu không có dữ kiện khám tương ứng.
+        Không tự tạo hố thận căng gồ, đau điểm niệu quản, chạm thận (+), rung thận (+), cầu bàng quang (+), bất thường hạ vị nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
+
+    FORBIDDEN_WORDING_RULE
+        Không dùng các cụm trong output chuẩn: “điểm niệu quản không đau”, “Hố thận 2 bên”, “không có cầu bàng quang”, “có cầu bàng quang”, “Khám sơ bộ chưa phát hiện bất thường thận – tiết niệu”, “thận tiết niệu bình thường”, “thận - tiết niệu bình thường”, “tiểu tiện bình thường”.
+        Khi bình thường phải dùng: “ấn điểm niệu quản trên, giữa không đau”, “Hố thận hai bên không căng gồ”, “cầu bàng quang (-)”.
+        Khi bất thường cầu bàng quang dùng: “cầu bàng quang (+)”.
+
+A8_CHECK_PASS_IF
+    A8_CHECK = PASS chỉ khi:
+        1. A8_STATE đủ schema: STATE_VERSION, UPDATED_AT hợp lệ, A8_REV hợp lệ, A8_FOR_O1, A8_FOR_O8, A8_CHECK, A8_ERROR.
+        2. A8_FOR_O1 có dữ liệu khám thận - tiết niệu hợp lệ; có điểm niệu quản trên/giữa, chạm thận, rung thận, trừ USER_ONLY thiếu dữ kiện và NEEDS_FIX.
+        3. A8_FOR_O8 có dữ liệu khám thận - tiết niệu hợp lệ; có hố thận, điểm niệu quản trên/giữa, chạm thận, rung thận, cầu bàng quang, trừ USER_ONLY thiếu dữ kiện và NEEDS_FIX.
+        4. O1/O8 đúng format, đúng scope A8, đúng RUN_MODE, không trái user input hoặc dependency hợp lệ.
+        5. O1/O8 không tự tạo dấu khám từ A1-A7, triệu chứng, bệnh sử, chẩn đoán, mã bệnh hoặc CLS.
+        6. O1/O8 không chứa phù/sốt/toàn trạng/mạch/huyết áp/tiếng tim/nhịp thở/SpO2/khám bụng tiêu hóa/khám chuyên khoa ngoài scope, triệu chứng cơ năng đơn thuần, cận lâm sàng, chẩn đoán, thuốc hoặc hướng xử trí.
+        7. O1/O8 không mâu thuẫn nhau; mẫu thường quy dùng literal/format đúng; không dùng wording cấm.
+        8. A8_ERROR = NONE.
+
+A8_NEEDS_FIX_IF
+    A8_CHECK = NEEDS_FIX nếu có bất kỳ điều kiện sau:
+        1. USER_ONLY thiếu dữ kiện khám thận - tiết niệu và không có state hợp lệ để reuse.
+        2. A8_FOR_O1 hoặc A8_FOR_O8 thiếu dữ liệu cần thiết khi không thuộc ngoại lệ USER_ONLY thiếu dữ kiện.
+        3. A8_FOR_O1 hoặc A8_FOR_O8 chứa dữ liệu ngoài scope A8.
+        4. A8_FOR_O1 hoặc A8_FOR_O8 tự tạo dấu khám từ triệu chứng, bệnh sử, chẩn đoán, mã bệnh hoặc CLS.
+        5. A8_FOR_O1 hoặc A8_FOR_O8 mâu thuẫn user input, dependency hợp lệ hoặc mâu thuẫn nhau.
+        6. DEFAULT_COMPLETION tạo mẫu trái dữ kiện user hoặc dependency.
+        7. Bệnh cảnh có nguy cơ tắc nghẽn/sỏi/nhiễm trùng nặng/mâu thuẫn khiến không thể tự hoàn thiện an toàn.
+        8. O1/O8 sai format điểm niệu quản, chạm thận, rung thận, hố thận hoặc cầu bàng quang.
+        9. O1/O8 dùng wording bị cấm.
+        10. Dữ kiện ngoài contract A8 cần xuất hiện trong bệnh án nhưng không có nơi xử lý hợp lệ.
+        11. State thiếu field bắt buộc, A8_REV thiếu/không hợp lệ, A8_ERROR không rõ khi NEEDS_FIX, hoặc A8_ERROR không phải NONE khi PASS.
+
+A8_ERROR_RULE
+    Nếu A8_CHECK = PASS thì A8_ERROR = NONE.
+    Nếu A8_CHECK = NEEDS_FIX thì A8_ERROR phải ghi lỗi cụ thể.
+    Nếu thiếu dữ liệu, A8_ERROR nêu dữ liệu cần user bổ sung.
+    Nếu mâu thuẫn, A8_ERROR nêu điểm mâu thuẫn.
+    Nếu sai phạm vi, A8_ERROR nêu phần cần sửa.
+    Nếu sai format, A8_ERROR nêu format cần sửa.
+    Nếu dữ kiện ngoài contract cần xuất hiện, A8_ERROR nêu cần mở rộng contract hoặc xử lý nguồn phù hợp.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
+
+A8_REUSE_RULE
+    REUSE khi latest/current A8_STATE có và input/dependency hợp lệ không ảnh hưởng A8 hoặc không làm đổi nội dung thật A8_FOR_O1/A8_FOR_O8.
+    Khi REUSE, dùng lại nội dung thật của latest/current A8_STATE và vẫn in full A8_STATE với STATE_VERSION hiện tại.
+    UPDATED_AT khi REUSE giữ thời điểm cập nhật nội dung thật gần nhất, trừ khi contract hệ thống quy định phải ghi thời điểm full current state của ROUND hiện tại; thay đổi UPDATED_AT đơn thuần không làm tăng A8_REV.
+    Không ghi “giữ nguyên như trước”, “reuse A8”, “theo bản trước”, “không đổi”.
+    Không dùng patch/delta thay cho A8_FOR_O1/A8_FOR_O8.
+    A8_REV giữ nguyên nếu A8_FOR_O1/A8_FOR_O8 không thay đổi thật.
+
+A8_REV_RULE
+    CREATE A8_STATE: A8_REV = 1.
+    UPDATE nếu A8_FOR_O1 hoặc A8_FOR_O8 thay đổi thật: A8_REV tăng so với A8_REV hiện hành.
+    REUSE hoặc input/dependency hợp lệ không làm đổi nội dung thật A8_FOR_O1/A8_FOR_O8: A8_REV giữ nguyên.
+    Thay đổi UPDATED_AT đơn thuần không làm tăng A8_REV.
+    Dependency hợp lệ làm nội dung thật thay đổi thì A8 phải UPDATE và tăng A8_REV.
+    A8_REV tăng/giữ theo thay đổi thật của A8_FOR_O1/A8_FOR_O8, không theo tên RUN_MODE.
+    A8_REV là metadata kỹ thuật để A_GATE/full current A_STATE tổng hợp vào A_MODULE_REV.
+    A8 không tự tạo toàn bộ A_MODULE_REV.
+    A8_STATE vẫn phải là full state, không patch/delta.
+
+A8_END
+    A8 hoàn tất khi đã CREATE / UPDATE / REUSE full A8_STATE, xác định STATE_VERSION, UPDATED_AT, A8_REV, A8_FOR_O1, A8_FOR_O8, A8_CHECK, A8_ERROR đúng contract.
+    A8 không tạo dữ liệu ngoài A8_STATE, không tạo state khác, không chạy C/O, không render O.
+    Sau khi hoàn tất A8_STATE, chuyển sang A9 theo A_RUN_ORDER.
 
 A9 — KHÁM THẦN KINH
 Version: BA S-G-A-C-O v3
