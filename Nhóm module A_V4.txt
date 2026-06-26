@@ -1651,966 +1651,209 @@ A8_END
     Sau khi hoàn tất A8_STATE, chuyển sang A9 theo A_RUN_ORDER.
 
 A9 — KHÁM THẦN KINH
-Version: BA S-G-A-C-O v3
-Update 31/05/2026 GMT+7 — sync A9 system lifecycle contract
-
->>> READ-LOCK: A9
-- Bắt buộc đọc tuần tự toàn bộ A9 từ A9.1 đến A9.19.
-- Không được bỏ qua mục nào.
-- Chỉ tạo A9_STATE.
-- Không tạo state của A khác.
-- Không chạy C.
-- Không render O.
-- Sau khi hoàn tất A9_STATE, chuyển sang A10 theo A_RUN_ORDER.
-<<< END READ-LOCK: A9
-
-A9.1. Nhiệm vụ của A9
-    A9.1.1. Vai trò chính của A9
-        A9 là module chuẩn hóa phần khám thần kinh thực thể.
-        A9 tạo A9_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-        A9_STATE là nguồn chính thức cho C/O khi cần dữ liệu khám thần kinh.
-        A9 tạo dữ liệu khám thần kinh dùng cho O1 và O8.
-
-    A9.1.2. Nội dung A9 tạo ra
-        A9 tạo:
-            1. A9_FOR_O1.
-            2. A9_FOR_O8.
-            3. A9_CHECK.
-            4. A9_ERROR nếu A9_CHECK = NEEDS_FIX.
-
-    A9.1.3. Nguyên tắc trách nhiệm
-        A9 chỉ chịu trách nhiệm với khám thần kinh thực thể.
-        Nếu khám thần kinh sai, phải sửa A9.
-        Nếu khám thần kinh bị lẫn với bệnh sử, toàn thân, tuần hoàn, hô hấp, tiêu hóa, thận - tiết niệu, cơ xương khớp, cơ quan khác hoặc cận lâm sàng, phải sửa A9.
-        Chất lượng nội dung A9_FOR_O1 và A9_FOR_O8 phải được khóa trong A9.
-
-A9.2. Nguồn được đọc
-    A9.2.1. Nguồn được đọc
-        A9 được đọc:
-            1. User input của ROUND hiện tại.
-            2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
-            3. A9_STATE hiện hành mới nhất nếu đã có.
-            4. File/module A9.
-            5. A1_STATE nếu cần đối chiếu lý do vào viện liên quan thần kinh.
-            6. A2_STATE nếu cần đối chiếu tiền sử thần kinh, bệnh nền hoặc yếu tố nguy cơ liên quan.
-            7. A3_STATE nếu cần đối chiếu triệu chứng thần kinh, nhưng không bê triệu chứng cơ năng vào A9.
-            8. A4_STATE nếu cần đối chiếu ý thức, tiếp xúc hoặc tình trạng toàn thân liên quan thần kinh.
-            9. A5_STATE nếu cần đối chiếu tuần hoàn trong bệnh cảnh đột quỵ, ngất, co giật, rối loạn ý thức hoặc bệnh cảnh nặng.
-            10. A6_STATE nếu cần đối chiếu hô hấp/toàn trạng trong bệnh cảnh co giật, rối loạn ý thức, suy hô hấp hoặc bệnh cảnh nặng.
-            11. A7_STATE nếu cần phân biệt nôn/buồn nôn do tiêu hóa với bệnh cảnh thần kinh nếu có dữ kiện liên quan.
-            12. A8_STATE nếu cần đối chiếu rối loạn cơ tròn hoặc phân biệt triệu chứng tiết niệu với thần kinh nếu có dữ kiện liên quan.
-
-    A9.2.2. Dữ liệu user input có thể dùng cho A9
-        A9 được lấy dữ liệu từ user input nếu dữ liệu đó thuộc khám thần kinh thực thể hoặc giúp chọn mẫu khám thần kinh phù hợp:
-            1. Dấu hiệu thần kinh khu trú.
-            2. Yếu liệt.
-            3. Cơ lực.
-            4. Liệt nửa người.
-            5. Méo miệng.
-            6. Nói khó.
-            7. Nuốt khó.
-            8. Thất điều.
-            9. Dấu tháp.
-            10. Babinski.
-            11. Rối loạn cảm giác khách quan khi khám.
-            12. Phản xạ gân xương nếu user cung cấp.
-            13. Hội chứng màng não.
-            14. Cứng gáy.
-            15. Kernig.
-            16. Brudzinski.
-            17. Co giật nếu user cung cấp.
-            18. Rối loạn cơ tròn nếu user cung cấp.
-            19. Dấu thần kinh thực thể khác nếu user cung cấp.
-            20. Triệu chứng thần kinh trong user input hoặc A3 để định hướng mẫu khám, nhưng không đưa trực tiếp vào A9_FOR_O1/O8 nếu chỉ là triệu chứng cơ năng.
-            21. Chẩn đoán hoặc mã bệnh thần kinh trong user input nếu có, ví dụ đột quỵ, tai biến mạch máu não, động kinh, viêm màng não, bệnh lý thần kinh ngoại biên.
-
-    A9.2.3. Nguồn không dùng do thứ tự chạy
-        A9 không đọc A10-A15 của ROUND hiện tại để viết ngược A9 vì các module này chạy sau A9.
-        A9 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A9 trong A_RUN_ORDER.
-        A9 không dùng A12_STATE cũ từ ROUND trước để tạo A9 trong ROUND hiện tại.
-        A9 không dùng chẩn đoán hoặc mã bệnh từ A12 để tạo dấu khám thần kinh mới.
-        Nếu user input trực tiếp có chẩn đoán/mã bệnh/bệnh cảnh thần kinh, A9 có thể dùng như user input theo rule hiện hành; đây không phải là đọc A12_STATE.
-        A9 không tự tạo chẩn đoán.
-        Các đối chiếu A9 ↔ A12 hoặc A9 ↔ module chạy sau nếu cần sẽ do tầng tổng hợp/A_GATE hoặc module chạy sau xử lý sau khi các state đó đã có.
-        A9 không đọc C_STATE.
-        A9 không đọc O_OUTPUT.
-        A9 không đọc output đã render.
-        A9 không dùng trí nhớ ẩn.
-        A9 không dùng dữ liệu ngoài state hợp lệ.
-
-A9.3. Dependency nội bộ
-    A9.3.1. Dependency của A9
-        A9 có thể đọc:
-            1. A1_STATE.
-            2. A2_STATE.
-            3. A3_STATE.
-            4. A4_STATE.
-            5. A5_STATE.
-            6. A6_STATE.
-            7. A7_STATE.
-            8. A8_STATE.
-
-    A9.3.2. Mục đích đọc dependency
-        A1_STATE được dùng để không bỏ sót lý do vào viện liên quan thần kinh.
-        A2_STATE được dùng để đồng bộ tiền sử thần kinh, bệnh nền hoặc yếu tố nguy cơ liên quan.
-        A3_STATE được dùng để đối chiếu triệu chứng thần kinh và bệnh sử hiện tại.
-        A4_STATE được dùng để đồng bộ ý thức, tiếp xúc hoặc tình trạng toàn thân.
-        A5_STATE được dùng để đồng bộ tuần hoàn trong bệnh cảnh ngất, đột quỵ, co giật, rối loạn ý thức hoặc bệnh cảnh nặng.
-        A6_STATE được dùng để đồng bộ hô hấp/toàn trạng trong bệnh cảnh co giật, rối loạn ý thức hoặc bệnh cảnh nặng.
-        A7_STATE được dùng để phân biệt bệnh cảnh tiêu hóa với thần kinh nếu có buồn nôn/nôn/chóng mặt hoặc bệnh cảnh liên quan.
-        A8_STATE được dùng để đồng bộ rối loạn cơ tròn hoặc triệu chứng tiết niệu liên quan thần kinh nếu có.
-
-    A9.3.3. Khi không cần dependency
-        Nếu user input đã đủ dữ kiện khám thần kinh và không cần đồng bộ thêm, A9 có thể chỉ đọc user input và A9_STATE hiện hành nếu có.
-
-    A9.3.4. Giới hạn dependency
-        Dependency A1-A8 chỉ dùng để đối chiếu ngữ cảnh, ranh giới, phát hiện mâu thuẫn và đồng bộ bệnh cảnh.
-        Dependency không được dùng để tạo dữ kiện khám thần kinh mới nếu chưa có rule hợp lệ.
-        Không chép lý do vào viện, tiền sử, bệnh sử, triệu chứng cơ năng, khám toàn thân, khám tuần hoàn, khám hô hấp, khám tiêu hóa hoặc khám thận - tiết niệu vào A9_FOR_O1/A9_FOR_O8.
-        A9 không đọc A10-A15 của ROUND hiện tại để viết ngược A9 vì các module này chạy sau A9.
-        A9 không đọc A12_STATE của ROUND hiện tại vì A12 chạy sau A9.
-        A9 không đọc C_STATE.
-        A9 không đọc O_OUTPUT.
-        A9 không suy ngược khám thần kinh từ output đã render.
-
-A9.4. Quy tắc CREATE / UPDATE / REUSE A9_STATE
-    CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A9 đối với A9_STATE; không phải RUN_MODE.
-    A9 tự đọc user input ROUND hiện tại và dependency hợp lệ để tự quyết định CREATE / UPDATE / REUSE; A9 không phụ thuộc G chọn A9 cần sửa.
-
-    A9.4.1. CREATE A9_STATE
-        CREATE áp dụng khi chưa có A9_STATE hiện hành.
-        A9 tạo full A9_STATE mới từ user input của ROUND hiện tại và dependency được phép nếu cần.
-        A9 phải xác định:
-            1. UPDATED_AT = HH:MM dd/mm/yyyy.
-            2. A9_REV = 1.
-            3. A9_FOR_O1.
-            4. A9_FOR_O8.
-            5. A9_CHECK.
-            6. A9_ERROR nếu cần.
-
-    A9.4.2. UPDATE A9_STATE
-        UPDATE áp dụng khi user input của ROUND hiện tại hoặc dependency hợp lệ làm A9_FOR_O1 / A9_FOR_O8 thay đổi thật.
-        Dữ liệu có thể ảnh hưởng A9 gồm:
-            1. Dấu hiệu thần kinh khu trú.
-            2. Hội chứng màng não.
-            3. Yếu liệt.
-            4. Cơ lực.
-            5. Rối loạn cảm giác khách quan.
-            6. Phản xạ gân xương.
-            7. Dấu tháp / Babinski.
-            8. Méo miệng, nói khó, nuốt khó.
-            9. Co giật.
-            10. Rối loạn cơ tròn.
-            11. Rối loạn ý thức liên quan thần kinh nếu user cung cấp rõ.
-            12. Dấu thần kinh thực thể khác.
-        Khi cập nhật:
-            - A9 đọc A9_STATE hiện hành mới nhất nếu có.
-            - A9 thay phần bị ảnh hưởng bằng dữ liệu mới.
-            - A9 giữ phần không bị ảnh hưởng bằng nội dung hiện hành mới nhất.
-            - A9_STATE sau cập nhật phải mang STATE_VERSION của ROUND hiện tại.
-            - A9_STATE sau cập nhật phải có UPDATED_AT tại thời điểm cập nhật state.
-            - Nếu dependency hợp lệ A1-A8 làm A9_FOR_O1 / A9_FOR_O8 thay đổi thật, A9 UPDATE và A9_REV tăng.
-
-    A9.4.3. REUSE A9_STATE
-        REUSE áp dụng khi đã có A9_STATE hiện hành và input không ảnh hưởng A9 hoặc nội dung thật của A9_FOR_O1 / A9_FOR_O8 không thay đổi.
-        Nếu user input có liên quan nhưng sau chuẩn hóa nội dung thật không đổi, A9 REUSE và A9_REV giữ nguyên.
-        Nếu dependency hợp lệ A1-A8 được đọc nhưng không làm A9_FOR_O1 / A9_FOR_O8 thay đổi thật, A9 REUSE và A9_REV giữ nguyên.
-        A9 dùng lại nội dung thật của A9_STATE hiện hành mới nhất.
-        A9_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong full current A_STATE.
-        A9_STATE dùng lại vẫn phải có UPDATED_AT theo thời điểm in/cập nhật full current A_STATE; UPDATED_AT không làm A9_REV tăng nếu nội dung thật không đổi.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được chỉ ghi “reuse A9” thay cho A9_FOR_O1 và A9_FOR_O8.
-
-    A9.4.4. Quy tắc A9_REV
-        A9 chỉ quản lý revision của chính A9.
-        A9 không tự tạo toàn bộ A_MODULE_REV.
-        Nếu CREATE A9_STATE: A9_REV = 1.
-        Nếu UPDATE và A9_FOR_O1 hoặc A9_FOR_O8 thay đổi thật: A9_REV tăng so với A9_REV hiện hành.
-        Nếu REUSE hoặc nội dung thật không đổi: A9_REV giữ nguyên.
-        A9_REV tăng hoặc giữ nguyên theo thay đổi thật của A9_FOR_O1 / A9_FOR_O8; không theo tên RUN_MODE.
-        A9_REV là metadata kỹ thuật để A_GATE/full current A_STATE tổng hợp vào A_MODULE_REV.
-        UPDATED_AT là metadata thời điểm cập nhật state, khác A9_REV và không phải dữ liệu bệnh án.
-        O không render UPDATED_AT.
-        A9_STATE vẫn là full state, không phải patch/delta.
-
-A9.5. Quy tắc xử lý theo RUN_MODE
-    RUN_MODE là chế độ tạo dữ liệu lấy từ G_STATE; không phải CREATE / UPDATE / REUSE.
-    A9 không tự xác định RUN_MODE; A9 chỉ đọc RUN_MODE từ G_STATE.
-
-    A9.5.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        A9 chỉ dùng dữ liệu khám thần kinh user cung cấp.
-        A9 không tự tạo dấu hiệu thần kinh khu trú.
-        A9 không tự tạo hội chứng màng não.
-        A9 không tự tạo yếu liệt.
-        A9 không tự tạo rối loạn cảm giác khách quan.
-        A9 không tự tạo rối loạn cơ tròn.
-        A9 không tự tạo co giật.
-        A9 không tự tạo dấu tháp / Babinski.
-        Nếu không có A9_STATE cũ để REUSE và user không cung cấp dữ kiện khám thần kinh:
-            - A9_FOR_O1 = Chưa có dữ kiện khám thần kinh trong phạm vi A9.
-            - A9_FOR_O8 = Chưa có dữ kiện khám thần kinh trong phạm vi A9.
-            - A9_CHECK = NEEDS_FIX.
-            - A9_ERROR = Thiếu dữ kiện khám thần kinh.
-        A9 không đọc O_OUTPUT để quyết định dữ kiện khám thần kinh có bắt buộc hay không.
-        A9 không tự suy “output đang chạy” từ O.
-        Nếu cần metadata output, A9 chỉ được đọc metadata kỹ thuật từ G_STATE nếu đã có; A9 không thêm dependency O.
-        Nếu user cung cấp một phần khám thần kinh:
-            - A9 dùng phần đã có.
-            - Không tự thêm phần chưa có nếu RUN_MODE không cho phép.
-
-    A9.5.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        A9 dùng dữ liệu user cung cấp làm nền.
-        A9 được tự tạo khám thần kinh phù hợp bệnh cảnh nếu user không cung cấp đủ khám thần kinh.
-        Nếu không có triệu chứng/chẩn đoán thần kinh liên quan:
-            - Dùng fallback: Không có dấu hiệu thần kinh khu trú.
-        Nếu có lý do vào viện, tiền sử, bệnh sử hoặc triệu chứng thần kinh liên quan trong A1/A2/A3:
-            - A9 được chọn mẫu khám thần kinh phù hợp, miễn là không mâu thuẫn dữ kiện user.
-        Nếu có chẩn đoán hoặc mã bệnh thần kinh trực tiếp trong user input:
-            - A9 được chọn mẫu khám phù hợp, miễn là không mâu thuẫn dữ kiện user.
-        Nếu user phủ định yếu liệt, rối loạn cảm giác, dấu thần kinh khu trú hoặc hội chứng màng não:
-            - A9 phải giữ đúng phủ định.
-            - Không tự viết ngược lại.
-        Không tự tạo dấu thần kinh nặng nếu không có căn cứ.
-        Không tự thêm yếu liệt, rối loạn ý thức hoặc dấu thần kinh khu trú nếu user không cung cấp.
-        Không ghi mẫu không có bất thường nếu user cung cấp bất thường rõ.
-        Trong DEFAULT_COMPLETION bệnh án thường quy, A9_FOR_O1/A9_FOR_O8 không được chứa no-data placeholder.
-
-    A9.5.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        A9 được tạo khám thần kinh mẫu phù hợp bệnh cảnh mẫu.
-        Khám thần kinh mẫu phải nhất quán với user input và dependency hợp lệ A1-A8.
-        A9 không tự tạo chẩn đoán.
-        Các đối chiếu A9 ↔ A12 hoặc A9 ↔ module chạy sau nếu cần sẽ do tầng tổng hợp/A_GATE hoặc module chạy sau xử lý sau khi các state đó đã có.
-        Nếu bệnh cảnh mẫu ổn định:
-            - A9 có thể tạo khám thần kinh trong giới hạn bình thường.
-        Nếu bệnh cảnh mẫu có đột quỵ, co giật, viêm màng não, bệnh lý thần kinh ngoại biên, rối loạn ý thức hoặc bệnh thần kinh khác:
-            - A9 phải tạo khám thần kinh phù hợp bệnh cảnh mẫu.
-        Không dùng logic AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
-
-A9.6. Phạm vi khám thần kinh
-    A9.6.1. Thành phần thuộc A9
-        A9 xử lý:
-            1. Dấu hiệu thần kinh khu trú.
-            2. Hội chứng màng não.
-            3. Yếu liệt nếu có.
-            4. Cơ lực nếu user cung cấp.
-            5. Rối loạn cảm giác khách quan nếu có.
-            6. Phản xạ gân xương nếu user cung cấp.
-            7. Dấu tháp / Babinski nếu user cung cấp.
-            8. Méo miệng, nói khó, nuốt khó nếu có.
-            9. Co giật nếu user cung cấp.
-            10. Rối loạn cơ tròn nếu user cung cấp.
-            11. Dấu thần kinh thực thể khác nếu user cung cấp.
-
-    A9.6.2. Thành phần không thuộc A9
-        A9 không xử lý:
-            1. Đau đầu nếu chỉ là triệu chứng cơ năng.
-            2. Hoa mắt chóng mặt nếu chỉ là triệu chứng cơ năng.
-            3. Chóng mặt nếu chỉ là triệu chứng cơ năng.
-            4. Tê bì nếu chỉ là triệu chứng cơ năng.
-            5. Cảm giác châm chích nếu chỉ là triệu chứng cơ năng.
-            6. Cảm giác mang tất nếu chỉ là triệu chứng cơ năng.
-            7. Đau cột sống.
-            8. Đau lan rễ.
-            9. Lasègue.
-            10. Valleix.
-            11. Co cứng cơ cạnh sống.
-            12. Đau khớp / sưng khớp / hạn chế vận động khớp.
-            13. Khám toàn thân.
-            14. Khám tuần hoàn.
-            15. Khám hô hấp.
-            16. Khám tiêu hóa.
-            17. Khám thận - tiết niệu.
-            18. Khám cơ xương khớp.
-            19. Khám cơ quan khác.
-            20. CT sọ não, MRI sọ não, điện não, điện cơ, siêu âm Doppler hoặc xét nghiệm.
-            21. Chẩn đoán.
-            22. Hướng điều trị hoặc thuốc.
-
-    A9.6.3. Phân ranh với A1
-        A1_REASON là lý do vào viện.
-        A9 không viết lý do vào viện thay A1.
-        A9 được đọc A1_REASON để không bỏ sót vấn đề thần kinh chính nếu lý do vào viện liên quan thần kinh.
-
-    A9.6.4. Phân ranh với A2
-        A2 là tiền sử.
-        A9 không viết tiền sử thay A2.
-        A9 được đọc A2_FINAL để đồng bộ tiền sử thần kinh, bệnh nền hoặc yếu tố nguy cơ liên quan.
-        Không biến tiền sử thần kinh thành dấu khám hiện tại nếu không có căn cứ.
-
-    A9.6.5. Phân ranh với A3
-        A3 là bệnh sử và triệu chứng cơ năng.
-        A9 không bê triệu chứng cơ năng từ A3 vào A9_FOR_O1 hoặc A9_FOR_O8.
-        A9 được đọc A3_FINAL để định hướng khám thần kinh và tránh mâu thuẫn với bệnh sử hiện tại.
-
-    A9.6.6. Phân ranh với A4-A8
-        A4 là khám toàn thân.
-        A5 là khám tuần hoàn.
-        A6 là khám hô hấp.
-        A7 là khám tiêu hóa.
-        A8 là khám thận - tiết niệu.
-        A9 không viết lại A4-A8.
-        A9 chỉ dùng A4-A8 để đồng bộ bệnh cảnh nếu cần.
-
-    A9.6.7. Phân ranh với A10
-        A10 là khám cơ xương khớp và cột sống.
-        Đau cột sống, đau lan rễ, Lasègue, Valleix, co cứng cơ cạnh sống, hạn chế vận động cột sống thuộc A10.
-        Đây là rule phân ranh theo dữ kiện user input hoặc ontology module, không phải đọc A10_STATE của ROUND hiện tại.
-        A9 không đọc A10_STATE của ROUND hiện tại vì A10 chạy sau A9.
-        Nếu dữ kiện đau rễ, Lasègue hoặc Valleix xuất hiện trực tiếp trong user input, A9 phân loại theo đúng module phụ trách và không dùng dữ kiện đó để tự tạo dấu thần kinh khu trú trung ương nếu không có căn cứ hợp lệ trong phạm vi A9.
-        Các đối chiếu A9 ↔ A10 nếu cần sẽ do module chạy sau hoặc tầng tổng hợp/A_GATE xử lý sau khi state đã có.
-        Nếu có yếu liệt rõ, rối loạn cảm giác khách quan, rối loạn cơ tròn hoặc dấu thần kinh trung ương, A9 xử lý phần thần kinh tương ứng.
-
-    A9.6.8. Phân ranh với A14
-        CT sọ não, MRI sọ não, điện não, điện cơ, siêu âm Doppler và các xét nghiệm đã có thuộc A14.
-        A9 không biến kết quả cận lâm sàng thành khám thần kinh nếu không có dữ kiện khám tương ứng.
-        A9 không tạo kết quả cận lâm sàng.
-
-A9.7. Quy tắc khám thực thể thần kinh, không phải bệnh sử
-    A9.7.1. Nguyên tắc chung
-        A9 là khám thực thể thần kinh.
-        A9 không phải bệnh sử thần kinh.
-        A9 không phải chẩn đoán thần kinh.
-        A9 không phải cận lâm sàng thần kinh.
-        A9 không phải điều trị thần kinh.
-
-    A9.7.2. Triệu chứng cơ năng thần kinh
-        Đau đầu, hoa mắt chóng mặt, chóng mặt, tê bì, cảm giác châm chích, cảm giác mang tất, đau lan kiểu rễ nếu chỉ là lời kể thuộc A3 hoặc C7.
-        A9 chỉ ghi dấu khám thần kinh thực thể.
-        A9 có thể dùng triệu chứng cơ năng để chọn mẫu khám phù hợp trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE.
-        A9 không đưa trực tiếp triệu chứng cơ năng vào A9_FOR_O1.
-
-    A9.7.3. Khi user kể triệu chứng thần kinh nhưng không có khám thần kinh
-        A3 ghi triệu chứng thần kinh trong bệnh sử.
-        A9 chọn mẫu khám thần kinh phù hợp nếu RUN_MODE cho phép.
-        A9 không ghi “đau đầu”, “hoa mắt chóng mặt”, “tê bì”, “cảm giác châm chích” như nội dung khám thực thể.
-
-    A9.7.4. Khi user cung cấp chẩn đoán hoặc mã bệnh thần kinh trong user input
-        Nếu user input có chẩn đoán hoặc mã bệnh thần kinh trực tiếp:
-            - A9 được dùng làm ngữ cảnh để chọn mẫu khám phù hợp trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE.
-        Nếu user phủ định khám thần kinh bất thường:
-            - A9 phải giữ đúng phủ định.
-        Nếu RUN_MODE = USER_ONLY:
-            - A9 không tự tạo khám thần kinh từ chẩn đoán nếu user không cung cấp khám thực thể.
-
-A9.8. Quy tắc dấu hiệu thần kinh khu trú và hội chứng màng não
-    A9.8.1. Dấu hiệu thần kinh khu trú
-        Nếu user cung cấp dấu thần kinh khu trú:
-            - A9 phải ghi đúng.
-        Nếu user cung cấp không có dấu hiệu thần kinh khu trú:
-            - A9 phải giữ đúng.
-        Nếu user không cung cấp và RUN_MODE cho phép:
-            - Ghi `Không có dấu hiệu thần kinh khu trú.` nếu bệnh cảnh không có căn cứ trái ngược.
-        Không tự tạo dấu hiệu thần kinh khu trú nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A9.8.2. Hội chứng màng não
-        Nếu user cung cấp hội chứng màng não (+):
-            - A9_FOR_O1 ghi `Hội chứng màng não (+).`
-            - A9_FOR_O8 ghi `Hội chứng màng não (+): [cứng gáy, Kernig (+), Brudzinski (+) nếu user cung cấp].`
-        Nếu user cung cấp cứng gáy, Kernig (+) hoặc Brudzinski (+):
-            - A9 phải ghi `Hội chứng màng não (+)`.
-            - A9 phải ghi đúng dấu cụ thể được cung cấp.
-        Nếu user phủ định hội chứng màng não hoặc user không cung cấp và RUN_MODE cho phép:
-            - A9_FOR_O8 ghi `Hội chứng màng não (-)` khi không có bất thường hoặc bệnh cảnh không có căn cứ trái ngược.
-        Không ghi `Hội chứng màng não (-)` nếu user cung cấp dấu màng não (+).
-
-    A9.8.3. Khi có đau đầu / sốt / nôn / rối loạn ý thức
-        Nếu A1/A3/A4 có đau đầu, sốt, nôn hoặc rối loạn ý thức:
-            - A9 phải cân nhắc hội chứng màng não hoặc dấu thần kinh khu trú nếu RUN_MODE cho phép.
-        Không tự tạo hội chứng màng não (+) nếu không có căn cứ.
-        Nếu user phủ định cứng gáy hoặc hội chứng màng não:
-            - A9 phải giữ đúng phủ định.
-
-A9.9. Quy tắc yếu liệt / cảm giác / phản xạ / rối loạn cơ tròn
-    A9.9.1. Yếu liệt và cơ lực
-        Nếu user cung cấp yếu liệt hoặc cơ lực:
-            - A9 phải ghi đúng bên, chi, mức độ nếu có.
-        Nếu user không cung cấp:
-            - Không tự tạo yếu liệt hoặc giảm cơ lực nếu không có căn cứ.
-        Nếu bệnh cảnh đột quỵ hoặc tổn thương thần kinh trung ương trong user input và RUN_MODE cho phép:
-            - A9 có thể chọn mẫu phù hợp nếu không mâu thuẫn dữ kiện user.
-        Nếu user phủ định yếu liệt:
-            - A9 không được tự ghi yếu liệt.
-
-    A9.9.2. Rối loạn cảm giác khách quan
-        Nếu user cung cấp giảm cảm giác khách quan khi khám:
-            - A9 phải ghi đúng vị trí và kiểu rối loạn nếu có.
-        Nếu user chỉ kể tê bì hoặc cảm giác châm chích:
-            - Không bê triệu chứng đó vào A9_FOR_O1/O8 như dấu khám.
-        Không tự tạo giảm cảm giác khách quan nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-    A9.9.3. Phản xạ gân xương / dấu tháp / Babinski
-        Nếu user cung cấp phản xạ gân xương, dấu tháp hoặc Babinski:
-            - A9 phải ghi đúng.
-        Nếu user không cung cấp:
-            - Không tự tạo bất thường phản xạ hoặc Babinski nếu không có căn cứ.
-        Nếu user cung cấp Babinski (+):
-            - A9 phải ghi đúng bên nếu có.
-        Không tự tạo Babinski (+) nếu không có căn cứ.
-
-    A9.9.4. Rối loạn cơ tròn
-        Nếu user cung cấp rối loạn cơ tròn:
-            - A9 phải ghi đúng.
-        Nếu A8/A3 có triệu chứng tiết niệu nhưng không có dữ kiện thần kinh:
-            - A9 không tự tạo rối loạn cơ tròn.
-        Không tự tạo rối loạn cơ tròn nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-A9.10. Quy tắc rễ thần kinh, tê bì và bệnh lý thần kinh ngoại biên
-    A9.10.1. Đau rễ thần kinh và dữ kiện thuộc A10
-        A9 không tự ghi “có dấu hiệu thần kinh khu trú” chỉ vì:
-            1. Đau thắt lưng lan chân.
-            2. Tê bì chân trong đau thần kinh tọa.
-            3. Lasègue (+).
-            4. Valleix (+).
-            5. Đau cổ vai gáy lan tay.
-            6. Co cứng cơ cạnh sống.
-        Nếu các dữ kiện đau rễ, Lasègue, Valleix, co cứng cơ cạnh sống hoặc đau cột sống xuất hiện trực tiếp trong user input và không có dấu thần kinh trung ương hợp lệ trong phạm vi A9, A9 phân loại các dữ kiện đó theo ontology A10; đây không phải là đọc A10_STATE của ROUND hiện tại.
-
-    A9.10.2. Đau rễ nhưng không có dấu thần kinh nặng
-        Trong các trường hợp đau rễ thần kinh nhưng không có yếu liệt rõ, rối loạn cơ tròn, giảm cảm giác khách quan hoặc dấu thần kinh nặng:
-            - A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-            - A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
-        A9 không được biến Lasègue hoặc Valleix (+) thành dấu thần kinh khu trú trung ương.
-
-    A9.10.3. Tê bì / châm chích / cảm giác mang tất
-        Nếu user chỉ kể tê bì, cảm giác châm chích, nóng rát, cảm giác mang tất mà chưa có khám cảm giác khách quan:
-            - Không bê triệu chứng đó vào A9_FOR_O1/O8.
-            - A9 có thể vẫn ghi không có dấu hiệu thần kinh khu trú nếu không có dấu hiệu thần kinh trung ương.
-        Nếu user cung cấp khám cảm giác khách quan bất thường:
-            - A9 ghi rối loạn cảm giác khách quan theo dữ kiện.
-
-    A9.10.4. Bệnh lý thần kinh ngoại biên
-        Nếu bệnh cảnh đái tháo đường có bệnh lý thần kinh ngoại biên nhưng user chưa cung cấp khám cảm giác khách quan:
-            - A9 không tự tạo giảm cảm giác.
-            - Triệu chứng cơ năng nằm ở A3.
-            - C1 có thể gợi ý khám cảm giác ngoại biên nếu cần.
-        Nếu user cung cấp giảm cảm giác khách quan, yếu chi, giảm cơ lực, rối loạn phản xạ hoặc rối loạn cơ tròn:
-            - A9 ghi bất thường theo dữ kiện.
-
-A9.11. Quy tắc co giật / rối loạn ý thức / dấu thần kinh đặc biệt
-    A9.11.1. Co giật
-        Nếu user ghi co giật hiện tại:
-            - A9 phải ghi co giật theo dữ kiện được cung cấp.
-        Nếu user chỉ ghi tiền sử co giật nhưng không có cơn hiện tại:
-            - A9 không tự ghi co giật hiện tại nếu không có căn cứ.
-        Không tự tạo co giật nếu user không cung cấp.
-        Nếu co giật đã hết và hiện tại không có dấu thần kinh bất thường:
-            - A9 có thể ghi không có dấu hiệu thần kinh khu trú nếu phù hợp.
-
-    A9.11.2. Rối loạn ý thức
-        Ý thức / tiếp xúc thuộc A4.
-        Nếu có rối loạn ý thức liên quan thần kinh và user cung cấp rõ:
-            - A9 được nhắc lại ở mức cần thiết để đồng bộ với A4.
-        Không lặp lại “tỉnh, tiếp xúc tốt” trong A9 nếu A4 đã ghi và không cần thiết.
-        Không tự tạo rối loạn ý thức trong A9 nếu A4/user input không có căn cứ.
-
-    A9.11.3. Méo miệng / nói khó / nuốt khó / thất điều
-        Nếu user cung cấp méo miệng, nói khó, nuốt khó hoặc thất điều:
-            - A9 phải ghi đúng.
-        Nếu user phủ định các dấu này:
-            - A9 phải giữ đúng phủ định.
-        Không tự tạo các dấu này nếu user không cung cấp hoặc bệnh cảnh không đủ căn cứ.
-
-A9.12. Quy tắc đồng bộ với A1-A8 và user input
-    A9.12.1. Đồng bộ với A1
-        Nếu A1_REASON có lý do vào viện liên quan thần kinh:
-            - A9 phải không bỏ sót bệnh cảnh thần kinh khi chọn mẫu khám.
-        Nếu A1_REASON không liên quan thần kinh:
-            - A9 không tự tạo bất thường thần kinh nếu không có căn cứ khác.
-        A9 không sửa A1_REASON.
-
-    A9.12.2. Đồng bộ với A2
-        Nếu A2_FINAL có tiền sử đột quỵ, động kinh, bệnh thần kinh, đái tháo đường, tăng huyết áp hoặc yếu tố nguy cơ thần kinh:
-            - A9 dùng để định hướng khám thần kinh nếu phù hợp.
-        A9 không biến tiền sử thành dấu khám hiện tại nếu không có căn cứ.
-        A9 không sửa A2_FINAL.
-
-    A9.12.3. Đồng bộ với A3
-        Nếu A3 có triệu chứng thần kinh, A9 dùng để định hướng khám.
-        Không bê triệu chứng thần kinh cơ năng từ A3 vào A9.
-        Nếu A3 ghi yếu tay chân, méo miệng, nói khó, co giật, rối loạn cơ tròn:
-            - A9 phải cân nhắc dấu thần kinh phù hợp nếu RUN_MODE cho phép.
-        Nếu A3 ghi triệu chứng thần kinh đã hết:
-            - A9 không được ghi dấu hiện tại mâu thuẫn nếu không có căn cứ.
-
-    A9.12.4. Đồng bộ với A4
-        Nếu A4 có rối loạn ý thức hoặc tiếp xúc bất thường:
-            - A9 phải cân nhắc bệnh cảnh thần kinh nếu phù hợp.
-        A9 không lặp lại ý thức / tiếp xúc bình thường nếu A4 đã quản phần này.
-        Nếu A4 ghi tỉnh, tiếp xúc tốt:
-            - A9 không tự tạo rối loạn ý thức nếu không có căn cứ.
-
-    A9.12.5. Đồng bộ với A5-A8
-        Nếu A5-A8 có dữ kiện bệnh cảnh nặng hoặc dữ kiện liên quan thần kinh:
-            - A9 dùng làm ngữ cảnh nếu cần.
-        A9 không tự tạo dấu thần kinh chỉ từ A5-A8 nếu không có căn cứ.
-        Nếu A8 có rối loạn tiểu tiện nhưng không có dữ kiện thần kinh:
-            - A9 không tự tạo rối loạn cơ tròn.
-
-    A9.12.6. Đồng bộ với chẩn đoán/mã bệnh thần kinh trong user input
-        Nếu user input có chẩn đoán/mã bệnh thần kinh trực tiếp:
-            - A9 được dùng để chọn mẫu khám phù hợp nếu RUN_MODE cho phép.
-        Nếu user input có đột quỵ, tai biến mạch máu não, động kinh, viêm màng não, bệnh lý thần kinh ngoại biên hoặc bệnh thần kinh khác:
-            - A9 chọn mẫu khám phù hợp nếu RUN_MODE cho phép.
-        Nếu user phủ định khám thần kinh bất thường:
-            - A9 giữ đúng phủ định.
-        Nếu không có bệnh cảnh thần kinh:
-            - A9 có thể dùng mẫu bình thường nếu RUN_MODE cho phép.
-
-A9.13. Quy tắc tạo A9_FOR_O1
-    A9.13.1. Vai trò của A9_FOR_O1
-        A9_FOR_O1 là bản khám thần kinh dùng cho O1.
-        A9_FOR_O1 phải ngắn gọn, cụ thể.
-        A9_FOR_O1 chỉ chứa khám thần kinh thực thể.
-        A9_FOR_O1 không làm O1 bị dài.
-
-    A9.13.2. Nội dung bắt buộc của A9_FOR_O1
-        A9_FOR_O1 phải có:
-            1. Có / không có dấu hiệu thần kinh khu trú.
-            2. Yếu liệt nếu có.
-            3. Rối loạn cảm giác khách quan nếu có.
-            4. Dấu thần kinh quan trọng nếu user cung cấp.
-
-    A9.13.3. Mẫu không có bất thường thần kinh
-        Nếu không có bất thường thần kinh và RUN_MODE cho phép:
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-
-    A9.13.4. Mẫu đau đầu / chóng mặt không có dấu khu trú
-        Nếu có đau đầu, hoa mắt chóng mặt hoặc chóng mặt nhưng không có dấu thần kinh khu trú, không có hội chứng màng não và không có dữ kiện thần kinh nặng:
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-        Nếu A3 có rối loạn tiền đình/chóng mặt nhưng không có yếu liệt, nói khó, nhìn đôi, rối loạn ý thức hoặc dấu thần kinh trung ương:
-            - Không ghi triệu chứng chóng mặt vào A9_FOR_O1/O8.
-            - Ghi không có dấu hiệu thần kinh khu trú nếu không có dấu trung ương.
-        Không đưa đau đầu, hoa mắt chóng mặt hoặc chóng mặt vào A9_FOR_O1/O8 nếu chỉ là triệu chứng cơ năng.
-
-    A9.13.5. Mẫu đau rễ thần kinh nhưng không có dấu thần kinh khu trú trung ương
-        Nếu dữ kiện đau rễ, Lasègue, Valleix hoặc đau cột sống xuất hiện trực tiếp trong user input, thuộc phạm vi A10 và không có dấu thần kinh trung ương hợp lệ trong phạm vi A9:
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-        Không ghi “có dấu hiệu thần kinh khu trú” chỉ vì Lasègue hoặc Valleix (+).
-
-    A9.13.6. Mẫu bệnh lý thần kinh ngoại biên nếu có dữ kiện khám khách quan
-        Nếu user cung cấp giảm cảm giác khách quan, rối loạn phản xạ hoặc yếu cơ ngoại biên:
-            A9_FOR_O1 phải ghi đúng bất thường.
-        Nếu chỉ có tê bì/cảm giác châm chích/cảm giác mang tất:
-            - Không ghi bất thường khách quan nếu user không cung cấp khám.
-
-    A9.13.7. Mẫu nghi đột quỵ / có dấu thần kinh khu trú
-        Nếu có yếu liệt, méo miệng, nói khó, nuốt khó, rối loạn cảm giác khách quan hoặc dấu tháp:
-            A9_FOR_O1 = Có dấu hiệu thần kinh khu trú: [mô tả dấu hiệu].
-        Phải giữ đúng bên, chi, mức độ nếu user cung cấp.
-
-    A9.13.8. Mẫu co giật nếu user cung cấp
-        Nếu có co giật hiện tại hoặc trong đợt bệnh:
-            A9_FOR_O1 có thể ghi co giật theo dữ kiện user cung cấp.
-        Nếu sau cơn không có dấu khu trú:
-            A9_FOR_O1 có thể ghi không có dấu hiệu thần kinh khu trú nếu phù hợp.
-
-    A9.13.9. Mẫu hội chứng màng não nếu user cung cấp
-        Nếu có hội chứng màng não (+) hoặc dấu màng não (+):
-            A9_FOR_O1 = Hội chứng màng não (+).
-        Nếu user cung cấp cứng gáy, Kernig (+) hoặc Brudzinski (+):
-            A9_FOR_O1 phải thể hiện `Hội chứng màng não (+).`
-        Không tự tạo hội chứng màng não (+) nếu không có căn cứ.
-
-    A9.13.10. Mẫu chuẩn A9_FOR_O1
-        Bình thường:
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-        Có dấu hiệu thần kinh khu trú:
-            A9_FOR_O1 = Có dấu hiệu thần kinh khu trú: [mô tả dấu hiệu].
-        Hội chứng màng não (+):
-            A9_FOR_O1 = Hội chứng màng não (+).
-        Co giật:
-            A9_FOR_O1 = Có co giật theo dữ kiện bệnh cảnh, không có dấu hiệu thần kinh khu trú nếu không có dấu khu trú kèm theo.
-        Giảm cảm giác khách quan:
-            A9_FOR_O1 = Có rối loạn cảm giác: [mô tả vị trí / kiểu rối loạn nếu user cung cấp].
-
-    A9.13.11. Cấm trong A9_FOR_O1
-        A9_FOR_O1 không chứa:
-            1. Đau đầu nếu chỉ là triệu chứng.
-            2. Hoa mắt chóng mặt nếu chỉ là triệu chứng.
-            3. Tê bì nếu chỉ là triệu chứng.
-            4. Cảm giác châm chích / cảm giác mang tất nếu chỉ là triệu chứng.
-            5. Đau cột sống, đau rễ, Lasègue, Valleix nếu thuộc A10.
-            6. CT/MRI/điện não/điện cơ/xét nghiệm.
-            7. Chẩn đoán.
-            8. Thuốc hoặc hướng điều trị.
-            9. Khám toàn thân, tuần hoàn, hô hấp, tiêu hóa, thận - tiết niệu, cơ xương khớp hoặc cơ quan khác.
-
-A9.14. Quy tắc tạo A9_FOR_O8
-    A9.14.1. Vai trò của A9_FOR_O8
-        A9_FOR_O8 là bản khám thần kinh dùng cho O8.
-        A9_FOR_O8 đầy đủ hơn A9_FOR_O1.
-        A9_FOR_O8 không thêm dữ kiện ngoài phạm vi A9.
-
-    A9.14.2. Nội dung có thể có trong A9_FOR_O8
-        A9_FOR_O8 có thể gồm:
-            1. Dấu hiệu thần kinh khu trú.
-            2. Hội chứng màng não.
-            3. Vận động / cơ lực nếu có dữ kiện.
-            4. Cảm giác khách quan nếu có dữ kiện.
-            5. Phản xạ gân xương nếu có dữ kiện.
-            6. Dấu tháp / Babinski nếu có dữ kiện.
-            7. Méo miệng, nói khó, nuốt khó nếu có.
-            8. Co giật nếu có.
-            9. Rối loạn cơ tròn nếu có.
-
-    A9.14.3. Mẫu không có bất thường thần kinh
-        Nếu không có bất thường thần kinh và RUN_MODE cho phép:
-            A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
-
-    A9.14.4. Mẫu có dấu thần kinh khu trú
-        Nếu có dấu thần kinh khu trú và không có dấu màng não (+):
-            A9_FOR_O8 = Có dấu hiệu thần kinh khu trú: [mô tả dấu hiệu]. Hội chứng màng não (-).
-        Nếu có dấu thần kinh khu trú kèm hội chứng màng não (+):
-            A9_FOR_O8 = Có dấu hiệu thần kinh khu trú: [mô tả dấu hiệu]. Hội chứng màng não (+): [cứng gáy, Kernig (+), Brudzinski (+) nếu user cung cấp].
-        Phải mô tả đúng dấu, bên, chi và mức độ nếu user cung cấp.
-
-    A9.14.5. Mẫu hội chứng màng não
-        Nếu có hội chứng màng não (+):
-            A9_FOR_O8 = Hội chứng màng não (+): [cứng gáy, Kernig (+), Brudzinski (+) nếu user cung cấp].
-        Nếu không có dữ kiện màng não, không có bất thường thần kinh và RUN_MODE cho phép:
-            - A9_FOR_O8 bắt buộc ghi `Hội chứng màng não (-)` nếu bệnh cảnh không trái ngược.
-
-    A9.14.6. Mẫu bệnh lý thần kinh ngoại biên
-        Nếu có dữ kiện khám khách quan về cảm giác, phản xạ, cơ lực:
-            A9_FOR_O8 phải ghi rõ theo dữ kiện.
-        Nếu chỉ có triệu chứng cơ năng:
-            - Không tự tạo giảm cảm giác khách quan.
-
-    A9.14.7. Mẫu chuẩn A9_FOR_O8
-        Bình thường:
-            A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
-        Có dấu hiệu thần kinh khu trú:
-            A9_FOR_O8 = Có dấu hiệu thần kinh khu trú: [mô tả dấu hiệu]. Hội chứng màng não (-).
-        Hội chứng màng não (+):
-            A9_FOR_O8 = Hội chứng màng não (+): [cứng gáy, Kernig (+), Brudzinski (+) nếu user cung cấp].
-        Co giật:
-            A9_FOR_O8 = Có co giật theo dữ kiện bệnh cảnh. Hội chứng màng não (-) nếu không có dấu màng não.
-        Giảm cảm giác khách quan:
-            A9_FOR_O8 = Có rối loạn cảm giác: [mô tả vị trí / kiểu rối loạn nếu user cung cấp]. Hội chứng màng não (-).
-
-    A9.14.8. Đồng bộ O1/O8
-        A9_FOR_O1 và A9_FOR_O8 phải đồng bộ:
-            1. Dấu hiệu thần kinh khu trú.
-            2. Yếu liệt.
-            3. Rối loạn cảm giác khách quan.
-            4. Hội chứng màng não.
-            5. Co giật.
-            6. Rối loạn cơ tròn.
-        A9_FOR_O8 có thể chi tiết hơn nhưng không được mâu thuẫn A9_FOR_O1.
-        Nếu A9_FOR_O1 ghi có dấu thần kinh khu trú, A9_FOR_O8 không được ghi không có dấu thần kinh khu trú.
-
-A9.15. Ví dụ cụ thể
-    A9.15.0. Ví dụ hệ thống CREATE / UPDATE / REUSE / AUTO_SAMPLE
-        Ví dụ CREATE A9_STATE:
-            - Chưa có A9_STATE hiện hành.
-            - A9 tạo full A9_STATE với STATE_VERSION của ROUND hiện tại, UPDATED_AT và A9_REV = 1.
-        Ví dụ UPDATE A9_STATE:
-            - A9_STATE hiện hành có A9_REV = 1.
-            - User input ROUND hiện tại hoặc dependency hợp lệ làm A9_FOR_O1 / A9_FOR_O8 thay đổi thật.
-            - A9 in full A9_STATE mới với STATE_VERSION của ROUND hiện tại, UPDATED_AT và A9_REV = 2.
-        Ví dụ REUSE full A9_STATE:
-            - A9_STATE hiện hành có A9_REV = 2.
-            - Input không ảnh hưởng A9 hoặc nội dung thật sau chuẩn hóa không đổi.
-            - A9 in lại đầy đủ UPDATED_AT, A9_FOR_O1, A9_FOR_O8, A9_CHECK, A9_ERROR với STATE_VERSION của ROUND hiện tại và A9_REV = 2; không ghi “reuse A9” hoặc “giữ nguyên như trước”.
-        Ví dụ AUTO_SAMPLE:
-            - Chỉ áp dụng khi đang dựng ca mẫu.
-            - A9 tạo khám thần kinh mẫu theo rule hiện hành; không dùng AUTO_SAMPLE cho ca bệnh thật.
-
-    A9.15.1. Ví dụ không có bất thường thần kinh
-        Input:
-            Không ghi bất thường thần kinh.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A9_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 08:00 03/06/2026
-            A9_REV = 1
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-            A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
-            A9_CHECK = PASS
-            A9_ERROR = NONE
-
-    A9.15.2. Ví dụ đau đầu / hoa mắt chóng mặt không có dấu khu trú
-        Input:
-            A3_FINAL = Bệnh nhân đau đầu, hoa mắt chóng mặt, buồn nôn.
-            Không có dữ kiện yếu liệt, nói khó, méo miệng hoặc dấu thần kinh khu trú.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A9_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 08:00 03/06/2026
-            A9_REV = 1
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-            A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
-            A9_CHECK = PASS
-            A9_ERROR = NONE
-
-    A9.15.3. Ví dụ đau thắt lưng lan chân / Lasègue thuộc A10
-        Input:
-            Đau thắt lưng lan chân phải, Lasègue phải (+).
-            Không có yếu liệt, không rối loạn cơ tròn, không giảm cảm giác khách quan.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A9_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 08:00 03/06/2026
-            A9_REV = 1
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-            A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
-            A9_CHECK = PASS
-            A9_ERROR = NONE
-
-    A9.15.4. Ví dụ có yếu liệt
-        Input:
-            Yếu nửa người phải, cơ lực tay chân phải 3/5, nói khó.
-        A9_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 08:00 03/06/2026
-            A9_REV = 1
-            A9_FOR_O1 = Có dấu hiệu thần kinh khu trú: yếu nửa người phải, cơ lực tay chân phải 3/5, nói khó.
-            A9_FOR_O8 = Có dấu hiệu thần kinh khu trú: yếu nửa người phải, cơ lực tay chân phải 3/5, nói khó. Hội chứng màng não (-).
-            A9_CHECK = PASS
-            A9_ERROR = NONE
-
-    A9.15.5. Ví dụ USER_ONLY thiếu khám thần kinh
-        Input:
-            RUN_MODE = USER_ONLY.
-            Bệnh nhân đau đầu, chóng mặt.
-            Không có dữ kiện khám thần kinh thực thể.
-        A9_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 08:00 03/06/2026
-            A9_REV = 1
-            A9_FOR_O1 = Chưa có dữ kiện khám thần kinh trong phạm vi A9.
-            A9_FOR_O8 = Chưa có dữ kiện khám thần kinh trong phạm vi A9.
-            A9_CHECK = NEEDS_FIX
-            A9_ERROR = Thiếu dữ kiện khám thần kinh.
-
-    A9.15.6. Ví dụ tê bì trong đái tháo đường nhưng chưa có khám cảm giác khách quan
-        Input:
-            A2_FINAL = Đái tháo đường type 2 8 năm.
-            A3_FINAL = Bệnh nhân tê bì hai bàn chân, cảm giác châm chích, nóng rát.
-            Không có dữ kiện khám cảm giác khách quan.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A9_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 08:00 03/06/2026
-            A9_REV = 1
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-            A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
-            A9_CHECK = PASS
-            A9_ERROR = NONE
-
-    A9.15.7. Ví dụ có hội chứng màng não
-        Input:
-            Sốt, đau đầu, cứng gáy, Kernig (+).
-        A9_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 08:00 03/06/2026
-            A9_REV = 1
-            A9_FOR_O1 = Hội chứng màng não (+).
-            A9_FOR_O8 = Hội chứng màng não (+): cứng gáy, Kernig (+).
-            A9_CHECK = PASS
-            A9_ERROR = NONE
-
-    A9.15.8. Ví dụ user phủ định yếu liệt
-        Input:
-            Bệnh nhân chóng mặt, không yếu liệt, không méo miệng, không nói khó.
-            RUN_MODE = DEFAULT_COMPLETION.
-        A9_STATE:
-            STATE_VERSION = V1
-            UPDATED_AT = 08:00 03/06/2026
-            A9_REV = 1
-            A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
-            A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
-            A9_CHECK = PASS
-            A9_ERROR = NONE
-
-A9.16. Schema A9_STATE
-    A9.16.1. Schema chuẩn
-        A9_STATE:
-            STATE_VERSION = ...
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A9_REV = ...
-            A9_FOR_O1 = ...
-            A9_FOR_O8 = ...
-            A9_CHECK = PASS / NEEDS_FIX
-            A9_ERROR = ...
-
-    A9.16.2. Nguyên tắc schema
-        A9_STATE không cần in trạng thái CREATE / UPDATE / REUSE.
-        A9_STATE phải in UPDATED_AT theo định dạng HH:MM dd/mm/yyyy.
-        UPDATED_AT là metadata quản lý thời điểm cập nhật state, không phải dữ liệu bệnh án và không được O render.
-        UPDATED_AT khác A9_REV: UPDATED_AT là thời điểm cập nhật state, A9_REV là revision nội dung theo rule system.
-        A9_STATE phải in A9_REV hiện hành để A_GATE/full current A_STATE tổng hợp vào A_MODULE_REV.
-        A9_STATE là full state, không phải patch/delta.
-        A9_STATE không cần STATUS.
-        A9_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        A9_FOR_O1 là khám thần kinh dùng cho O1.
-        A9_FOR_O8 là khám thần kinh dùng cho O8.
-        A9_CHECK là kết quả tự kiểm của A9.
-        A9_ERROR chỉ dùng khi A9_CHECK = NEEDS_FIX.
-
-    A9.16.3. Khi A9_CHECK = PASS
-        Nếu A9_CHECK = PASS:
-            - A9_FOR_O1 có giá trị hợp lệ.
-            - A9_FOR_O8 có giá trị hợp lệ.
-            - A9_ERROR = NONE.
-
-    A9.16.4. Khi A9_CHECK = NEEDS_FIX
-        Nếu A9_CHECK = NEEDS_FIX:
-            - A9_ERROR phải ghi rõ lỗi.
-            - A9_ERROR phải nêu dữ liệu cần user bổ sung hoặc phần cần sửa.
-            - Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-A9.17. Lỗi không được mắc
-    A9.17.1. Lỗi sai phạm vi A9
-        Không viết bệnh sử hoặc triệu chứng cơ năng thay A3.
-        Không đưa lý do vào viện vào A9 như khám thực thể.
-        Không đưa tiền sử vào A9 như khám thực thể.
-        Không đưa triệu chứng cơ năng thần kinh vào A9_FOR_O1 nếu chỉ là lời kể.
-        Không đưa đau cột sống, đau rễ, Lasègue, Valleix, co cứng cơ cạnh sống vào A9 nếu thuộc A10.
-        Không viết khám toàn thân thay A4.
-        Không viết khám tuần hoàn thay A5.
-        Không viết khám hô hấp thay A6.
-        Không viết khám tiêu hóa thay A7.
-        Không viết khám thận - tiết niệu thay A8.
-        Không viết khám cơ xương khớp hoặc khám cơ quan khác thay A10-A11.
-        Không viết chẩn đoán thay A12.
-        Không viết hướng xử trí thay A13.
-        Không viết thuốc hoặc đơn thuốc thay A15.
-        Không viết cận lâm sàng hoặc hành chính thay A14.
-        Không đưa CT/MRI/điện não/điện cơ/siêu âm Doppler/xét nghiệm vào A9 như khám thực thể.
-
-    A9.17.2. Lỗi tự tạo dữ kiện
-        Không tự tạo dấu hiệu thần kinh khu trú nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo hội chứng màng não (+) nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo yếu liệt nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo rối loạn cảm giác khách quan nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo co giật nếu user không cung cấp.
-        Không tự tạo rối loạn cơ tròn nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không tự tạo Babinski (+) nếu user không cung cấp và bệnh cảnh không đủ căn cứ.
-        Không ghi mẫu không có bất thường nếu user cung cấp bất thường rõ.
-
-    A9.17.3. Lỗi mâu thuẫn
-        Nếu A1_REASON có triệu chứng thần kinh chính, A9 không được bỏ sót bệnh cảnh thần kinh khi RUN_MODE cho phép xử lý.
-        Nếu A2_FINAL có tiền sử thần kinh, A9 không được biến tiền sử thành dấu khám hiện tại nếu không có căn cứ.
-        Nếu A3 có yếu chi, nói khó, méo miệng, co giật hoặc rối loạn cơ tròn, A9 không được ghi khám không phù hợp nếu không có căn cứ.
-        Nếu user phủ định yếu liệt, rối loạn cảm giác, dấu thần kinh khu trú hoặc hội chứng màng não, A9 không được tự ghi ngược lại.
-        Nếu dữ kiện đau rễ/Lasègue/Valleix xuất hiện trực tiếp trong user input và thuộc phạm vi A10 nhưng không có dấu thần kinh trung ương hợp lệ trong phạm vi A9, A9 không được ghi có dấu thần kinh khu trú.
-        Nếu user cung cấp bên liệt hoặc bên rối loạn cảm giác, A9 không được đổi bên.
-        Nếu user không cung cấp bên tổn thương, A9 không tự tạo bên tổn thương cụ thể nếu không có căn cứ.
-
-    A9.17.4. Lỗi trình bày A9_FOR_O1 / A9_FOR_O8
-        Không ghi các cụm mơ hồ bị cấm thay cho trạng thái khám rõ ràng.
-        Các cụm cấm trong A9_FOR_O1/A9_FOR_O8 và mẫu/ví dụ PASS:
-            1. “chưa ghi nhận dấu hiệu thần kinh khu trú”.
-            2. “chưa ghi nhận hội chứng màng não”.
-            3. “chưa ghi nhận bất thường thần kinh”.
-            4. “khám thần kinh chưa phát hiện bất thường”.
-            5. “thần kinh bình thường”.
-            6. “Không ghi nhận dấu thần kinh khu trú khác nếu user không cung cấp”.
-        Phải ghi rõ `Không có dấu hiệu thần kinh khu trú.`, `Hội chứng màng não (-).` hoặc mô tả bất thường cụ thể nếu có.
-        Không để A9_FOR_O1 và A9_FOR_O8 mâu thuẫn.
-        Không để A9_FOR_O1 thiếu dữ kiện bắt buộc nếu A9_CHECK = PASS.
-        Không để A9_FOR_O8 thiếu dữ kiện cần thiết nếu A9_CHECK = PASS.
-        Không viết A9_FOR_O1 quá dài.
-        Không viết A9_FOR_O8 dài nhưng thêm dữ kiện sai phạm vi.
-        Không làm mất bất thường thần kinh user cung cấp.
-
-    A9.17.5. Lỗi vận hành state
-        Không tạo state của A khác.
-        Không dùng patch/delta làm A9_STATE chính thức.
-        Không ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không đưa metadata không cần thiết vào A9_STATE.
-        Không render O trong A9.
-        Không chạy C trong A9.
-        Không suy ngược A9 từ O_OUTPUT.
-
-A9.18. A9_CHECK
-    A9.18.1. Kiểm A9_FOR_O1
-        Kiểm:
-            1. A9_FOR_O1 có trạng thái dấu hiệu thần kinh khu trú.
-            2. A9_FOR_O1 có yếu liệt nếu user cung cấp.
-            3. A9_FOR_O1 có rối loạn cảm giác khách quan nếu user cung cấp.
-            4. A9_FOR_O1 có dấu thần kinh quan trọng nếu user cung cấp.
-            5. A9_FOR_O1 không chứa triệu chứng cơ năng.
-            6. A9_FOR_O1 không chứa cận lâm sàng.
-            7. A9_FOR_O1 không ghi chung chung hoặc dùng wording mơ hồ bị cấm.
-            8. A9_FOR_O1 không dùng chữ cũ thay cho ký hiệu `(-)/(+)` trong output.
-            9. A9_FOR_O1 không mâu thuẫn với user input.
-            10. A9_FOR_O1 không mâu thuẫn với A1-A8 nếu có dùng dependency.
-            11. A9_FOR_O1 không chứa dữ kiện thuộc A10 như Lasègue, Valleix, đau cột sống nếu không có dấu thần kinh trung ương.
-
-    A9.18.2. Kiểm A9_FOR_O8
-        Kiểm:
-            1. A9_FOR_O8 có dữ liệu khám thần kinh đầy đủ hơn A9_FOR_O1.
-            2. A9_FOR_O8 có hội chứng màng não (-)/(+) phù hợp dữ kiện.
-            3. A9_FOR_O8 mặc định có `Hội chứng màng não (-)` khi không có bất thường và RUN_MODE cho phép.
-            4. Nếu user cung cấp hội chứng màng não (+), A9_FOR_O8 không được ghi `Hội chứng màng não (-)`.
-            5. Nếu user cung cấp cứng gáy, Kernig (+) hoặc Brudzinski (+), A9_FOR_O8 phải ghi `Hội chứng màng não (+)`.
-            6. A9_FOR_O8 không dùng chữ cũ thay cho ký hiệu `(-)/(+)` trong output.
-            7. A9_FOR_O8 không dùng wording mơ hồ bị cấm.
-            8. A9_FOR_O8 không chứa triệu chứng cơ năng.
-            9. A9_FOR_O8 không chứa cận lâm sàng.
-            10. A9_FOR_O8 không mâu thuẫn với A9_FOR_O1.
-            11. A9_FOR_O8 không mâu thuẫn với user input.
-            12. A9_FOR_O8 không mâu thuẫn với A1-A8 nếu có dùng dependency.
-            13. A9_FOR_O8 không chứa dữ kiện thuộc A10 nếu không phù hợp phạm vi A9.
-
-    A9.18.3. Kiểm dependency và đồng bộ
-        Kiểm:
-            1. Nếu dùng A1_STATE, A9 không bỏ sót lý do vào viện liên quan thần kinh.
-            2. Nếu dùng A2_STATE, A9 không biến tiền sử thần kinh thành dấu khám hiện tại nếu không có căn cứ.
-            3. Nếu dùng A3_STATE, A9 không bê triệu chứng cơ năng vào khám thần kinh.
-            4. Nếu dùng A4_STATE, A9 chỉ đồng bộ ý thức/toàn trạng, không lặp ý thức / tiếp xúc bình thường không cần thiết.
-            5. Nếu dùng A5-A8, A9 chỉ đồng bộ bệnh cảnh, không tạo dấu thần kinh nếu không có căn cứ.
-            6. Nếu dùng chẩn đoán/mã bệnh thần kinh trong user input, A9 chọn mẫu phù hợp nếu RUN_MODE cho phép.
-            7. A9 không đọc A10-A15 của ROUND hiện tại.
-            8. A9 không đọc A12_STATE của ROUND hiện tại.
-            9. A9 không đọc C_STATE hoặc O_OUTPUT.
-            10. A9 không tạo dữ kiện mâu thuẫn với user input.
-            11. A9 không biến dấu rễ thuộc A10 thành dấu thần kinh khu trú trung ương.
-
-    A9.18.4. Kiểm A9_STATE
-        Kiểm:
-            1. A9_STATE có STATE_VERSION.
-            2. A9_STATE có UPDATED_AT.
-            3. A9_STATE có A9_REV.
-            4. A9_STATE có A9_FOR_O1.
-            5. A9_STATE có A9_FOR_O8.
-            6. A9_STATE có A9_CHECK.
-            7. Nếu A9_CHECK = NEEDS_FIX, có A9_ERROR rõ.
-            8. Nếu A9_CHECK = PASS, A9_ERROR = NONE.
-            9. A9_STATE là full state, không phải patch/delta.
-            10. A9_STATE sẵn sàng đưa vào full current A_STATE.
-
-    A9.18.5. Kết quả A9_CHECK
-        Nếu đạt:
-            A9_CHECK = PASS.
-            A9_ERROR = NONE.
-        Nếu chưa đạt:
-            A9_CHECK = NEEDS_FIX.
-            A9_ERROR = ghi rõ lỗi.
-
-A9.19. Kết thúc module
-    A9.19.1. Điều kiện hoàn tất A9
-        A9 hoàn tất khi:
-            1. Đã CREATE, UPDATE hoặc REUSE full A9_STATE.
-            2. Đã kiểm A9_CHECK.
-            3. Không tạo dữ liệu ngoài A9_STATE.
-            4. Không tạo state của A khác.
-            5. Không chạy C.
-            6. Không render O.
-
-    A9.19.2. Chuyển module tiếp theo
-        Sau khi hoàn tất A9_STATE, chuyển sang A10 theo A_RUN_ORDER.
-        Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
-        A9 không tự dừng STEP A và không tự chuyển sang C/O.
+Version: BA S-G-A-C-O V4
+Update 26/06/2026 UTC — allowlist compact
+
+A9_ROLE
+    A9 chuẩn hóa khám thần kinh thực thể.
+    A9 không phải bệnh sử thần kinh, không phải chẩn đoán thần kinh, không phải cận lâm sàng thần kinh, không phải điều trị thần kinh.
+    A9 tạo, cập nhật hoặc dùng lại A9_STATE để đưa vào full current A_STATE của ROUND hiện tại.
+    A9_STATE là nguồn chính thức cho C/O khi cần dữ liệu khám thần kinh.
+    A9 tạo hai bản nội dung:
+        1. A9_FOR_O1 = bản khám thần kinh ngắn cho O1.
+        2. A9_FOR_O8 = bản khám thần kinh chi tiết hơn cho O8.
+    Nếu khám thần kinh sai, lẫn module khác, tự tạo dữ kiện sai hoặc mâu thuẫn nguồn hợp lệ thì phải sửa tại A9.
+
+A9_ALLOWED_SOURCE
+    A9 chỉ được đọc:
+        1. User input của ROUND hiện tại, chỉ phần thuộc khám thần kinh thực thể hoặc bệnh cảnh được phép dùng để chọn mẫu theo RUN_MODE.
+        2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
+        3. Latest/current A9_STATE nếu đã có, chỉ để UPDATE hoặc REUSE.
+        4. File/module A9.
+        5. A1_STATE, chỉ để đối chiếu lý do vào viện liên quan thần kinh.
+        6. A2_STATE, chỉ để đối chiếu tiền sử thần kinh, bệnh nền hoặc yếu tố nguy cơ liên quan.
+        7. A3_STATE, chỉ để đối chiếu triệu chứng thần kinh/bệnh sử hiện tại; không bê triệu chứng cơ năng vào khám thực thể.
+        8. A4_STATE, chỉ để đối chiếu ý thức, tiếp xúc hoặc toàn trạng liên quan thần kinh.
+        9. A5_STATE, chỉ để đồng bộ tuần hoàn trong bệnh cảnh ngất, đột quỵ, co giật, rối loạn ý thức hoặc bệnh cảnh nặng.
+        10. A6_STATE, chỉ để đồng bộ hô hấp/toàn trạng trong bệnh cảnh co giật, rối loạn ý thức, suy hô hấp hoặc bệnh cảnh nặng.
+        11. A7_STATE, chỉ để phân biệt nôn/buồn nôn do tiêu hóa với bệnh cảnh thần kinh.
+        12. A8_STATE, chỉ để đối chiếu rối loạn cơ tròn hoặc phân biệt triệu chứng tiết niệu với thần kinh.
+    A9 không đọc full current A_STATE nói chung nếu không qua các state cụ thể được allowlist.
+    A9 không đọc A10-A15 của ROUND hiện tại để tạo A9_STATE.
+    A9 không đọc A12_STATE hiện tại hoặc cũ để tạo dấu khám thần kinh.
+    A9 không đọc A14_STATE hoặc cận lâm sàng để tạo dấu khám thần kinh nếu không có dữ kiện khám tương ứng.
+    A9 không đọc C_STATE, O_OUTPUT, output đã render, trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+    A9 không biến A1-A8 thành dữ kiện khám thần kinh mới ngoài phạm vi contract.
+    A9 không biến chẩn đoán, mã bệnh, CT sọ não, MRI sọ não, MRI cột sống, điện não, điện cơ, Doppler hoặc xét nghiệm thành dấu khám thần kinh.
+    Chẩn đoán/mã bệnh thần kinh chỉ được dùng nếu trực tiếp nằm trong user input; không lấy từ A12_STATE.
+
+A9_ALLOWED_ACTION
+    A9 chỉ được:
+        1. CREATE A9_STATE.
+        2. UPDATE A9_STATE.
+        3. REUSE A9_STATE.
+        4. CHECK A9_STATE.
+        5. Quản lý A9_REV của chính A9.
+        6. Chọn mẫu khám thần kinh phù hợp theo RUN_MODE và căn cứ hợp lệ.
+
+A9_ALLOWED_WRITE
+    A9 chỉ ghi full A9_STATE.
+    A9 không ghi A1-A8, A10-A15, C/O, A_GATE hoặc A_STATE_OUTPUT_SCHEMA.
+    A9 không tự tạo toàn bộ A_MODULE_REV; A9 chỉ cung cấp/quản lý A9_REV để A_GATE/full current A_STATE tổng hợp.
+    A9_STATE là full state, không patch/delta.
+
+A9_STATE_SCHEMA
+    A9_STATE:
+        STATE_VERSION = ...
+        UPDATED_AT = HH:MM dd/mm/yyyy
+        A9_REV = ...
+        A9_FOR_O1 = ...
+        A9_FOR_O8 = ...
+        A9_CHECK = PASS / NEEDS_FIX
+        A9_ERROR = ...
+    Không thêm STATUS hoặc field mới khác.
+    Không bỏ UPDATED_AT hoặc A9_REV.
+    Không đổi tên A9_FOR_O1 hoặc A9_FOR_O8.
+    UPDATED_AT là metadata thời điểm cập nhật state, không render vào bệnh án.
+    UPDATED_AT khác A9_REV; thay đổi UPDATED_AT đơn thuần không làm tăng A9_REV.
+    A9_REV là metadata kỹ thuật của A9 để A_GATE/full current A_STATE tổng hợp vào A_MODULE_REV.
+    A9_ERROR = NONE khi A9_CHECK = PASS.
+    A9_ERROR ghi lỗi cụ thể khi A9_CHECK = NEEDS_FIX.
+    A9_STATE là full state, không patch/delta.
+
+A9_LOGIC_RULES
+    CREATE / UPDATE / REUSE:
+        1. CREATE khi chưa có latest/current A9_STATE.
+        2. UPDATE khi user input hiện tại hoặc dependency hợp lệ làm nội dung thật của A9_FOR_O1 / A9_FOR_O8 thay đổi.
+        3. Dữ liệu ảnh hưởng A9 gồm: dấu hiệu thần kinh khu trú; hội chứng màng não; cứng gáy; Kernig; Brudzinski; yếu liệt; cơ lực; rối loạn cảm giác khách quan; phản xạ gân xương; dấu tháp / Babinski; méo miệng; nói khó; nuốt khó; thất điều; co giật hiện tại; rối loạn cơ tròn có căn cứ thần kinh; chỉnh sửa khám thần kinh; dependency hợp lệ phát hiện mâu thuẫn cần sửa A9.
+        4. UPDATE chỉ thay phần bị ảnh hưởng; phần không bị ảnh hưởng phải lấy từ latest/current A9_STATE.
+        5. State sau UPDATE dùng STATE_VERSION của ROUND hiện tại.
+        6. REUSE khi đã có latest/current A9_STATE và input/dependency hợp lệ không ảnh hưởng A9 hoặc không làm đổi nội dung thật.
+        7. REUSE vẫn phải in nội dung thật; không ghi “giữ nguyên như trước”, “reuse A9”, “theo bản trước”, “không đổi”.
+    RUN_MODE:
+        1. RUN_MODE lấy từ G_STATE; A9 không tự xác định RUN_MODE; RUN_MODE độc lập với CREATE / UPDATE / REUSE.
+        2. USER_ONLY: chỉ dùng dữ kiện khám thần kinh user cung cấp; không tự tạo khám thần kinh, dấu hiệu thần kinh khu trú, hội chứng màng não, yếu liệt, giảm cơ lực, rối loạn cảm giác khách quan, phản xạ bất thường, Babinski (+), rối loạn cơ tròn, co giật hiện tại hoặc rối loạn ý thức nếu A4/user input không có căn cứ.
+        3. USER_ONLY: không tự tạo mẫu mặc định nếu user không cung cấp dữ kiện và không có state hợp lệ để REUSE. Khi thiếu dữ kiện và không REUSE được: A9_FOR_O1 = Chưa có dữ kiện khám thần kinh trong phạm vi A9; A9_FOR_O8 = Chưa có dữ kiện khám thần kinh trong phạm vi A9; A9_CHECK = NEEDS_FIX; A9_ERROR = Thiếu dữ kiện khám thần kinh.
+        4. USER_ONLY: không biến triệu chứng, bệnh sử, chẩn đoán, mã bệnh hoặc CLS thành dấu khám.
+        5. DEFAULT_COMPLETION: được tự tạo khám thần kinh phù hợp bệnh cảnh nếu user không cung cấp đủ và không có dữ kiện trái ngược.
+        6. DEFAULT_COMPLETION: nếu không có triệu chứng/chẩn đoán thần kinh liên quan thì fallback A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.; A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
+        7. DEFAULT_COMPLETION: nếu có bệnh cảnh liên quan thì chọn mẫu phù hợp, không mâu thuẫn user/dependency; không dùng no-data placeholder trong bệnh án thường quy.
+        8. DEFAULT_COMPLETION: không tự thêm bất thường thần kinh mới nếu không có căn cứ; không tự tạo dấu khu trú, HCMN (+), yếu liệt/giảm cơ lực, rối loạn cảm giác khách quan, phản xạ bất thường, Babinski (+), rối loạn cơ tròn, co giật hiện tại hoặc rối loạn ý thức.
+        9. AUTO_SAMPLE: chỉ dùng cho ca mẫu; có thể tạo khám thần kinh phù hợp bệnh cảnh mẫu; không áp dụng cho ca bệnh thật đã có dữ liệu user; không đọc ngược A12/A10-A15 để tạo A9.
+    A9_FOR_O1:
+        1. A9_FOR_O1 là bản ngắn, cụ thể, chỉ chứa khám thần kinh thực thể.
+        2. Mẫu bình thường: A9_FOR_O1 = Không có dấu hiệu thần kinh khu trú.
+        3. Mẫu có dấu khu trú: A9_FOR_O1 = Có dấu hiệu thần kinh khu trú: [mô tả dấu hiệu].
+        4. Mẫu hội chứng màng não dương tính: A9_FOR_O1 = Hội chứng màng não (+).
+        5. Co giật: A9_FOR_O1 có thể ghi co giật theo dữ kiện user cung cấp; nếu sau cơn không có dấu khu trú thì có thể ghi không có dấu hiệu thần kinh khu trú nếu phù hợp.
+        6. Giảm cảm giác khách quan: A9_FOR_O1 = Có rối loạn cảm giác: [mô tả vị trí / kiểu rối loạn nếu user cung cấp].
+        7. Nếu user cung cấp bất thường thần kinh thực thể rõ, O1 phải phản ánh tương ứng ở mức ngắn.
+        8. A9_FOR_O1 không chứa triệu chứng cơ năng, đau rễ/A10, CLS, chẩn đoán, thuốc, hướng điều trị hoặc khám cơ quan khác.
+    A9_FOR_O8:
+        1. A9_FOR_O8 là bản chi tiết hơn A9_FOR_O1, chỉ chứa khám thần kinh thực thể.
+        2. Mẫu bình thường: A9_FOR_O8 = Không có dấu hiệu thần kinh khu trú. Hội chứng màng não (-).
+        3. Mẫu có dấu khu trú: A9_FOR_O8 = Có dấu hiệu thần kinh khu trú: [mô tả dấu hiệu]. Hội chứng màng não (-), trừ khi user có hội chứng màng não (+) thì phản ánh đúng.
+        4. Mẫu HCMN (+): A9_FOR_O8 = Hội chứng màng não (+): [cứng gáy, Kernig (+), Brudzinski (+) nếu user cung cấp].
+        5. Co giật: A9_FOR_O8 = Có co giật theo dữ kiện bệnh cảnh. Hội chứng màng não (-) nếu không có dấu màng não.
+        6. Giảm cảm giác khách quan: A9_FOR_O8 = Có rối loạn cảm giác: [mô tả vị trí / kiểu rối loạn nếu user cung cấp]. Hội chứng màng não (-).
+        7. Nếu user cung cấp bất thường thần kinh thực thể rõ, O8 phải phản ánh đầy đủ hơn O1.
+        8. A9_FOR_O8 không chứa triệu chứng cơ năng, đau rễ/A10, CLS, chẩn đoán, thuốc, hướng điều trị hoặc khám cơ quan khác.
+    Đồng bộ O1/O8:
+        1. O1 và O8 không được mâu thuẫn về dấu thần kinh khu trú, yếu liệt, rối loạn cảm giác khách quan, hội chứng màng não, co giật hoặc rối loạn cơ tròn.
+        2. Nếu O1 ghi “Không có dấu hiệu thần kinh khu trú.” thì O8 không được ghi có dấu khu trú ngược lại.
+        3. Nếu O8 có bất thường rõ thì O1 không được ghi bình thường trái lại.
+        4. O8 có thể chi tiết hơn O1 nhưng không thêm dữ kiện sai phạm vi.
+        5. Nếu O1/O8 mâu thuẫn nhau thì A9_CHECK = NEEDS_FIX và A9_ERROR ghi rõ.
+
+A9_SPECIAL_RULES
+    Scope include của A9:
+        A9 quản lý dấu hiệu thần kinh khu trú; hội chứng màng não; cứng gáy; Kernig; Brudzinski; yếu liệt; cơ lực; rối loạn cảm giác khách quan; phản xạ gân xương; dấu tháp; Babinski; méo miệng; nói khó; nuốt khó; thất điều; co giật hiện tại nếu user cung cấp hoặc đủ căn cứ; rối loạn cơ tròn nếu có căn cứ thần kinh; rối loạn ý thức liên quan thần kinh khi user cung cấp rõ và cần đồng bộ; dấu thần kinh thực thể khác nếu đã thuộc contract hoặc user cung cấp rõ trong phạm vi A9.
+    Scope exclude / boundary của A9:
+        1. A9 không quản lý triệu chứng cơ năng thần kinh đơn thuần, bệnh sử thần kinh, khám toàn thân A4, tuần hoàn A5, hô hấp A6, tiêu hóa A7, thận-tiết niệu A8, cơ xương khớp A10, chẩn đoán A12, hướng xử trí/điều trị A13, cận lâm sàng A14, thuốc/điều trị A15.
+        2. A9 không quản lý: đau đầu nếu chỉ là triệu chứng; hoa mắt/chóng mặt nếu chỉ là triệu chứng; tê bì/châm chích/dị cảm/cảm giác mang tất nếu chỉ là lời kể; đau lan kiểu rễ nếu chỉ là lời kể; đau cột sống; đau cổ vai gáy; đau thắt lưng; đau lan rễ; Lasègue; Valleix; co cứng cơ cạnh sống; hạn chế vận động cột sống; sốt; thể trạng; da niêm mạc chung; mạch; huyết áp; tiếng tim; nhịp thở; SpO2; bụng/tiêu hóa; tiết niệu nếu không có căn cứ rối loạn cơ tròn thần kinh; CT sọ não; MRI sọ não; MRI cột sống; điện não; điện cơ; siêu âm Doppler; xét nghiệm; chẩn đoán; thuốc/điều trị.
+    Phân ranh A3-A9:
+        Đau đầu, hoa mắt/chóng mặt, tê bì, châm chích, dị cảm, cảm giác mang tất, đau lan kiểu rễ nếu chỉ là lời kể là triệu chứng cơ năng thuộc A3/C7. A9 chỉ ghi dấu khám thực thể khi có dữ kiện khám: dấu khu trú, yếu liệt, giảm cơ lực, rối loạn cảm giác khách quan, phản xạ bất thường, Babinski (+), HCMN, co giật hiện tại, rối loạn cơ tròn có căn cứ thần kinh hoặc dấu thần kinh thực thể khác. Không bê triệu chứng cơ năng hoặc bệnh sử hiện tại vào A9_FOR_O1/O8; có thể dùng triệu chứng/bệnh cảnh để chọn mẫu trong DEFAULT_COMPLETION nếu an toàn.
+    Phân ranh A4-A9:
+        Ý thức, tiếp xúc, toàn trạng chung thuộc A4. A9 chỉ nhắc rối loạn ý thức liên quan thần kinh khi user cung cấp rõ và cần đồng bộ; không lặp “tỉnh, tiếp xúc tốt” không cần thiết; không tự tạo rối loạn ý thức nếu A4/user input không có căn cứ. Nếu A4 và A9 mâu thuẫn về ý thức/bệnh cảnh thần kinh, A9_CHECK có thể NEEDS_FIX và A9_ERROR ghi rõ.
+    Phân ranh A5-A9:
+        Mạch, huyết áp, tiếng tim, tuần hoàn thuộc A5. A9 không ghi mạch/huyết áp/tiếng tim trong A9_FOR_O1/O8. A5 chỉ dùng để đối chiếu bệnh cảnh ngất, đột quỵ, co giật, rối loạn ý thức hoặc bệnh cảnh nặng; không dùng A5 để tự tạo dấu khu trú, yếu liệt, co giật hoặc rối loạn ý thức nếu thiếu dữ kiện khám thần kinh.
+    Phân ranh A6-A9:
+        Nhịp thở, SpO2, khám hô hấp thuộc A6. A9 không ghi nhịp thở/SpO2/ran phổi/rì rào phế nang trong A9_FOR_O1/O8. A6 chỉ dùng để đối chiếu bệnh cảnh co giật, rối loạn ý thức, suy hô hấp hoặc bệnh cảnh nặng; không dùng A6 để tự tạo dấu thần kinh bất thường nếu thiếu dữ kiện khám thần kinh.
+    Phân ranh A7-A9:
+        Nôn, buồn nôn, đau bụng thuộc A7/A3 nếu là tiêu hóa hoặc triệu chứng cơ năng. A7 chỉ được A9 dùng để phân biệt nôn/buồn nôn do tiêu hóa với bệnh cảnh thần kinh; không dùng A7 để tự tạo dấu khu trú, HCMN, co giật hoặc rối loạn ý thức nếu thiếu dữ kiện khám thần kinh.
+    Phân ranh A8-A9:
+        Tiểu buốt, tiểu rắt, bí tiểu, rối loạn tiểu tiện thuộc A8/A3 nếu không có căn cứ thần kinh. Rối loạn cơ tròn thuộc A9 chỉ khi có căn cứ thần kinh. A9 không dùng A8 để tự tạo rối loạn cơ tròn thần kinh nếu thiếu dữ kiện thần kinh.
+    Phân ranh A10-A9 / đau rễ:
+        A9 không đọc A10_STATE vì A10 chạy sau, nhưng vẫn phân loại đúng dữ kiện user input theo ontology. Đau cột sống, đau cổ vai gáy, đau thắt lưng, đau lan rễ, Lasègue, Valleix, co cứng cơ cạnh sống, hạn chế vận động cột sống thuộc A10. Lasègue/Valleix không phải dấu thần kinh khu trú trung ương trong A9. Đau rễ/đau cột sống không tự biến thành yếu liệt, rối loạn cảm giác khách quan, Babinski (+) hoặc HCMN. Tê bì/châm chích/nóng rát/cảm giác mang tất nếu chưa có khám khách quan thì không đưa vào A9_FOR_O1/O8. Nếu user cung cấp giảm cảm giác khách quan, giảm cơ lực hoặc phản xạ bất thường thì A9 ghi đúng dữ kiện đó.
+    Phân ranh A12/A14-A9:
+        Không đọc A12_STATE hiện tại hoặc cũ để tạo dấu khám thần kinh. Không dùng chẩn đoán/mã bệnh đơn thuần từ A12 để tạo dấu khu trú, yếu liệt, giảm cơ lực, rối loạn cảm giác khách quan, phản xạ bất thường, Babinski (+), HCMN, co giật hiện tại, rối loạn cơ tròn hoặc rối loạn ý thức. Nếu user input trực tiếp có chẩn đoán/mã bệnh thần kinh thì có thể dùng như bệnh cảnh trong RUN_MODE hợp lệ, nhưng không thay cho dấu khám nếu user không cung cấp. CT sọ não, MRI sọ não, MRI cột sống, điện não, điện cơ, Doppler, xét nghiệm thuộc A14; không biến cận lâm sàng thành khám thực thể nếu không có dữ kiện khám tương ứng.
+    Dữ kiện ngoài contract A9:
+        Dữ kiện ngoài contract A9 không được tự render vào A9_FOR_O1/O8. Nếu dữ kiện ngoài contract cần xuất hiện trong bệnh án, A9_CHECK = NEEDS_FIX và A9_ERROR nêu cần mở rộng contract hoặc xử lý nguồn phù hợp. Không tự mở rộng A9_FOR_O1/O8 để chứa field ngoài contract.
+    Hội chứng màng não:
+        Nếu user cung cấp HCMN (+), hội chứng màng não (+), cứng gáy, Kernig (+), Brudzinski (+) thì ghi “Hội chứng màng não (+).” và mô tả dấu cụ thể ở O8 nếu user cung cấp. Nếu không có dữ kiện màng não và RUN_MODE cho phép mặc định thì O8 dùng “Hội chứng màng não (-).” Không ghi “Hội chứng màng não (-)” khi user có dấu màng não (+). Không tự tạo “Hội chứng màng não (+)” nếu không có căn cứ.
+    Dấu khu trú / yếu liệt / cảm giác / Babinski:
+        Không tự tạo dấu khu trú, yếu liệt, giảm cơ lực, giảm/mất cảm giác khách quan, phản xạ bất thường hoặc Babinski (+) nếu không có căn cứ. Nếu user cung cấp dấu (+), không phủ định ngược. Nếu user cung cấp bên tổn thương hoặc mức độ cơ lực, phải giữ đúng bên và mức độ.
+    Co giật / rối loạn ý thức / rối loạn cơ tròn:
+        Co giật hiện tại phải ghi theo dữ kiện user cung cấp. Tiền sử co giật không tự thành co giật hiện tại. Co giật đã hết và hiện không có dấu bất thường có thể ghi không có dấu khu trú nếu phù hợp. Rối loạn ý thức liên quan thần kinh chỉ ghi khi user cung cấp rõ hoặc có căn cứ hợp lệ. Rối loạn cơ tròn chỉ thuộc A9 khi có căn cứ thần kinh; không tự tạo rối loạn cơ tròn từ triệu chứng tiết niệu A8 nếu thiếu dữ kiện thần kinh.
+    Wording cấm / normalize:
+        Không dùng các cụm: “chưa ghi nhận dấu hiệu thần kinh khu trú”; “chưa ghi nhận hội chứng màng não”; “chưa ghi nhận bất thường thần kinh”; “khám thần kinh chưa phát hiện bất thường”; “thần kinh bình thường”; “Không ghi nhận dấu thần kinh khu trú khác nếu user không cung cấp”.
+        Khi bình thường phải dùng “Không có dấu hiệu thần kinh khu trú.” và “Hội chứng màng não (-).”
+        Khi có bất thường phải mô tả cụ thể: “Có dấu hiệu thần kinh khu trú: [mô tả dấu hiệu].” hoặc “Hội chứng màng não (+).”
+
+A9_CHECK_PASS_IF
+    A9_CHECK = PASS khi tất cả điều kiện sau đạt:
+        1. A9_STATE đủ schema, có UPDATED_AT hợp lệ, có A9_REV.
+        2. A9_FOR_O1 và A9_FOR_O8 có dữ liệu khám thần kinh hợp lệ, đúng format, đúng scope A9, đúng RUN_MODE.
+        3. A9_FOR_O1/O8 không trái user input và không tự tạo dấu khám từ A1-A8, triệu chứng, bệnh sử, chẩn đoán, mã bệnh hoặc CLS.
+        4. A9_FOR_O1/O8 không chứa triệu chứng cơ năng đơn thuần, đau rễ/A10, Lasègue, Valleix, co cứng cơ cạnh sống, hạn chế vận động cột sống, cận lâm sàng, chẩn đoán, thuốc, hướng xử trí hoặc khám cơ quan khác ngoài scope A9.
+        5. A9_FOR_O1 và A9_FOR_O8 không mâu thuẫn nhau; mẫu thường quy dùng literal/format đúng; không dùng wording cấm.
+        6. A9_ERROR = NONE.
+
+A9_NEEDS_FIX_IF
+    A9_CHECK = NEEDS_FIX nếu có một trong các lỗi sau:
+        1. USER_ONLY thiếu dữ kiện khám thần kinh và không có state hợp lệ để REUSE.
+        2. A9_FOR_O1 hoặc A9_FOR_O8 thiếu dữ liệu cần thiết, chứa dữ liệu ngoài scope A9, tự tạo dấu khám từ triệu chứng/bệnh sử/chẩn đoán/mã bệnh/CLS, mâu thuẫn user input, mâu thuẫn nhau, sai format dấu khu trú/HCMN/bất thường thần kinh hoặc dùng wording bị cấm.
+        3. DEFAULT_COMPLETION tạo mẫu trái dữ kiện user hoặc dependency; bệnh cảnh có nguy cơ thần kinh nặng/mâu thuẫn khiến không thể tự hoàn thiện an toàn.
+        4. Dữ kiện ngoài contract A9 cần xuất hiện trong bệnh án nhưng không có nơi xử lý hợp lệ.
+        5. State thiếu field bắt buộc, A9_REV thiếu/không hợp lệ, A9_ERROR không rõ khi NEEDS_FIX hoặc A9_ERROR không phải NONE khi PASS.
+
+A9_ERROR_RULE
+    Nếu A9_CHECK = PASS thì A9_ERROR = NONE.
+    Nếu A9_CHECK = NEEDS_FIX thì A9_ERROR phải ghi lỗi cụ thể.
+    Nếu thiếu dữ liệu, A9_ERROR phải nêu dữ liệu cần user bổ sung.
+    Nếu mâu thuẫn, A9_ERROR phải nêu điểm mâu thuẫn.
+    Nếu sai phạm vi, A9_ERROR phải nêu phần cần sửa.
+    Nếu sai format, A9_ERROR phải nêu format cần sửa.
+    Nếu dữ kiện ngoài contract cần xuất hiện, A9_ERROR phải nêu cần mở rộng contract hoặc xử lý nguồn phù hợp.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
+
+A9_REUSE_RULE
+    REUSE khi latest/current A9_STATE có và input/dependency hợp lệ không ảnh hưởng A9 hoặc không làm đổi nội dung thật A9_FOR_O1/A9_FOR_O8.
+    Khi REUSE, dùng lại nội dung thật của latest/current A9_STATE và vẫn in full A9_STATE với STATE_VERSION hiện tại.
+    UPDATED_AT khi REUSE giữ thời điểm cập nhật nội dung thật gần nhất, trừ khi contract hiện tại quy định khác.
+    Không ghi “giữ nguyên như trước”, “reuse A9”, “theo bản trước”, “không đổi”.
+    Không dùng patch/delta thay cho A9_FOR_O1/A9_FOR_O8.
+    A9_REV giữ nguyên nếu A9_FOR_O1/A9_FOR_O8 không thay đổi thật.
+    Thay đổi metadata UPDATED_AT đơn thuần không làm tăng A9_REV.
+
+A9_REV_RULE
+    CREATE A9_STATE thì A9_REV = 1.
+    UPDATE nếu A9_FOR_O1 hoặc A9_FOR_O8 thay đổi thật thì A9_REV tăng so với A9_REV hiện hành.
+    REUSE hoặc input/dependency hợp lệ không làm đổi nội dung thật A9_FOR_O1/A9_FOR_O8 thì A9_REV giữ nguyên.
+    Dependency hợp lệ làm nội dung thật thay đổi thì A9 phải UPDATE và tăng A9_REV.
+    A9_REV tăng/giữ theo thay đổi thật của A9_FOR_O1/A9_FOR_O8, không theo tên RUN_MODE.
+    UPDATED_AT đơn thuần không làm tăng A9_REV.
+    A9_REV là metadata kỹ thuật để A_GATE/full current A_STATE tổng hợp vào A_MODULE_REV.
+    A9 không tự tạo toàn bộ A_MODULE_REV.
+    A9_STATE vẫn phải là full state, không patch/delta.
+
+A9_END
+    A9 hoàn tất khi đã CREATE, UPDATE hoặc REUSE full A9_STATE; đã CHECK A9_STATE; không tạo dữ liệu ngoài A9_STATE; không tạo state khác; không chạy C; không render O.
+    Sau khi hoàn tất A9_STATE, chuyển sang A10 theo A_RUN_ORDER.
+    Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
+    A9 không tự dừng STEP A và không tự chuyển sang C/O.
 
 <<< END A9
-```text
-####################################################################################################
 
 A10 — KHÁM CƠ XƯƠNG KHỚP
 Version: BA S-G-A-C-O v3
