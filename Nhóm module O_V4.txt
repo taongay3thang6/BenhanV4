@@ -301,351 +301,142 @@ O2_END
 ####################################################################################################
 
 O3 — TỔNG KẾT BỆNH ÁN / RA VIỆN
-Version: BA S-G-A-C-O v3
-Update: 17/06/2026 GMT+7 — V1 simple logic; output uses exactly 3 separate text code blocks; part 1 has exactly 4 lines; part 3 exact-copy C7_DISCHARGE_CONDITION
+Version: BA S-G-A-C-O V4
+Update: 27/06/2026 GMT+7 — compact allowlist contract; giữ nguyên 3 code block, phần 1 đúng 4 dòng, phần 3 exact-copy C7_DISCHARGE_CONDITION
 
-O3.0. READ LOCK
-    Bắt buộc đọc toàn bộ module O3 từ O3.0 READ LOCK đến marker "<<< END O3" trước khi audit, patch, final review, hoặc sử dụng O3.
-    Không được chỉ đọc diff, chỉ đọc ví dụ, chỉ đọc checklist, chỉ đọc lỗi cấm, hoặc chỉ đọc một đoạn giữa module.
-    Nếu chưa đọc đủ toàn bộ O3 thì phải kết luận UNCLEAR, không được kết luận PASS/FAIL và không được patch hoặc render O3.
-    Sau mọi thay đổi liên quan O3, bắt buộc đọc lại toàn bộ O3 đã sửa trước self-review/final review.
-    O3 là module render thuộc layer O, chỉ tạo O3_OUTPUT / rendered text khi được G plan trong ROUND hiện tại.
-    O3 chỉ hoạt động khi O3 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER và đã đến lượt theo G_STATE.O_RENDER_ORDER.
-    O3 không tạo dữ liệu lâm sàng mới, không sửa G_STATE/A_STATE/C_STATE, không tự chạy A/C/C7 hoặc bất kỳ module nào, không tự gọi O khác.
-    O3 không dùng raw user input, hidden memory, O_OUTPUT cũ, O3_OUTPUT cũ, hoặc rendered output cũ làm nguồn dữ liệu lâm sàng.
+O3_ROLE
+    O3 là strict renderer/output selective cho `TỔNG KẾT BỆNH ÁN / RA VIỆN`.
+    O3 chỉ render 3 phần: quá trình và diễn biến lâm sàng, phương pháp điều trị, tình trạng ra viện.
+    O3 chỉ dùng dữ liệu đã chốt hợp lệ từ A/C theo mapping O3_ALLOWED_SOURCE; không tạo dữ liệu lâm sàng mới, không suy luận dữ liệu thiếu và không sửa source.
+    O3 không sửa G_STATE/A_STATE/C_STATE/C7_STATE, không tự chạy A/C/C7, không tự gọi O khác, không render O khác, không biến thành O4 bệnh trình, O8 bệnh án chi tiết, đơn thuốc, tư vấn ra viện, dặn dò, tái khám hoặc footer hành chính.
+    O3_OUTPUT nếu có là rendered text, không phải state, không là source cho A/C/O khác và không có revision metadata riêng.
+    O3 không có O3_STATE, O3_REV, O3_FINAL, O3_SOURCE_REV hoặc lifecycle state riêng.
 
-O3.1. Mục tiêu
-    O3 render TỔNG KẾT BỆNH ÁN / RA VIỆN cho bác sĩ từ dữ liệu đã có trong state hợp lệ theo mapping rõ.
-    O3 chỉ trình bày dữ liệu đã được A/C nguồn chốt, không tạo, suy đoán, rút gọn lâm sàng mới hoặc sửa dữ kiện nguồn.
-    O3_OUTPUT là rendered text, không phải state, không phải nguồn cho A/C/O khác.
-    O3 phải xuất đúng 3 phần: quá trình và diễn biến lâm sàng, phương pháp điều trị, tình trạng ra viện.
-    O3 output dùng đúng 3 code block text riêng; tiêu đề O3 và 3 tiêu đề phần nằm ngoài code block.
-    Phần 1 có đúng 4 dòng nội dung trong code block; phần 2 có một dòng điều trị trong code block; phần 3 render nguyên khối C7_DISCHARGE_CONDITION trong code block.
-
-O3.2. Nguồn dữ liệu được phép
+O3_ALLOWED_SOURCE
     O3 chỉ được đọc các nguồn sau:
-        1. G_STATE của ROUND hiện tại: chỉ để kiểm O3 nằm trong O_RENDER_LIST/O_RENDER_ORDER, đã đến lượt render và C7 đã nằm trong C_RUN_ORDER khi O3 được render.
-        2. A_GATE mới nhất: chỉ để kiểm full current A_STATE hợp lệ.
-        3. Full current A_STATE mới nhất sau A_GATE PASS: chỉ để truy cập các field mapping O3.
-        4. C_GATE mới nhất: bắt buộc khi O3 render phần tình trạng ra viện từ C7.
-        5. A1_STATE.A1_TIME hoặc field ngày nhập viện tương đương đã chuẩn hóa: ngày nhập viện nếu có.
-        6. A1_STATE.A1_REASON: lý do vào viện.
-        7. A2_STATE.A2_FINAL hoặc field tiền sử tương đương đã chuẩn hóa: tiền sử nếu có.
-        8. A3_STATE.A3_FINAL và các dữ kiện bệnh sử trước vào viện đã chuẩn hóa trong A3 hiện hành: thời gian trước vào viện, diễn biến bệnh sử, xử trí trước vào viện/tại nhà và khoa điều trị nếu có.
-        9. A12_STATE.A12_FINAL: chẩn đoán trong dòng “Được chẩn đoán”.
-        10. A13_STATE.A13_TREATMENT: dòng “Được xử trí” trong phần 1 và dòng “Điều trị” trong phần 2.
-        11. A14_STATE.A14_DISCHARGE_DATE: nguồn ưu tiên cho ngày ra viện/chuyển viện dạng dd/mm/yyyy nếu đã chuẩn hóa.
-        12. A14_STATE hoặc field A14 tương đương đã chuẩn hóa về loại kết thúc điều trị: ra viện thường quy, chuyển viện hoặc xin ra viện.
-        13. A14_STATE hoặc field A14 tương đương đã chuẩn hóa về tên bệnh viện chuyển đến nếu là chuyển viện.
-        14. C7_STATE.C7_DISCHARGE_CONDITION: nguồn duy nhất cho tình trạng ra viện trong phần 3.
-        15. C7_STATE.C7_DISCHARGE_DATE_USED: fallback cho ngày ra viện/chuyển viện nếu A14_DISCHARGE_DATE thiếu nhưng C7_DISCHARGE_DATE_USED hợp lệ.
-    O3 requires C7 khi render tổng kết ra viện; G phải đưa C7 vào C_RUN_ORDER trước khi O3 render.
-    O3 không dùng bệnh trình từng ngày để viết tổng kết.
-    O3 không đọc A15_STATE để đưa đơn thuốc vào O3.
+        1. G_STATE của ROUND hiện tại:
+            - Chỉ đọc O_RENDER_LIST, O_RENDER_ORDER, thứ tự render ROUND hiện tại và C_RUN_ORDER để xác nhận C7 đã chạy trước O3 khi O3 formal output được yêu cầu.
+            - Không dùng G_STATE làm dữ kiện bệnh án.
+        2. A_GATE mới nhất:
+            - Chỉ kiểm A_GATE = PASS và full current A_STATE hợp lệ.
+        3. Full current A_STATE sau A_GATE = PASS, chỉ các field phục vụ O3:
+            - A1_STATE.A1_TIME hoặc field ngày nhập viện tương đương đã chuẩn hóa.
+            - A1_STATE.A1_REASON.
+            - A2_STATE.A2_FINAL hoặc field tiền sử tương đương đã chuẩn hóa nếu có.
+            - A3_STATE.A3_FINAL và dữ kiện A3 chuẩn hóa về thời gian trước vào viện, diễn biến bệnh sử, xử trí trước vào viện/tại nhà và khoa điều trị nếu có.
+            - A12_STATE.A12_FINAL.
+            - A13_STATE.A13_TREATMENT.
+            - A14_STATE.A14_DISCHARGE_DATE.
+            - Field A14 tương đương đã chuẩn hóa về loại kết thúc điều trị: ra viện thường quy, chuyển viện hoặc xin ra viện.
+            - Field A14 tương đương đã chuẩn hóa về tên bệnh viện chuyển đến nếu là chuyển viện.
+        4. C_GATE mới nhất:
+            - Chỉ kiểm C_GATE = PASS và C7_STATE hợp lệ khi O3 render phần tình trạng ra viện.
+        5. C7_STATE, chỉ các field:
+            - C7_CHECK.
+            - C7_STATE.C7_DISCHARGE_CONDITION.
+            - C7_STATE.C7_DISCHARGE_DATE_USED.
+    C7_STATE.C7_DISCHARGE_CONDITION là nguồn duy nhất cho phần 3 `Tình trạng ra viện`.
+    C7_STATE.C7_DISCHARGE_DATE_USED chỉ là fallback ngày ra viện/chuyển viện nếu A14_DISCHARGE_DATE thiếu nhưng C7 date hợp lệ.
+    O3 không được đọc/dùng raw user input, hidden memory/trí nhớ ẩn, output cũ, O3_OUTPUT cũ, rendered output cũ, patch/delta, A_STATE ngoài mapping O3, C_STATE ngoài mapping O3, O1/O2 output, O4_OUTPUT, O4 rendered bệnh trình cũ, O5-O13 output, A14_SUMMARY_FOR_O để tạo tình trạng ra viện, A14 hoặc bệnh trình ngày ra viện trong A14 để tạo tình trạng ra viện phần 3, A13_LABS, A13_IMAGING, A15_STATE, O6 đơn thuốc, C1-C6 mặc định, web/guideline/source ngoài hoặc metadata kỹ thuật để render nội dung.
 
-O3.3. Nguồn dữ liệu không được dùng
-    O3 không được đọc hoặc dùng raw input, hidden memory, output cũ, patch/delta, A_STATE ngoài mapping O3.2, C_STATE ngoài mapping O3.2, A14_SUMMARY_FOR_O để tạo tình trạng ra viện, A13_LABS/A13_IMAGING làm điều trị, A15_STATE để đưa đơn thuốc vào O3, O4_OUTPUT hoặc rendered bệnh trình cũ.
-    O3 không lấy tình trạng ra viện từ A14.
-    O3 không dùng bệnh trình từng ngày để viết tổng kết.
-    O3 không dùng mốc “ngày điều trị thứ N” thay cho ngày dd/mm/yyyy trong dòng 4 của phần 1.
+O3_ALLOWED_ACTION
+    O3 RUN/render khi đồng thời:
+        1. O3 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER.
+        2. Đã đến lượt theo G_STATE.O_RENDER_ORDER.
+        3. A_GATE = PASS và full current A_STATE hợp lệ.
+        4. C_GATE = PASS khi O3 cần render phần 3 từ C7.
+        5. C7_CHECK = PASS.
+        6. C7 đã được G đưa vào C_RUN_ORDER trước O3 khi O3 formal output được yêu cầu.
+        7. C7_STATE.C7_DISCHARGE_CONDITION có mặt, hợp lệ và render-ready.
+        8. Nguồn bắt buộc cho phần 1/2 từ A mapping có mặt và hợp lệ.
+        9. Nguồn ngày/loại kết thúc điều trị có mặt hoặc có xử lý BLOCKED/NEEDS_FIX sạch theo contract.
+    O3 SKIP im lặng khi không nằm trong render plan hoặc chưa đến lượt: không output, không tạo/cập nhật O3_OUTPUT và không in `O3_OUTPUT = SKIP`.
+    O3 BLOCKED/NEEDS_FIX khi thiếu nguồn bắt buộc, gate/check không PASS, thiếu/sai C7_DISCHARGE_CONDITION, C7_CHECK không PASS, thiếu ngày/loại kết thúc điều trị cho dòng 4, thiếu A12/A13 nguồn bắt buộc, output không thể đạt schema nếu không tự bịa/sửa nguồn hoặc cần sửa source A/C trước mới render đúng.
+    O3 không tự sửa C7, tự chạy C7, tự sửa A, tự chạy A, tự sửa G, tự render O khác, tự thay O1/O2/O4-O13, tự tạo dữ liệu bệnh án, tự bù dữ liệu thiếu hoặc dùng output cũ để render lại.
 
-O3.4. Cấu trúc đầu ra bắt buộc
-    TỔNG KẾT BỆNH ÁN / RA VIỆN
+O3_ALLOWED_WRITE
+    O3 chỉ được ghi/render O3_OUTPUT hoặc rendered text nếu contract dùng field này.
+    O3 có thể dùng nội bộ O3_RENDER_CHECK và O3_ERROR nếu hệ thống dùng check, nhưng không render metadata check/error vào bệnh án thường quy.
+    O3 không ghi O3_STATE, O3_FINAL, O3_REV, G_STATE, A_STATE, C_STATE, C7_STATE, O1, O2, O4-O13, A1-A15 hoặc C1-C7.
 
-    1. Quá trình và diễn biến lâm sàng:
-    ```text
-    [Dòng 1: Bệnh nhân có tiền sử …, nhập viện ngày … vì … . Trước vào viện … ngày xuất hiện …, tại nhà …, vào khoa … khám và điều trị.]
-    [Dòng 2: Được chẩn đoán: …]
-    [Dòng 3: Được xử trí: …]
-    [Dòng 4: Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện ngày …]
-    ```
-
-    2. Phương pháp điều trị:
-    ```text
-    Điều trị: …
-    ```
-
-    3. Tình trạng ra viện:
-    ```text
-    [C7_DISCHARGE_CONDITION]
-    ```
-
-    Quy định:
-        1. Tiêu đề “TỔNG KẾT BỆNH ÁN / RA VIỆN” nằm ngoài code block.
-        2. Ba tiêu đề phần nằm ngoài code block.
-        3. Có đúng 3 phần.
-        4. Có đúng 3 code block text.
-        5. Không có phần thứ 4.
-        6. Không có dòng heading bắt đầu bằng “4.”.
-        7. Không có “Ngày ra viện”, “Tư vấn”, “Đơn thuốc”, “Dặn dò”, “Tái khám”.
-        8. Không render metadata kỹ thuật.
-
-O3.5. Quy tắc phần 1 — Quá trình và diễn biến lâm sàng
-    - Phần 1 có đúng một code block text.
-    - Code block phần 1 gồm đúng 4 dòng.
-    - Tiêu đề “1. Quá trình và diễn biến lâm sàng:” nằm ngoài code block.
-    - Dòng 1 là một câu liền mạch về bệnh sử trước vào viện.
-    - Dòng 1 dùng dấu chấm để tách câu, không dùng dấu “;”.
-    - Dòng 1 không tách thành gạch đầu dòng.
-    - Dòng 2 bắt buộc bắt đầu bằng: “Được chẩn đoán:”.
-    - Dòng 3 bắt buộc bắt đầu bằng: “Được xử trí:”.
-    - Dòng 4 là trạng thái kết thúc điều trị: ra viện, chuyển viện hoặc xin ra viện.
-    - Không thêm dòng riêng “Trong quá trình điều trị...”.
-    - Không tạo đoạn diễn biến điều trị dài trong phần 1.
-    - Không đưa bệnh trình từng ngày vào phần 1.
-    - Không tự tạo kết quả cận lâm sàng trong phần 1.
-    - Không tự thêm chẩn đoán ngoài A12.
-    - Không tự viết lại bệnh sử khác A3.
-    - Không tự thêm tiền sử ngoài A2.
-
-O3.6. Quy tắc dòng 1 phần 1
-    Dòng 1 nằm trong code block phần 1 và dùng cấu trúc bắt buộc:
-        “Bệnh nhân có tiền sử [A2], nhập viện ngày [ngày nhập viện từ A1] vì [lý do vào viện từ A1]. Trước vào viện [số ngày từ A3] ngày xuất hiện [diễn biến bệnh sử từ A3], tại nhà [xử trí tại nhà từ A3], vào khoa [khoa điều trị nếu có] khám và điều trị.”
-
-    Nguồn dữ liệu:
-        - Tiền sử: lấy từ A2.
-        - Ngày nhập viện: lấy từ A1.
-        - Lý do vào viện: lấy từ A1.
-        - “Trước vào viện … ngày xuất hiện …”: lấy từ A3.
-        - “Tại nhà …”: lấy từ A3.
-        - “Vào khoa … khám và điều trị”: lấy từ A3 hoặc dữ kiện khoa điều trị đã chuẩn hóa nếu có.
-
-    Nguyên tắc:
-        - Nếu A2 là “Khỏe mạnh.” thì dòng 1 viết “Bệnh nhân tiền sử khỏe mạnh, ...” hoặc “Bệnh nhân có tiền sử khỏe mạnh, ...”.
-        - O3 không tự nối thêm dữ kiện ngoài A2 vào tiền sử.
-        - Nếu không có ngày nhập viện, dùng dữ kiện đã được A1/A14 chuẩn hóa nếu có; nếu không có thì O3 NEEDS_FIX/BLOCKED.
-        - Nếu không có tên khoa, có thể viết “vào khoa khám và điều trị.”.
-        - Không dùng dấu “;” trong dòng 1.
-        - Không biến dòng 1 thành tóm tắt bệnh án dài.
-
-O3.7. Quy tắc dòng 2 phần 1
-    - Dòng 2 nằm trong code block phần 1 và lấy từ A12.
-    - Công thức: “Được chẩn đoán: [A12].”
-    - O3 không tự thêm chẩn đoán.
-    - O3 không tự đổi chẩn đoán chính / bệnh kèm.
-    - O3 không tự biến hội chứng thành chẩn đoán nếu A12 chưa chuẩn hóa.
-    - Nếu chẩn đoán chưa đúng, quay lại A12.
-
-O3.8. Quy tắc dòng 3 phần 1
-    - Dòng 3 nằm trong code block phần 1 và lấy từ A13_TREATMENT.
-    - Công thức: “Được xử trí: [A13_TREATMENT].”
-    - O3 không lấy xét nghiệm từ A13.
-    - O3 không lấy chẩn đoán hình ảnh từ A13.
-    - O3 không tự thêm thuốc cụ thể nếu A13_TREATMENT không có.
-    - O3 không tự viết phác đồ điều trị dài nếu A13_TREATMENT chỉ chuẩn hóa hướng điều trị ngắn.
-    - Nếu phần xử trí chưa đúng, quay lại A13.
-
-O3.9. Quy tắc dòng 4 phần 1
-    - Dòng 4 nằm trong code block phần 1 và là trạng thái kết thúc điều trị.
-    - Nguồn ngày ra viện/chuyển viện ưu tiên A14_DISCHARGE_DATE nếu đã chuẩn hóa; nếu hệ thống hiện hành đã có C7_DISCHARGE_DATE_USED hợp lệ thì được dùng làm fallback.
-    - Nguồn loại kết thúc điều trị lấy từ A14 nếu đã chuẩn hóa: ra viện thường quy / xin ra viện / chuyển viện.
-    - Nếu là ra viện thông thường, dùng: “Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện ngày [dd/mm/yyyy].”
-    - Nếu là chuyển viện, dùng: “Bệnh nhân ổn định, chuyển Bệnh viện [tên bệnh viện] ngày [dd/mm/yyyy].”
-    - Nếu là xin ra viện, dùng: “Bệnh nhân có nguyện vọng xin ra viện, giải quyết cho bệnh nhân ra viện ngày [dd/mm/yyyy].”
-    - O3 không tự bịa ngày ra viện.
-    - O3 không tự bịa tên bệnh viện chuyển đến.
-    - O3 không tự quyết định ra viện / chuyển viện / xin ra viện nếu A14 chưa chuẩn hóa.
-    - Nếu trạng thái kết thúc điều trị chưa rõ, quay lại A14 hoặc O3 NEEDS_FIX/BLOCKED.
-
-O3.10. Quy tắc phần 2 — Phương pháp điều trị
-    - Phần 2 có đúng một code block text.
-    - Tiêu đề “2. Phương pháp điều trị:” nằm ngoài code block.
-    - Nội dung code block phần 2 lấy từ A13_TREATMENT.
-    - Công thức: “Điều trị: [A13_TREATMENT].”
-    - Không lấy dòng Xét nghiệm từ A13.
-    - Không lấy dòng Chẩn đoán hình ảnh từ A13.
-    - Không đưa kết quả cận lâm sàng vào phần 2.
-    - Không tự thêm thuốc cụ thể nếu A13_TREATMENT không có.
-    - Không tự viết phác đồ điều trị dài nếu A13_TREATMENT chỉ chuẩn hóa hướng điều trị ngắn.
-    - Nếu phần Điều trị chưa đúng, quay lại A13.
-
-O3.11. Quy tắc phần 3 — Tình trạng ra viện
-    - Phần 3 có đúng một code block text.
-    - Tiêu đề “3. Tình trạng ra viện:” nằm ngoài code block.
-    - Phần 3 lấy duy nhất từ C7_DISCHARGE_CONDITION.
-    - C7_DISCHARGE_CONDITION là một khối text hoàn chỉnh đã được C7 tạo sẵn.
-    - O3 render nguyên văn toàn bộ khối C7_DISCHARGE_CONDITION vào code block phần 3.
-    - O3 không đếm số dòng của C7_DISCHARGE_CONDITION.
-    - O3 không quy định phần 3 phải có đúng 5 dòng.
-    - O3 không tách C7_DISCHARGE_CONDITION thành dòng 1, dòng 2, dòng 3.
-    - O3 không tự thêm dòng.
-    - O3 không tự bỏ dòng.
-    - O3 không tự đổi thứ tự dòng.
-    - O3 không tự sửa câu chữ.
-    - O3 không tự làm mượt câu.
-    - O3 không tự chuẩn hóa y văn.
-    - O3 không tự chuyển đoạn văn thành gạch đầu dòng.
-    - O3 không lấy tình trạng ra viện từ A14.
-    - O3 không lấy tình trạng ra viện từ bệnh trình ngày ra viện trong A14.
-    - Nếu C7_DISCHARGE_CONDITION thiếu, sai hoặc C7_CHECK chưa PASS thì quay lại C7, không sửa ở O3.
-
-O3.12. Dạng xuất chuẩn
-    O3.12.1. Quá trình và diễn biến lâm sàng
-
-        ```text
-        Bệnh nhân có tiền sử …, nhập viện ngày … vì … . Trước vào viện … ngày xuất hiện …, tại nhà …, vào khoa … khám và điều trị.
-        Được chẩn đoán: …
-        Được xử trí: …
-        Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện ngày …
-        ```
-
-    O3.12.2. Phương pháp điều trị
-
-        ```text
-        Điều trị: …
-        ```
-
-    O3.12.3. Tình trạng ra viện
-
-        ```text
-        [C7_DISCHARGE_CONDITION]
-        ```
-
-O3.13. Mẫu xuất chuẩn đầy đủ
-    TỔNG KẾT BỆNH ÁN / RA VIỆN
-
-    1. Quá trình và diễn biến lâm sàng:
-
-    ```text
-    Bệnh nhân có tiền sử [A2], nhập viện ngày [ngày nhập viện từ A1] vì [lý do vào viện từ A1]. Trước vào viện [số ngày từ A3] ngày xuất hiện [diễn biến bệnh sử từ A3], tại nhà [xử trí tại nhà từ A3], vào khoa [khoa điều trị nếu có] khám và điều trị.
-    Được chẩn đoán: [A12].
-    Được xử trí: [A13_TREATMENT].
-    Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện ngày [ngày ra viện từ A14/C7_DATE].
-    ```
-
-    2. Phương pháp điều trị:
-
-    ```text
-    Điều trị: [A13_TREATMENT].
-    ```
-
-    3. Tình trạng ra viện:
-
-    ```text
-    [C7_DISCHARGE_CONDITION]
-    ```
-
-O3.14. Ví dụ xuất cụ thể
-    O3.14.1. Ví dụ ra viện thông thường
+O3_RENDER_SCHEMA
+    O3 output thật phải có đúng cấu trúc sau:
 
     TỔNG KẾT BỆNH ÁN / RA VIỆN
 
     1. Quá trình và diễn biến lâm sàng:
-
     ```text
-    Bệnh nhân có tiền sử tăng huyết áp nhiều năm, nhập viện ngày 11/05/2026 vì đau thắt lưng lan chân phải. Trước vào viện 7 ngày xuất hiện đau vùng cột sống thắt lưng lan xuống mặt sau ngoài chân phải, kèm tê bì chân phải, đau tăng khi vận động, tại nhà đã dùng thuốc giảm đau nhưng triệu chứng đau không giảm, vào khoa khám và điều trị.
-    Được chẩn đoán: Đau cột sống thắt lưng có đau lan chân phải, theo dõi đau thần kinh tọa phải; tăng huyết áp; trào ngược dạ dày thực quản / viêm dạ dày tá tràng.
-    Được xử trí: Giảm đau, giãn cơ, vitamin nhóm B, kiểm soát huyết áp, giảm tiết acid và băng se niêm mạc dạ dày.
-    Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện ngày 15/05/2026.
+    [Dòng 1: bệnh sử trước vào viện theo mapping A2/A1/A3/khoa điều trị nếu có]
+    Được chẩn đoán: [A12_STATE.A12_FINAL].
+    Được xử trí: [A13_STATE.A13_TREATMENT].
+    [Dòng 4: một trong 3 mẫu kết thúc điều trị hợp lệ]
     ```
 
     2. Phương pháp điều trị:
-
     ```text
-    Điều trị: Giảm đau, giãn cơ, vitamin nhóm B, kiểm soát huyết áp, giảm tiết acid và băng se niêm mạc dạ dày.
+    Điều trị: [A13_STATE.A13_TREATMENT].
     ```
 
     3. Tình trạng ra viện:
-
     ```text
-    - Bệnh nhân tỉnh, tiếp xúc tốt, không sốt.
-    - Đau thắt lưng lan chân phải giảm nhiều.
-    - Vận động cột sống thắt lưng cải thiện, hết nóng rát thượng vị, hết ợ hơi, ợ chua.
-    - Huyết động ổn định.
-    - Ăn uống được, ngủ được, đại tiểu tiện bình thường.
+    [exact-copy toàn bộ C7_STATE.C7_DISCHARGE_CONDITION]
     ```
 
-    O3.14.2. Ví dụ chuyển viện
+    Bắt buộc:
+        1. Tiêu đề chính nằm ngoài code block và đúng literal `TỔNG KẾT BỆNH ÁN / RA VIỆN`.
+        2. Ba tiêu đề phần nằm ngoài code block và đúng literal: `1. Quá trình và diễn biến lâm sàng:`, `2. Phương pháp điều trị:`, `3. Tình trạng ra viện:`.
+        3. Có đúng 3 phần và đúng 3 code block text riêng.
+        4. Code block phần 1 có đúng 4 dòng; code block phần 2 có đúng 1 dòng; code block phần 3 exact-copy toàn bộ C7_STATE.C7_DISCHARGE_CONDITION.
+        5. Không có phần thứ 4, không có heading bắt đầu bằng `4.`, không có mục `Ngày ra viện`, `Tư vấn ra viện`, `Đơn thuốc`, `Dặn dò`, `Tái khám`, `RA VIỆN`, `Chủ nhiệm khoa` và không render metadata kỹ thuật.
 
-    TỔNG KẾT BỆNH ÁN / RA VIỆN
+O3_LOGIC_RULES
+    Dòng 1 phần 1 mô tả bệnh sử trước vào viện theo mapping từ A2/A1/A3/khoa điều trị nếu có: dùng A2 tiền sử nếu có, A1 lý do vào viện, A3 thời gian/diễn biến trước vào viện/xử trí tại nhà, khoa điều trị nếu A3 đã chuẩn hóa rõ; không dùng dấu `;`, không đưa bệnh trình từng ngày, không viết thành đoạn dài nhiều câu nếu schema yêu cầu 1 dòng, không tự thêm dữ kiện ngoài A mapping; nếu thiếu nguồn cần thiết để tạo dòng 1 sạch thì BLOCKED/NEEDS_FIX, không bịa.
+    Dòng 2 phần 1 bắt buộc là `Được chẩn đoán: [A12_STATE.A12_FINAL].`; O3 không tự thêm/sửa/rút gọn/chuyển nghĩa A12, không dùng C5/C4/raw input thay A12; nếu A12 thiếu hoặc chưa đúng thì BLOCKED/NEEDS_FIX và route về A12.
+    Dòng 3 phần 1 bắt buộc là `Được xử trí: [A13_STATE.A13_TREATMENT].`; O3 không dùng A13_LABS, A13_IMAGING, A14 kết quả, A15 thuốc/đơn thuốc, không tự thêm thuốc cụ thể hoặc viết phác đồ dài nếu A13_TREATMENT chỉ là hướng điều trị ngắn; nếu A13_TREATMENT thiếu hoặc chưa đúng thì BLOCKED/NEEDS_FIX và route về A13.
+    Dòng 4 phần 1 phải khớp đúng một trong 3 mẫu:
+        1. Ra viện thường quy: `Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện ngày [dd/mm/yyyy].`
+        2. Chuyển viện: `Bệnh nhân ổn định, chuyển Bệnh viện [tên bệnh viện] ngày [dd/mm/yyyy].`
+        3. Xin ra viện: `Bệnh nhân có nguyện vọng xin ra viện, giải quyết cho bệnh nhân ra viện ngày [dd/mm/yyyy].`
+    Nguồn ngày dòng 4 ưu tiên A14_STATE.A14_DISCHARGE_DATE; nếu A14 thiếu ngày nhưng C7_STATE.C7_DISCHARGE_DATE_USED hợp lệ thì dùng C7 date fallback; không tự bịa ngày.
+    Nguồn loại kết thúc điều trị lấy từ field A14 chuẩn hóa về ra viện thường quy, chuyển viện hoặc xin ra viện; tên bệnh viện chuyển đến lấy từ field A14 chuẩn hóa nếu là chuyển viện.
+    O3 không tự đổi loại kết thúc, không tự bịa bệnh viện chuyển đến, không tự bịa ổn định, không dùng A14 làm tình trạng ra viện phần 3, không lấy bệnh trình ngày ra viện để thay dòng 4 và không tạo mẫu dòng 4 ngoài 3 mẫu trên.
+    Phần 2 có đúng 1 code block text và đúng 1 dòng `Điều trị: [A13_STATE.A13_TREATMENT].`; không dùng A13_LABS/A13_IMAGING, không đưa kết quả cận lâm sàng, không dùng A15 đơn thuốc, không tự thêm thuốc cụ thể hoặc phác đồ dài nếu A13_TREATMENT ngắn.
+    O3 chỉ render từ current allowed state khi G plan, không đọc/reuse old O3_OUTPUT, không dùng output đã render làm nguồn, không tự suy luận dữ liệu thiếu, không sửa source A/C; nếu ngày/loại kết thúc điều trị sai hoặc thiếu thì route về A14 hoặc C7 date fallback theo contract; nếu source C7 sai thì route về C7; nếu O3 không nằm trong render plan hoặc chưa đến lượt thì SKIP im lặng, không NEEDS_FIX.
 
-    1. Quá trình và diễn biến lâm sàng:
+O3_SPECIAL_RULES
+    O3 requires C7 khi render tổng kết ra viện; G phải đưa C7 vào C_RUN_ORDER trước O3 khi O3 formal output được yêu cầu.
+    Phần 3 có đúng 1 code block text và lấy duy nhất từ C7_STATE.C7_DISCHARGE_CONDITION.
+    O3 phải render nguyên văn toàn bộ C7_DISCHARGE_CONDITION, exact-copy theo line/content; không thêm dòng, bỏ dòng, đổi thứ tự dòng, sửa câu chữ, làm mượt câu, chuẩn hóa y văn, tự chuyển đoạn văn thành gạch đầu dòng hoặc tách C7_DISCHARGE_CONDITION thành dòng 1/dòng 2/dòng 3.
+    O3 không đếm số dòng của C7_DISCHARGE_CONDITION và không quy định phần 3 phải có đúng 5 dòng; format/bullet của C7_DISCHARGE_CONDITION thuộc trách nhiệm C7 trước PASS.
+    Nếu C7_DISCHARGE_CONDITION thiếu, sai, không render-ready hoặc C7_CHECK != PASS thì O3 phải BLOCKED/NEEDS_FIX, route về C7/source C7, không tự sửa ở O3 và không render bản O3 hoàn chỉnh.
+    O3 không dùng A14 làm tình trạng ra viện phần 3, không dùng bệnh trình từng ngày để viết tổng kết, không dùng O4_OUTPUT hoặc rendered bệnh trình cũ, không dùng A15 đơn thuốc, không dùng A13_LABS/A13_IMAGING làm điều trị và không thêm mục đơn thuốc/tư vấn/dặn dò/tái khám.
+    O3 không render metadata kỹ thuật gồm STATE_VERSION, ROUND_ID, RUN_MODE, REV, UPDATED_AT, A_CHECK/C_CHECK/O_CHECK, ERROR, CREATE/UPDATE/REUSE, A_MODULE_REV, C_MODULE_REV, O_RENDER_LIST/O_RENDER_ORDER, O3_RENDER_CHECK hoặc O3_ERROR.
 
-    ```text
-    Bệnh nhân có tiền sử đái tháo đường típ 2 nhiều năm, nhập viện ngày 11/05/2026 vì mệt nhiều, đường máu tăng. Trước vào viện 3 ngày xuất hiện mệt nhiều, ăn uống kém, khát nước, tiểu nhiều, tại nhà dùng thuốc không đều, vào khoa khám và điều trị.
-    Được chẩn đoán: Đái tháo đường típ 2 kiểm soát kém.
-    Được xử trí: Kiểm soát đường máu, bù dịch, điều chỉnh rối loạn chuyển hóa, theo dõi đường máu và dấu hiệu mất nước.
-    Bệnh nhân ổn định, chuyển Bệnh viện Nội tiết Trung ương ngày 13/05/2026.
-    ```
+O3_CHECK_PASS_IF
+    O3_RENDER_CHECK = PASS nếu hệ thống dùng check và tất cả điều kiện sau đúng:
+        1. O3 nằm trong render plan, đúng lượt, A_GATE = PASS, full current A_STATE hợp lệ, C_GATE = PASS khi cần C7, C7_CHECK = PASS và C7 nằm trong C_RUN_ORDER trước O3 khi O3 formal output được yêu cầu.
+        2. C7_STATE.C7_DISCHARGE_CONDITION có mặt, hợp lệ và render-ready.
+        3. Tiêu đề chính đúng literal `TỔNG KẾT BỆNH ÁN / RA VIỆN`.
+        4. Có đúng 3 phần, đúng 3 code block text riêng, tiêu đề các phần đúng literal và nằm ngoài code block.
+        5. Code block phần 1 có đúng 4 dòng; dòng 1 không có dấu `;`; dòng 2 bắt đầu đúng `Được chẩn đoán:`; dòng 3 bắt đầu đúng `Được xử trí:`; dòng 4 khớp đúng một trong 3 mẫu kết thúc điều trị.
+        6. Code block phần 2 có đúng 1 dòng bắt đầu `Điều trị:`.
+        7. Code block phần 3 bằng exact-copy toàn bộ C7_STATE.C7_DISCHARGE_CONDITION.
+        8. Không có phần thứ 4, không có heading bắt đầu bằng `4.`, không có mục cấm: Ngày ra viện, Tư vấn, Đơn thuốc, Dặn dò, Tái khám, RA VIỆN, Chủ nhiệm khoa.
+        9. Không dùng nguồn ngoài allowlist, không dùng A14 làm tình trạng ra viện, không dùng bệnh trình từng ngày/O4 output, không render metadata/check/error.
 
-    2. Phương pháp điều trị:
+O3_NEEDS_FIX_IF
+    SKIP, không phải NEEDS_FIX, khi O3 không nằm trong render plan hoặc chưa đến lượt.
+    O3_RENDER_CHECK = NEEDS_FIX/BLOCKED khi có bất kỳ lỗi sau:
+        1. A_GATE thiếu hoặc không PASS; full current A_STATE thiếu/không hợp lệ.
+        2. C_GATE thiếu hoặc không PASS khi cần C7; C7_CHECK thiếu hoặc không PASS; C7 chưa được đưa vào C_RUN_ORDER trước O3 khi O3 formal output được yêu cầu.
+        3. Thiếu C7_STATE.C7_DISCHARGE_CONDITION hoặc C7_DISCHARGE_CONDITION không render-ready.
+        4. Thiếu A12_FINAL cho dòng chẩn đoán, thiếu A13_TREATMENT cho dòng xử trí/điều trị hoặc thiếu ngày/loại kết thúc điều trị cần cho dòng 4.
+        5. Output sai tiêu đề chính, sai số phần, sai số code block, code block phần 1 không đúng 4 dòng, dòng 1 dùng dấu `;` hoặc sai mapping, dòng 2/3 sai prefix, dòng 4 không khớp 1 trong 3 mẫu, code block phần 2 không đúng 1 dòng `Điều trị: ...`, hoặc code block phần 3 không exact-copy C7.
+        6. O3 tự thêm/bớt/sửa/sắp xếp C7_DISCHARGE_CONDITION, dùng A14 làm tình trạng ra viện, dùng bệnh trình từng ngày/O4 output/output cũ, dùng A13_LABS/A13_IMAGING làm điều trị, dùng A15 đơn thuốc, thêm phần thứ 4 hoặc mục cấm, render metadata/check/error, tự sửa source A/C hoặc che lỗi source.
 
-    ```text
-    Điều trị: Kiểm soát đường máu, bù dịch, điều chỉnh rối loạn chuyển hóa, theo dõi đường máu và dấu hiệu mất nước.
-    ```
-
-    3. Tình trạng ra viện:
-
-    ```text
-    - Bệnh nhân tỉnh, tiếp xúc tốt, không sốt.
-    - Mệt giảm, ăn uống được hơn.
-    - Đường máu còn dao động, cần tiếp tục theo dõi và điều chỉnh điều trị chuyên khoa.
-    - Huyết động ổn định.
-    - Đại tiểu tiện bình thường.
-    ```
-
-    O3.14.3. Ví dụ xin ra viện
-
-    TỔNG KẾT BỆNH ÁN / RA VIỆN
-
-    1. Quá trình và diễn biến lâm sàng:
-
-    ```text
-    Bệnh nhân tiền sử khỏe mạnh, nhập viện ngày 11/05/2026 vì đau khớp gối hai bên. Trước vào viện 10 ngày xuất hiện đau khớp gối hai bên, bên trái đau nhiều hơn bên phải, đau tăng khi vận động, hạn chế đi lại, tại nhà chưa điều trị gì, các triệu chứng nặng dần lên, vào khoa khám và điều trị.
-    Được chẩn đoán: Thoái hóa khớp gối hai bên.
-    Được xử trí: Giảm đau, chống viêm nếu không có chống chỉ định, thuốc bảo vệ sụn khớp, tư vấn hạn chế vận động gắng sức.
-    Bệnh nhân có nguyện vọng xin ra viện, giải quyết cho bệnh nhân ra viện ngày 13/05/2026.
-    ```
-
-    2. Phương pháp điều trị:
-
-    ```text
-    Điều trị: Giảm đau, chống viêm nếu không có chống chỉ định, thuốc bảo vệ sụn khớp, tư vấn hạn chế vận động gắng sức.
-    ```
-
-    3. Tình trạng ra viện:
-
-    ```text
-    - Bệnh nhân tỉnh, tiếp xúc tốt, không sốt.
-    - Đau khớp gối hai bên giảm ít.
-    - Vận động khớp gối còn hạn chế do đau.
-    - Huyết động ổn định.
-    - Ăn uống được, ngủ được, đại tiểu tiện bình thường.
-    ```
-
-O3.15. Metadata không được render
-    O3 không được render metadata kỹ thuật: STATE_VERSION, ROUND_ID, RUN_MODE, Ax_REV, Cx_REV, Ox_REV nếu có, UPDATED_AT, A_CHECK, A_ERROR, C_CHECK, C_ERROR, O_CHECK, O_ERROR, CREATE, UPDATE, REUSE, A_MODULE_REV, C_MODULE_REV hoặc O_RENDER_LIST/O_RENDER_ORDER.
-
-O3.16. O3_RENDER_CHECK / hậu kiểm nội bộ
-    O3_RENDER_CHECK = PASS chỉ khi tất cả điều kiện sau đúng:
-        1. Output có tiêu đề đúng: TỔNG KẾT BỆNH ÁN / RA VIỆN.
-        2. Có đúng 3 phần:
-            1. Quá trình và diễn biến lâm sàng:
-            2. Phương pháp điều trị:
-            3. Tình trạng ra viện:
-        3. Có đúng 3 code block text.
-        4. Tiêu đề O3 nằm ngoài code block.
-        5. Ba tiêu đề phần nằm ngoài code block.
-        6. Không có phần thứ 4.
-        7. Không có dòng heading bắt đầu bằng “4.”.
-        8. Code block phần 1 có đúng 4 dòng.
-        9. Dòng 1 phần 1 không chứa dấu “;”.
-        10. Dòng 2 phần 1 bắt đầu “Được chẩn đoán:”.
-        11. Dòng 3 phần 1 bắt đầu “Được xử trí:”.
-        12. Dòng 4 phần 1 khớp một trong ba nhóm:
-            - Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện ngày dd/mm/yyyy.
-            - Bệnh nhân ổn định, chuyển Bệnh viện [tên bệnh viện] ngày dd/mm/yyyy.
-            - Bệnh nhân có nguyện vọng xin ra viện, giải quyết cho bệnh nhân ra viện ngày dd/mm/yyyy.
-        13. Code block phần 2 có đúng một dòng bắt đầu bằng “Điều trị:”.
-        14. Code block phần 3 bằng exact-copy toàn bộ C7_DISCHARGE_CONDITION.
-        15. O3 không tự thêm, bớt, sửa, sắp xếp lại, đếm dòng hoặc viết lại C7_DISCHARGE_CONDITION.
-        16. Không có “Tư vấn ra viện”, “Đơn thuốc”, “Tái khám”, “Dặn dò”, “Chủ nhiệm khoa”.
-        17. Không có bệnh trình từng ngày trong O3.
-        18. Không có metadata kỹ thuật.
-    Nếu sai bất kỳ điểm nào: O3_RENDER_CHECK = NEEDS_FIX/BLOCKED, không xuất O3 hoàn chỉnh và O3_ERROR ghi rõ lỗi.
-
-O3.17. Error code
-    O3_ERROR dùng các mã sau khi hậu kiểm không đạt:
+O3_ERROR_RULE
+    Khi NEEDS_FIX/BLOCKED, O3_ERROR ghi rõ lỗi cụ thể, không render hoàn chỉnh O3 và không tự fill bằng nguồn cấm.
+    Giữ các mã lỗi hiện có:
         - ERR-O3-FORMAT
         - ERR-O3-SECTION-COUNT
         - ERR-O3-CODEBLOCK-COUNT
@@ -657,22 +448,16 @@ O3.17. Error code
         - ERR-O3-PART2-FORMAT
         - ERR-O3-SECTION3-NOT-EXACT-C7
         - ERR-O3-FORBIDDEN-EXTRA-SECTION
+    Nếu lỗi do A12 thì route về A12; nếu lỗi do A13 thì route về A13; nếu lỗi do A14 ngày/loại kết thúc thì route về A14 hoặc C7 date fallback theo contract; nếu lỗi do C7_DISCHARGE_CONDITION thì route về C7/source C7.
+    Khi PASS, O3_RENDER_CHECK = PASS nếu hệ thống dùng; không render check/error metadata trong bệnh án thường quy.
 
-O3.18. Các lỗi không được mắc
-    Không được bỏ READ LOCK, render O3 ngoài O_RENDER_LIST/O_RENDER_ORDER, sửa A/C hoặc tự chạy C7, dùng raw input/hidden memory/output cũ/patch làm nguồn dữ liệu lâm sàng, đọc nguồn ngoài mapping O3, lấy tình trạng ra viện từ A14, bỏ dependency C7 khi render tổng kết ra viện, lấy A13_LABS/A13_IMAGING làm điều trị, tự tạo tình trạng ra viện, tự chuyển đoạn văn tình trạng ra viện thành bullet, tạo mục cận lâm sàng riêng trong O3, xuất O4 trong O3 hoặc render metadata kỹ thuật.
-    Không được thêm phần thứ 4.
-    Không được biến dòng 4 của phần 1 thành “4. Ngày ra viện”.
-    Không được biến dòng 4 của phần 1 thành “4. Hướng điều trị và các chế độ tiếp theo”.
-    Không được có bất kỳ dòng nào bắt đầu bằng “4.” trong O3_OUTPUT.
-    Không được thêm mục “Ngày ra viện”.
-    Không được thêm mục “Tư vấn ra viện”.
-    Không được thêm mục “Đơn thuốc”.
-    Không được thêm mục “Tái khám”.
-    Không được thêm mục “Dặn dò”.
-    Không được thêm “RA VIỆN” hoặc “Chủ nhiệm khoa” vào O3.
-    Không đưa bệnh trình từng ngày vào O3.
-    Không dùng O4 output hoặc O8 output làm nguồn cho O3.
-    Không đưa đơn thuốc vào O3.
+O3_REUSE_RULE
+    Contract hiện tại không định nghĩa lifecycle CREATE/UPDATE/REUSE riêng cho O3.
+    O3 không đọc/reuse old O3_OUTPUT; khi G plan O3, render lại từ current allowed sources.
+    Old output không phải source và không dùng rendered output cũ để dựng O3 mới.
+
+O3_END
+    Sau O3, hệ thống render O tiếp theo theo G_STATE.O_RENDER_ORDER; O3 không tự chạy O4, không gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O3
 ####################################################################################################
