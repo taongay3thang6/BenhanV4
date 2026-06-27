@@ -181,411 +181,121 @@ O1_END
 ####################################################################################################
 
 O2 — TÓM TẮT BỆNH ÁN
-Version: BA S-G-A-C-O v3
-Update: 14/06/2026 GMT+7 — khóa O2 copy nguyên văn C4_FOR_O2
+Version: BA S-G-A-C-O V4 compact
+Update: 27/06/2026 GMT+7 — allowlist compact, giữ khóa copy nguyên văn C4_FOR_O2
 
-O2.0. READ LOCK
-    Bắt buộc đọc toàn bộ O2 từ O2.0 READ LOCK đến mục cuối cùng của O2 trước khi audit, patch, final review, sử dụng hoặc xuất O2.
-    Không được chỉ đọc diff, một đoạn giữa module, nguồn dữ liệu, ví dụ, checklist hoặc lỗi cấm.
-    Nếu chưa đọc đủ toàn bộ O2, phải kết luận UNCLEAR, không được kết luận PASS/FAIL và không được patch hoặc xuất O2.
-    O2 là module output thuộc layer O; chỉ tạo O2_OUTPUT / rendered text khi được G plan.
-    O2 chỉ xuất formal khi O2 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER của ROUND hiện tại, đã đến lượt theo O_RENDER_ORDER và đủ nguồn hợp lệ.
-    O2 phụ thuộc C4 rõ: nếu O2 được formal output, G phải đưa C4 vào C_RUN_ORDER trước khi O2 xuất.
-    O2 không tự chạy A_GATE, C_GATE, A, C, C4 hoặc O khác; không sửa G_STATE, A_STATE, C_STATE hoặc C4_STATE.
-    O2 không tự chọn output, không tạo dữ liệu lâm sàng mới, không đọc hidden memory và không dùng O_OUTPUT cũ / O2_OUTPUT cũ / rendered output cũ làm nguồn dữ liệu lâm sàng.
+O2_ROLE
+    O2 là strict renderer/output selective thuộc layer O cho phần “TÓM TẮT BỆNH ÁN”.
+    O2 chỉ render heading, một câu mở đầu từ allowed A fields và body exact-copy từ C4_STATE.C4_FOR_O2.
+    O2 không tự tạo/chọn lại hội chứng, không phân loại triệu chứng thành hội chứng, không chuyển hội chứng thành chẩn đoán, không tự thêm chẩn đoán, điều trị, thuốc, bệnh trình, tổng kết hoặc cận lâm sàng.
+    O2 không sửa C4, không render O khác, không sửa A/C/G/O khác.
+    O2_OUTPUT nếu có là rendered text, không phải state, không là source cho A/C/O khác và không có revision metadata riêng.
 
-O2.1. Mục tiêu
-    O2 tạo “TÓM TẮT BỆNH ÁN” ngắn gọn theo dữ liệu đã có trong state hợp lệ và theo mapping rõ.
-    O2 trình bày một câu mở đầu liền mạch, sau đó COPY NGUYÊN VĂN C4_STATE.C4_FOR_O2 ngay sau câu mở đầu.
-    Câu mở đầu O2 được tạo từ mapping A1/A2/A3/tuổi/giới theo contract; toàn bộ phần sau câu mở đầu phải copy nguyên văn C4_STATE.C4_FOR_O2.
-    O2 không được parse, không được transform, không được derive, không được diễn giải lại, không được tự tạo lại từ C4_ITEMS/A_STATE.
-    O2 không được thay đổi thứ tự dòng, dấu “-”, dấu “+”, dấu “:”, khoảng trắng đầu dòng hoặc nội dung dòng của C4_STATE.C4_FOR_O2.
-    O2 không tạo hội chứng, không phân loại triệu chứng thành hội chứng, không chuyển hội chứng thành chẩn đoán, không tự thêm cận lâm sàng, không tự thêm chẩn đoán, điều trị, thuốc, bệnh trình hoặc tổng kết ra viện.
-    O2_OUTPUT nếu có là rendered output, không phải state và không phải nguồn dữ liệu cho A/C/O khác.
-
-O2.2. Nguồn dữ liệu được phép
-    O2 chỉ được đọc các nguồn sau theo mapping rõ:
+O2_ALLOWED_SOURCE
+    O2 chỉ được đọc:
         1. G_STATE của ROUND hiện tại:
-            - Chỉ để kiểm O2 nằm trong O_RENDER_LIST/O_RENDER_ORDER và biết thứ tự output.
-            - Không render metadata điều phối vào nội dung bệnh án.
-        2. A_GATE mới nhất:
-            - Chỉ để kiểm full current A_STATE hợp lệ.
-        3. Full current A_STATE mới nhất sau A_GATE:
-            - Chỉ để truy cập các field được mapping rõ tại mục này cho câu mở đầu.
-            - Không dùng A_STATE ngoài mapping O2 để viết thêm nội dung.
-        4. C_GATE mới nhất:
-            - Chỉ để kiểm C_STATE/C4_STATE hợp lệ vì O2 phụ thuộc C4.
-        5. C4_STATE.C4_FOR_O2:
-            - Nguồn chính và bắt buộc cho toàn bộ các dòng sau câu mở đầu.
-            - O2 phải COPY NGUYÊN VĂN C4_STATE.C4_FOR_O2 sau câu mở đầu.
-            - Chỉ chứa nội dung hội chứng, triệu chứng và cận lâm sàng rời đã được C4 tích hợp trong C4_FOR_O2.
-        6. A1_STATE.A1_REASON hoặc field lý do vào viện tương đương hiện hành:
-            - Chỉ dùng trong câu mở đầu.
-        7. A2_STATE.A2_FINAL hoặc field tiền sử tương đương hiện hành:
-            - Chỉ dùng trong câu mở đầu nếu có tiền sử.
-        8. A3_STATE:
-            - Chỉ dùng số ngày bệnh / thời gian bệnh nếu A3 đã chuẩn hóa rõ và O2 giữ thành phần này.
-            - Không dùng toàn bộ bệnh sử để viết lại câu mở đầu tự do.
-        9. Nguồn giới / tuổi:
-            - Nếu hệ hiện hành dùng A14 cho tuổi/giới, O2 chỉ được đọc A14_STATE.A14_AGE và A14_STATE.A14_SEX hoặc field tuổi/giới tương đương.
-            - Không đọc A14 như nguồn mở rộng.
-    O2 không viết kiểu “nếu cần đọc C”. C4 là dependency rõ của O2.
-    O2 chỉ đọc C4_STATE.C4_FOR_O2 cho nội dung hội chứng, triệu chứng và cận lâm sàng rời; không đọc C khác nếu không có mapping rõ trong O2.
-    O2 không đọc C4_ITEMS, không tự tạo lại từ C4_ITEMS và không dùng C4_ITEMS để suy ra TYPE / NAME / ORDER / ITEM_CHECK / ITEM_ERROR.
+            - Chỉ đọc O_RENDER_LIST, O_RENDER_ORDER, thứ tự render ROUND hiện tại.
+            - Chỉ đọc C_RUN_ORDER để xác nhận C4 đã chạy trước O2 nếu O2 formal output được yêu cầu.
+            - Không dùng G_STATE làm dữ kiện bệnh án.
+        2. A_GATE:
+            - Chỉ để kiểm A_GATE = PASS và full current A_STATE hợp lệ.
+        3. Full current A_STATE sau A_GATE = PASS, chỉ cho câu mở đầu:
+            - A1_STATE.A1_REASON hoặc field lý do vào viện tương đương.
+            - A2_STATE.A2_FINAL hoặc field tiền sử tương đương nếu có.
+            - A3_STATE chỉ cho số ngày bệnh/thời gian bệnh nếu đã chuẩn hóa rõ.
+            - A14_STATE.A14_AGE và A14_STATE.A14_SEX hoặc field tuổi/giới tương đương.
+            - Không đọc A_STATE ngoài mapping này để thêm nội dung body.
+        4. C_GATE:
+            - Chỉ để kiểm C_GATE = PASS và C_STATE/C4_STATE hợp lệ vì O2 phụ thuộc C4.
+        5. C4_STATE:
+            - Chỉ đọc C4_CHECK.
+            - Chỉ đọc C4_STATE.C4_FOR_O2.
+            - C4_STATE.C4_FOR_O2 là nguồn chính và bắt buộc cho toàn bộ các dòng sau câu mở đầu.
+    O2 không được đọc/dùng raw user input, hidden memory/trí nhớ ẩn, output cũ, O2_OUTPUT cũ, rendered output cũ, A/C patch làm nguồn chính, A/C ngoài mapping, C4_ITEMS, C4_SYNDROME_SUMMARY, C5_STATE.C5_FOR_O2, A12_STATE/A13_STATE/A15_STATE để thêm nội dung, A14_CURRENT_FOR_O2, legacy tình trạng ra viện từ A14, kết quả A14 để tự thêm cận lâm sàng, C1 để biến chỉ định thành kết quả, web/guideline/source ngoài hoặc metadata kỹ thuật để render nội dung.
 
-O2.3. Nguồn dữ liệu không được dùng
-    O2 không được đọc hoặc dùng:
-        1. Raw input của user để tự viết lại O2.
-        2. Hidden memory / trí nhớ ẩn.
-        3. O_OUTPUT cũ, O2_OUTPUT cũ hoặc bất kỳ rendered output cũ nào.
-        4. A_STATE_PATCH làm nguồn chính.
-        5. C_STATE_PATCH làm nguồn chính.
-        6. A_STATE ngoài mapping O2.
-        7. C_STATE ngoài mapping O2.
-        8. C4_ITEMS để tự tạo lại phần thân O2.
-        9. C5_STATE.C5_FOR_O2 để xuất trực tiếp.
-        10. C4_SYNDROME_SUMMARY để tạo dòng riêng.
-        11. A12_FINAL để tạo dòng “Chẩn đoán”.
-        12. A13_LABS như kết quả xét nghiệm.
-        13. A13_IMAGING như kết quả chẩn đoán hình ảnh.
-        14. A13_TREATMENT để thêm hướng điều trị.
-        15. A15_STATE để thêm thuốc hoặc đơn thuốc.
-        16. A14_CURRENT_FOR_O2.
-        17. field A14 legacy tình trạng ra viện.
-        18. A14_LABS_RESULT hoặc A14_IMAGING_RESULT để tự thêm cận lâm sàng vào O2.
-        19. C1 xét nghiệm / chẩn đoán hình ảnh / thăm dò cần làm để biến thành kết quả đã có.
-        20. Web, guideline hoặc source ngoài nếu hệ thống không có contract.
-        21. Metadata kỹ thuật để render thành nội dung bệnh án.
-
-O2.4. Vai trò của O2 trong hệ thống
-    O2 là module output selective của layer O, không phải module A, không phải module C và không phải module lõi O tập trung.
-    O2 chỉ RUN khi G_STATE của ROUND hiện tại có O2 trong O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt O2 theo O_RENDER_ORDER.
-    Nếu O2 không nằm trong O_RENDER_LIST/O_RENDER_ORDER, O2 phải SKIP: không xuất O2, không tạo/cập nhật O2_OUTPUT, không in O2_OUTPUT dạng SKIP và không tự thêm O2 vào output list.
-    O2 BLOCKED/NEEDS_FIX khi A_GATE không PASS, C_GATE không PASS, C4_CHECK không PASS, thiếu full current A_STATE hợp lệ cho câu mở đầu, thiếu C4_STATE.C4_FOR_O2 hợp lệ, C4_FOR_O2 sai format, hoặc C4_FOR_O2 có nội dung O2 bị cấm output.
-    O2 không sửa G_STATE, A_STATE, C_STATE, C4_STATE; không tự chạy A/C/C4; không tự gọi O khác.
-    O2 không thay O1, O3, O4, O5, O6, O7, O8, O9, O10, O11, O12 hoặc O13.
-    O2 không thay A1-A15 và không thay C1-C7.
-
-O2.5. Điều kiện RUN / SKIP / BLOCKED
-    RUN khi đồng thời đủ:
-        1. O2 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER của ROUND hiện tại.
-        2. Đã đến lượt O2 theo G_STATE.O_RENDER_ORDER.
+O2_ALLOWED_ACTION
+    O2 RUN/render chỉ khi đồng thời:
+        1. O2 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER.
+        2. Đã đến lượt theo G_STATE.O_RENDER_ORDER.
         3. A_GATE = PASS và full current A_STATE hợp lệ.
-        4. C_GATE = PASS cho dependency C4.
+        4. C_GATE = PASS.
         5. C4_CHECK = PASS.
         6. C4 đã được G đưa vào C_RUN_ORDER trước O2.
-        7. C4_STATE.C4_FOR_O2 có mặt, hợp lệ, render-ready theo chuẩn C4/O2 và không chứa nội dung O2 bị cấm output.
-        8. Các nguồn bắt buộc cho câu mở đầu có mặt hoặc có xử lý no-data sạch theo contract.
-    SKIP khi O2 không nằm trong O_RENDER_LIST/O_RENDER_ORDER hoặc chưa đến lượt trong O_RENDER_ORDER. Khi SKIP, không output, không tạo/cập nhật O2_OUTPUT và không in O2_OUTPUT dạng SKIP.
-    BLOCKED/NEEDS_FIX khi thiếu nguồn bắt buộc, A_GATE/C_GATE/C4_CHECK không PASS, C4_STATE.C4_FOR_O2 chưa có, C4_FOR_O2 sai format, C4_FOR_O2 còn “Không áp dụng.”, C4_FOR_O2 có dòng phủ định cận lâm sàng hoặc có block giả hội chứng.
-    Khi BLOCKED/NEEDS_FIX, O2 nêu rõ nguồn hoặc format cần sửa và yêu cầu quay lại module nguồn phù hợp; O2 không tự bịa, không tự sửa C4_FOR_O2, không sửa hộ C4_FOR_O2, không tạo lại cho đúng và không xuất tóm tắt hoàn chỉnh.
-    O2 không fallback sang C4_ITEMS.
-    O2 không fallback sang A_STATE.
+        7. C4_STATE.C4_FOR_O2 có mặt, hợp lệ, render-ready và không chứa nội dung bị cấm output.
+        8. Nguồn bắt buộc cho câu mở đầu có mặt hoặc có xử lý no-data sạch theo contract.
+    O2 SKIP khi O2 không nằm trong render plan hoặc chưa đến lượt; khi SKIP không output, không tạo/cập nhật O2_OUTPUT và không in O2_OUTPUT = SKIP.
+    O2 BLOCKED/NEEDS_FIX khi thiếu nguồn bắt buộc, gate/check không PASS, thiếu hoặc sai C4_FOR_O2, C4_FOR_O2 còn “Không áp dụng.”, có dòng phủ định cận lâm sàng, có block giả hội chứng hoặc cần sửa nguồn C4 mới render đúng.
+    O2 không tự sửa/chạy C4, không tự sửa/chạy A, không tự sửa G, không tự render/thay O1 hoặc O3-O13, không tự tạo dữ liệu bệnh án, không tự bù dữ liệu thiếu và không dùng output cũ để render lại.
 
-O2.6. Mapping dữ liệu sang output
-    Mapping câu mở đầu:
-        1. Giới tính:
-            - A14_STATE.A14_SEX hoặc field giới tính tương đương hiện hành.
-        2. Tuổi:
-            - A14_STATE.A14_AGE hoặc field tuổi tương đương hiện hành.
-        3. Tiền sử:
-            - A2_STATE.A2_FINAL hoặc field tiền sử tương đương hiện hành; chỉ chèn nếu có dữ liệu.
-        4. Lý do vào viện:
-            - A1_STATE.A1_REASON hoặc field lý do vào viện tương đương hiện hành.
-        5. Số ngày bệnh / thời gian bệnh:
-            - A3_STATE chỉ khi A3 đã chuẩn hóa rõ; không tự tạo nếu thiếu dữ kiện rõ.
-    Mapping sau câu mở đầu:
-        1. Block hội chứng:
-            - Chỉ copy nguyên văn từ C4_STATE.C4_FOR_O2.
-        2. Dòng triệu chứng/cận lâm sàng rời:
-            - Chỉ copy nguyên văn từ C4_STATE.C4_FOR_O2.
-        3. Cận lâm sàng trong O2:
-            - Chỉ xuất khi dòng cận lâm sàng đã nằm nguyên văn trong C4_STATE.C4_FOR_O2, ở đúng vị trí do C4 quyết định.
-    O2 không có mapping output riêng cho chẩn đoán A12, hướng xử trí A13, thuốc A15, bệnh trình, tổng kết ra viện hoặc kết quả cận lâm sàng lấy trực tiếp ngoài C4_FOR_O2.
+O2_ALLOWED_WRITE
+    O2 chỉ được ghi/render O2_OUTPUT hoặc rendered text nếu contract vận hành dùng field này.
+    O2 có thể dùng nội bộ O2_RENDER_CHECK và O2_ERROR nếu hệ thống dùng check.
+    O2 không render metadata check/error vào bệnh án thường quy.
+    O2 không ghi O2_STATE, O2_FINAL, O2_REV, G_STATE, A_STATE, C_STATE, C4_STATE, O1, O3-O13, A1-A15 hoặc C1-C7.
 
-O2.7. Logic copy C4_FOR_O2
-    Các dòng sau câu mở đầu phải bằng nguyên văn C4_STATE.C4_FOR_O2.
-    O2 chỉ copy nguyên văn C4_FOR_O2, không tự tạo nội dung thay C4.
-    O2 không parse C4_FOR_O2.
-    O2 không transform C4_FOR_O2.
-    O2 không derive từ C4_FOR_O2.
-    O2 không diễn giải lại C4_FOR_O2.
-    O2 không dùng C4_SYNDROME_SUMMARY để tạo dòng riêng.
-    O2 không tự tách hội chứng nếu C4 chưa tách.
-    O2 không tự gom triệu chứng.
-    O2 không tự chuyển triệu chứng thành hội chứng.
-    O2 không tự chuyển hội chứng thành chẩn đoán.
-    O2 không tự chia cận lâm sàng vào hội chứng.
-    O2 không tự thêm, xóa, sửa hoặc sắp xếp lại bất kỳ dòng nào trong C4_FOR_O2.
-    O2 không tự đổi dấu “-”, dấu “+”, dấu “:”, khoảng trắng đầu dòng hoặc nội dung dòng trong C4_FOR_O2.
-    Nếu dữ liệu C4 chưa phù hợp mẫu O2, O2 phải BLOCKED/NEEDS_FIX và yêu cầu quay lại C4; không tự sửa trong O2.
-    Điều kiện kiểm trước khi copy C4_FOR_O2:
-        1. O2 chỉ kiểm tối thiểu C4_FOR_O2 có dạng render-ready.
-        2. Nếu C4_FOR_O2 sai format thì O2 BLOCKED/NEEDS_FIX và yêu cầu quay lại C4.
-        3. O2 không sửa lỗi format trong O2.
-        4. O2 không thêm dấu “:”.
-        5. O2 không thêm “Lâm sàng:”.
-        6. O2 không thêm “Cận lâm sàng:”.
-        7. O2 không đổi dòng triệu chứng thành “NAME: LÂM_SÀNG”.
-        8. O2 không tạo block cha-con cho triệu chứng.
-        9. O2 không thêm/bớt item.
-        10. O2 không đọc C4_ITEMS.
-        11. O2 không in nhãn nhóm nội bộ như “Hội chứng chính:”, “Hội chứng phụ:”, “Triệu chứng rời:”.
-        12. O2 không in dòng “Không áp dụng.” nếu dòng này không nằm nguyên văn trong C4_FOR_O2 hợp lệ.
-        13. O2 không render dòng phủ định cận lâm sàng.
-        14. O2 không render block giả hội chứng.
-        15. O2 không tự thêm heading “Xét nghiệm:”, “Chẩn đoán hình ảnh:” hoặc “Cận lâm sàng:” nếu các heading đó không có nguyên văn trong C4_FOR_O2.
-        16. O2 không tự thêm placeholder hoặc dòng phủ định.
-    Các dạng sai format phải BLOCKED/NEEDS_FIX và quay lại C4, không tự sửa trong O2:
-        1. “- Triệu chứng ...:”.
-        2. “- Nhóm triệu chứng ...:”.
-        3. “- Tổn thương ...:”.
-        4. “- Bệnh nền và theo dõi:”.
-        5. Dòng triệu chứng bị biến thành block cha-con.
-
-O2.8. Chuẩn cận lâm sàng trong O2
-    O2 không tự thêm cận lâm sàng.
-    O2 chỉ xuất cận lâm sàng khi:
-        1. Dòng cận lâm sàng đã nằm nguyên văn trong C4_STATE.C4_FOR_O2.
-        2. Dòng đó nằm ở vị trí do C4 quyết định.
-        3. C4 đã quyết định nội dung đó.
-    O2 không được tự lấy C5_FOR_O2, A14_LABS_RESULT, A14_IMAGING_RESULT, A13_LABS, A13_IMAGING, C1 hoặc nguồn khác để thêm cận lâm sàng.
-    O2 không tự quyết định cận lâm sàng nào thuộc hội chứng nào.
-    O2 không tự thêm tiền tố chung hoặc heading “Xét nghiệm:”, “Chẩn đoán hình ảnh:”, “Cận lâm sàng:” nếu C4_FOR_O2 không có nguyên văn.
-    O2 không render dòng phủ định cận lâm sàng.
-    O2 không biến chỉ định cần làm thành kết quả đã có.
-
-O2.9. Câu mở đầu và quy tắc chữ hoa/thường
-    Câu mở đầu phải là một câu văn liền mạch theo hướng:
-        Bệnh nhân [nam/nữ], [tuổi] tuổi, [tiền sử nếu có], vào viện vì [lý do vào viện]. Qua thăm khám và cận lâm sàng phát hiện các hội chứng, triệu chứng và cận lâm sàng rời sau:
-    Nếu có tiền sử, chèn dưới dạng “tiền sử [A2_FINAL]”. Nếu không có tiền sử, bỏ cụm tiền sử và không để thừa dấu phẩy.
-    Có thể giữ “vào ngày thứ [số ngày bệnh] của bệnh” chỉ khi A3 có dữ kiện đã chuẩn hóa rõ, hệ hiện hành vẫn muốn giữ và O2 không tự tạo số ngày bệnh.
-    Nếu A3 không có số ngày bệnh rõ, O2 không tự tạo và không ép mẫu gây bịa dữ liệu.
-    O2 được chỉnh chữ cái đầu của A2_FINAL và A1_REASON khi chèn giữa câu để câu văn liền mạch, nếu không đổi nghĩa.
-    O2 không hạ chữ tên riêng, chữ viết tắt, thuật ngữ phải viết hoa, mã bệnh hoặc ký hiệu.
-    O2 không viết lại toàn bộ nội dung A2_FINAL/A1_REASON và không thêm, bớt hoặc thay nghĩa.
-
-O2.10. No-data / BLOCKED
-    Nếu C4_STATE.C4_FOR_O2 chưa có, C_GATE không PASS hoặc C4_CHECK không PASS, O2 không xuất tóm tắt hoàn chỉnh.
-    Nếu A_GATE không PASS, O2 không xuất tóm tắt hoàn chỉnh.
-    Nếu thiếu nguồn bắt buộc cho câu mở đầu, O2 phải BLOCKED/NEEDS_FIX hoặc xử lý no-data sạch theo contract; không tự bịa.
-    Nếu C4_FOR_O2 có format sai, O2 không tự sửa và phải yêu cầu quay lại C4.
-    Nếu C4_FOR_O2 còn “Không áp dụng.” hoặc dòng phủ định cận lâm sàng, O2 không xuất tóm tắt hoàn chỉnh và yêu cầu quay lại C4.
-    Nếu không có cận lâm sàng thật trong C4_FOR_O2, O2 không render dòng phủ định cận lâm sàng.
-    O2 không fallback sang C4_ITEMS.
-    O2 không fallback sang A_STATE.
-    O2 không sửa hộ C4_FOR_O2.
-    O2 không tạo lại cho đúng khi C4_FOR_O2 sai.
-
-O2.11. Metadata không được render
-    O2 có thể đọc metadata điều phối được phép để kiểm RUN/SKIP/BLOCKED, nhưng không được render metadata kỹ thuật vào nội dung bệnh án.
-    O2 không được render các mục sau vào output bệnh án thường quy:
-        1. STATE_VERSION.
-        2. ROUND_ID.
-        3. RUN_MODE.
-        4. Ax_REV, Cx_REV hoặc Ox_REV nếu có.
-        5. UPDATED_AT.
-        6. A_CHECK / A_ERROR.
-        7. C_CHECK / C_ERROR.
-        8. O_CHECK / O_ERROR.
-        9. CREATE / UPDATE / REUSE.
-        10. A_MODULE_REV.
-        11. O2_RENDER_CHECK.
-        12. O2_ERROR.
-
-O2.12. Boundary với O khác, A/C và PLAN_9
-    O2 không thay:
-        1. O1 — khám sơ bộ.
-        2. O3 — tổng kết ra viện.
-        3. O4 — bệnh trình.
-        4. O5/O6 — thuốc/đơn thuốc.
-        5. O7 — hội chẩn.
-        6. O8 — bệnh án chi tiết.
-        7. O9 — hỏi thêm/khám thêm/cần làm thêm.
-        8. O10 — cảnh báo lâm sàng.
-        9. O11 — cảnh báo thuốc.
-        10. O12 — render C6.
-        11. O13 — render C5.
-    O2 không thay A1-A15 và không thay C1-C7.
-    O2 không tự gọi C4/C5 hoặc bất kỳ C nào.
-    O2 chỉ copy C4_FOR_O2 nếu C4 đã chạy và hợp lệ.
-    PLAN_9 / PLAN_OUTSIDE_RECORD không làm O2 xuất formal, không tạo formal O2_OUTPUT, không tạo formal C4_STATE và không mutate A/C/O state.
-    O2 không ghi câu trả lời outside-record vào bệnh án và không đọc C6/O12 trong PLAN_9 để tạo formal O2.
-    Sau O2, hệ thống render O tiếp theo theo đúng G_STATE.O_RENDER_ORDER; O2 không giả định mình luôn là output đầu tiên hoặc cuối cùng.
-
-O2.13. Chuẩn đầu ra O2
-    Khi xuất thật, toàn bộ O2 phải nằm trong một khung code text duy nhất.
-    Tiêu đề “TÓM TẮT BỆNH ÁN” phải nằm trong khung code.
-    Không có bất kỳ nội dung O2 nào nằm ngoài khung code.
-    Không tách O2 thành nhiều khung code.
-    Không gộp O2 với output O khác.
-    Các O khác tự quy định chuẩn output trong contract riêng của chính Ox; O2 không tạo luật code block chung cho mọi O.
-    Tiêu đề đúng là: “TÓM TẮT BỆNH ÁN”.
-    Không có dòng trống giữa tiêu đề và câu mở đầu.
-    Không có dòng trống giữa câu mở đầu và dòng đầu tiên của C4_FOR_O2.
-    Format output thật:
+O2_RENDER_SCHEMA
+    Output thật phải nằm trong một code block text duy nhất, mở ngay trước heading “TÓM TẮT BỆNH ÁN” và đóng sau dòng cuối cùng của body exact-copy từ C4_STATE.C4_FOR_O2.
+    Không có nội dung O2 ngoài code block, không tách nhiều code block và không gộp với O output khác.
+    Line đầu tiên trong code block phải đúng literal “TÓM TẮT BỆNH ÁN”; không đổi thành “Tóm tắt bệnh án”, “TÓM TẮT BA”, markdown heading hoặc heading ngoài code block.
+    Không có dòng trống giữa heading và câu mở đầu; không có dòng trống giữa câu mở đầu và dòng đầu tiên của C4_FOR_O2.
+    Format bắt buộc:
         ```text
         TÓM TẮT BỆNH ÁN
         Bệnh nhân [nam/nữ], [tuổi] tuổi, [tiền sử nếu có], vào viện vì [lý do vào viện]. Qua thăm khám và cận lâm sàng phát hiện các hội chứng, triệu chứng và cận lâm sàng rời sau:
         [COPY NGUYÊN VĂN C4_STATE.C4_FOR_O2]
         ```
-    Cấm trong output nếu không nằm nguyên văn trong C4_FOR_O2:
-        1. Thêm mã ICD.
-        2. Thêm chẩn đoán A12 như dòng riêng.
-        3. Có dòng riêng “Chẩn đoán: ...”.
-        4. Có dòng riêng “Tình trạng hiện tại: ...”.
-        5. Có dòng “Hiện tại còn ...”.
-        6. Có dòng “Khám ghi nhận...”.
-        7. Có dòng “Hướng xử trí...”.
-        8. Có dòng “Điều trị...”.
-        9. Có dòng “Thuốc...”.
-        10. Có dòng “Bệnh trình...”.
-        11. Có dòng “Tổng kết...”.
-        12. Có dòng “Nhận xét...”.
-        13. Có dòng cuối lấy từ A14_CURRENT_FOR_O2.
-        14. Thêm nhận xét sau các hội chứng/triệu chứng/cận lâm sàng.
-        15. Viết O2 thành nhiều đoạn văn tự do hoặc nhiều mục cũ.
-        16. Render metadata kỹ thuật.
-        17. Tự sửa, thêm, xóa hoặc sắp xếp lại các dòng C4_FOR_O2.
-        18. Tự đổi dấu “-”, dấu “+”, dấu “:”, khoảng trắng đầu dòng hoặc nội dung dòng trong C4_FOR_O2.
-        19. Tự thêm heading “Xét nghiệm:”, “Chẩn đoán hình ảnh:” hoặc “Cận lâm sàng:” nếu C4_FOR_O2 không có nguyên văn.
-        20. Tự thêm placeholder hoặc dòng phủ định.
+    Schema trên không phải nội dung mẫu mặc định để copy vào ca bệnh thật.
 
-O2.14. Ví dụ chuẩn hóa
-    Mẫu này chỉ dùng để định hướng format, không sao chép vào ca bệnh thật:
-        ```text
-        TÓM TẮT BỆNH ÁN
-        Bệnh nhân nam, 64 tuổi, tiền sử đái tháo đường nhiều năm, vào viện vì đau khớp vai trái, hoa mắt chóng mặt. Qua thăm khám và cận lâm sàng phát hiện các hội chứng, triệu chứng và cận lâm sàng rời sau:
-        - Hội chứng viêm khớp:
-          + Khớp vai trái sưng đau, vận động đau tăng, ấn khe khớp đau.
-          + MRI khớp vai: tụ dịch, rách bán phần dây chằng/gân cơ dưới vai.
-        - Hoa mắt chóng mặt tăng, đi lại khó khăn.
-        - X-quang ngực: tim phổi chưa phát hiện tổn thương.
-        ```
-    Các dòng sau câu mở đầu trong ví dụ là copy nguyên văn C4_FOR_O2 giả định.
-    O2 không tự tạo các dòng sau câu mở đầu.
-    Ví dụ không phải dữ liệu mặc định, không được sao chép vào ca bệnh thật và không phải nguồn lâm sàng.
-    Ví dụ không dùng A14_CURRENT_FOR_O2, không dùng field A14 legacy tình trạng ra viện và không dùng C5_FOR_O2 trực tiếp.
+O2_LOGIC_RULES
+    Câu mở đầu tạo từ allowed A fields: giới, tuổi, tiền sử nếu có, lý do vào viện và số ngày bệnh/thời gian bệnh nếu A3 đã chuẩn hóa rõ và contract hiện hành còn yêu cầu.
+    Nếu có tiền sử, chèn dưới dạng “tiền sử [A2_FINAL]”; nếu không có tiền sử thì bỏ cụm tiền sử và không để thừa dấu phẩy.
+    O2 không viết lại toàn bộ A2_FINAL/A1_REASON, không tự thêm dữ kiện từ A ngoài mapping, không tự thêm chẩn đoán/điều trị/thuốc/cận lâm sàng.
+    O2 có thể chỉnh chữ cái đầu của inserted A1/A2 nếu cần để câu liền mạch nhưng không được đổi nghĩa; phải giữ tên riêng, chữ viết tắt, thuật ngữ, mã bệnh và ký hiệu nếu nguồn có.
+    Opening phrase bắt buộc phải giữ cụm: “Qua thăm khám và cận lâm sàng phát hiện các hội chứng, triệu chứng và cận lâm sàng rời sau:”.
 
-O2.15. O2_RENDER_CHECK / hậu kiểm nội bộ
-    O2_RENDER_CHECK = PASS chỉ khi đồng thời đủ:
-        1. O2_OUTPUT nằm trong một code block text duy nhất.
-        2. Tiêu đề đúng là “TÓM TẮT BỆNH ÁN”.
-        3. Có đúng một câu mở đầu theo mapping O2.
-        4. Phần thân sau câu mở đầu phải bằng nguyên văn C4_STATE.C4_FOR_O2.
-        5. Không có dòng nào sau câu mở đầu nằm ngoài C4_FOR_O2.
-        6. Không có dòng “Khám ghi nhận”.
-        7. Không có dòng “Chẩn đoán”.
-        8. Không có dòng “Hướng xử trí”.
-        9. Không thêm “Lâm sàng:” hoặc “Cận lâm sàng:” nếu không có nguyên văn trong C4_FOR_O2.
-        10. Không đọc C4_ITEMS.
-        11. Không tự tổng hợp từ A_STATE ngoài câu mở đầu.
-        12. Không dùng A12/A13/A14/A15 để thêm phần thân.
-        13. Nếu C4_FOR_O2 sai format hoặc thiếu thì O2 BLOCKED/NEEDS_FIX, không xuất hoàn chỉnh.
-        14. Không parse, transform hoặc derive C4_FOR_O2.
-        15. Không thêm/bớt/sửa/sắp xếp lại C4_FOR_O2.
-        16. Không đổi dấu “-”, dấu “+”, dấu “:”, khoảng trắng đầu dòng hoặc nội dung dòng trong C4_FOR_O2.
-    Nếu không đạt:
-        1. O2_RENDER_CHECK = NEEDS_FIX.
-        2. O2_ERROR phải ghi rõ lỗi.
-        3. O2 không được xuất tóm tắt hoàn chỉnh.
-    O2_RENDER_CHECK là hậu kiểm nội bộ; không render metadata O2_RENDER_CHECK hoặc O2_ERROR vào bệnh án thường quy.
+O2_SPECIAL_RULES
+    Toàn bộ body sau câu mở đầu phải copy nguyên văn C4_STATE.C4_FOR_O2.
+    O2 không parse, transform, derive, diễn giải lại, thêm dòng, bớt dòng, sửa dòng, sắp xếp lại dòng, đổi dấu “-”, dấu “+”, dấu “:”, đổi indentation/leading spaces, đổi khoảng trắng có ý nghĩa, đổi thứ tự hội chứng/triệu chứng/cận lâm sàng, đổi tên hội chứng, đổi triệu chứng thành hội chứng, đổi hội chứng thành chẩn đoán, sửa lỗi C4, làm sạch C4_FOR_O2 hoặc hợp thức hóa source C4 bẩn.
+    Nếu C4_FOR_O2 sai, thiếu, không render-ready hoặc chứa nội dung cấm, O2 phải BLOCKED/NEEDS_FIX, báo lỗi về C4/source và không tự sửa hộ C4.
+    O2 không fallback sang C4_ITEMS, C4_SYNDROME_SUMMARY, A_STATE body, A12/A13/A14/A15, C5_FOR_O2, C1 hoặc output cũ; nếu C4_STATE.C4_FOR_O2 thiếu/không hợp lệ thì không tự tổng hợp lại, không tự chọn hội chứng/triệu chứng/cận lâm sàng và không render bản hoàn chỉnh.
+    O2 không tự thêm cận lâm sàng; chỉ xuất cận lâm sàng nếu dòng đó đã nằm nguyên văn trong C4_STATE.C4_FOR_O2 ở vị trí do C4 quyết định.
+    O2 không biến chỉ định cần làm thành kết quả đã có, không lấy kết quả từ A14/A13/C1 để thêm body, không thêm dòng phủ định cận lâm sàng, không tạo block giả hội chứng, không thêm kết luận chẩn đoán, thuốc hoặc điều trị.
+    O2 không render metadata kỹ thuật như STATE_VERSION, ROUND_ID, RUN_MODE, REV, UPDATED_AT, A_CHECK/C_CHECK/O_CHECK, ERROR, CREATE/UPDATE/REUSE, A_MODULE_REV, O2_RENDER_CHECK hoặc O2_ERROR; O2_RENDER_CHECK và O2_ERROR nếu có chỉ dùng nội bộ.
+    PLAN_9/outside-record không làm O2 xuất formal, không tạo formal O2_OUTPUT, không tạo C4_STATE, không đọc C6/O12 để tạo formal O2 và không đưa nội dung ngoài bệnh án vào formal output.
 
-O2.16. Checklist trước khi chốt O2
-    Trước khi chốt O2, kiểm:
-        1. O2 nằm trong O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt.
-        2. A_GATE = PASS.
-        3. C_GATE = PASS vì O2 phụ thuộc C4.
+O2_CHECK_PASS_IF
+    PASS khi đồng thời:
+        1. O2 nằm trong render plan và đúng lượt.
+        2. A_GATE = PASS và full current A_STATE hợp lệ.
+        3. C_GATE = PASS.
         4. C4_CHECK = PASS.
-        5. C4_STATE.C4_FOR_O2 có mặt và hợp lệ.
-        6. O2 đọc C4_STATE.C4_FOR_O2 cho phần thân.
-        7. O2 không đọc C4_ITEMS.
-        8. O2 không parse C4_FOR_O2.
-        9. O2 không transform C4_FOR_O2.
-        10. O2 không derive từ C4_FOR_O2.
-        11. O2 không tự tạo, sửa, tách, gom, chia hoặc sắp xếp lại C4_FOR_O2.
-        12. O2 không đổi dấu “-”, dấu “+”, dấu “:”, khoảng trắng đầu dòng hoặc nội dung dòng của C4_FOR_O2.
-        13. Phần sau câu mở đầu bằng nguyên văn C4_STATE.C4_FOR_O2.
-        14. Không còn cụm mô tả loại dữ liệu đã bị C4 loại bỏ.
-        15. Không còn câu mở đầu cũ dùng thứ tự/nhóm dữ liệu không đúng contract C4 mới.
-        16. Không thêm “Khám ghi nhận”, “Chẩn đoán”, “Hướng xử trí”.
-        17. Nếu C4_FOR_O2 sai thì BLOCKED/NEEDS_FIX, không sửa hộ.
-        18. Nguồn câu mở đầu đủ theo mapping hoặc có xử lý no-data sạch theo contract.
-        19. Không đọc C5_FOR_O2 trực tiếp.
-        20. Không đọc C ngoài C4 nếu không mapping rõ.
-        21. Không dùng C4_SYNDROME_SUMMARY thành dòng riêng.
-        22. Không tự tạo hoặc tự sửa hội chứng.
-        23. Không tự phân loại triệu chứng.
-        24. Không tự chia cận lâm sàng vào hội chứng.
-        25. Không tự thêm cận lâm sàng ngoài C4_FOR_O2.
-        26. Không dùng A14_CURRENT_FOR_O2.
-        27. Không dùng field A14 legacy tình trạng ra viện.
-        28. Không có dòng “Hiện tại còn...”.
-        29. Không có mục “Tình trạng hiện tại”.
-        30. Không có dòng hiện tại cuối cùng.
-        31. Câu mở đầu đúng chuẩn mới và có cụm “Qua thăm khám và cận lâm sàng phát hiện các hội chứng, triệu chứng và cận lâm sàng rời sau:”.
-        32. Tiêu đề là “TÓM TẮT BỆNH ÁN”.
-        33. Output nằm trong một khung code text duy nhất.
-        34. Tiêu đề “TÓM TẮT BỆNH ÁN” nằm trong code block.
-        35. Không có dòng trống giữa tiêu đề và câu mở đầu.
-        36. Không có dòng trống giữa câu mở đầu và C4_FOR_O2.
-        37. Không gộp O2 với output O khác.
-        38. Không render nhãn nhóm nội bộ.
-        39. Không render “Không áp dụng.”.
-        40. Không render dòng phủ định cận lâm sàng.
-        41. Không render metadata.
-        42. Không biến O2 thành O1/O3/O8/O khác.
-        43. Không đưa chẩn đoán A12 thành mục riêng.
-        44. Không đưa A13/A15, thuốc/đơn thuốc/hướng điều trị/bệnh trình/tổng kết ra viện.
-        45. Không viết O2 thành đoạn văn tự do nhiều mục cũ.
-        46. O2_RENDER_CHECK = PASS trước khi output hoàn chỉnh.
-    Nếu đạt, O2 có thể output. Nếu không đạt, O2 BLOCKED/NEEDS_FIX và nêu rõ điểm cần sửa.
+        5. C4 nằm trong C_RUN_ORDER trước O2 nếu O2 formal output được yêu cầu.
+        6. C4_STATE.C4_FOR_O2 có mặt, hợp lệ và render-ready.
+        7. Câu mở đầu đúng mapping A và giữ đúng opening phrase bắt buộc.
+        8. Output nằm trong một code block text duy nhất, heading đúng literal “TÓM TẮT BỆNH ÁN”, không có blank line giữa heading/opening/body.
+        9. Body sau opening bằng nguyên văn C4_STATE.C4_FOR_O2 và không có dòng ngoài C4_FOR_O2 trong body.
+        10. Không dùng nguồn ngoài allowlist, không đọc/fallback C4_ITEMS, không dùng A12/A13/A14/A15/C1/C5 để thêm body.
+        11. Không parse/transform/derive/sửa/sắp xếp C4_FOR_O2 và không render metadata/check/error.
+        12. O2_RENDER_CHECK = PASS nếu hệ thống dùng check.
 
-O2.17. Các lỗi không được mắc
-    Không được:
-        1. Output O2 khi không nằm trong O_RENDER_LIST/O_RENDER_ORDER hoặc chưa đến lượt.
-        2. Tự chạy A/C/C4.
-        3. Tự sửa A_STATE/C_STATE/C4_STATE/G_STATE.
-        4. Dùng raw input, hidden memory, O_OUTPUT cũ, O2_OUTPUT cũ hoặc rendered output cũ làm nguồn.
-        5. Đọc A_STATE/C_STATE ngoài mapping O2.
-        6. Đọc C4_ITEMS.
-        7. Đọc C5_FOR_O2 trực tiếp.
-        8. Dùng C4_SYNDROME_SUMMARY tạo dòng riêng.
-        9. Tự tạo hội chứng.
-        10. Tự sửa hội chứng sai format trong O2.
-        11. Tự sửa C4_FOR_O2 sai format trong O2 thay vì BLOCKED/NEEDS_FIX và yêu cầu quay lại C4.
-        12. Tự chuyển triệu chứng thành hội chứng.
-        13. Tự chuyển hội chứng thành chẩn đoán.
-        14. Tự thêm cận lâm sàng ngoài C4_FOR_O2.
-        15. Tự thêm, xóa hoặc sắp xếp lại dòng trong C4_FOR_O2.
-        16. Tự đổi dấu “-”, dấu “+”, dấu “:”, khoảng trắng đầu dòng hoặc nội dung dòng trong C4_FOR_O2.
-        17. Tự thêm heading “Xét nghiệm:”, “Chẩn đoán hình ảnh:” hoặc “Cận lâm sàng:” nếu C4_FOR_O2 không có nguyên văn.
-        18. Dùng ví dụ làm template lâm sàng cho ca thật.
-        19. Tự lấy A14/A13/C1/C5 để thêm cận lâm sàng.
-        20. Render metadata.
-        21. Render nhãn nhóm nội bộ.
-        22. Render “Không áp dụng.”.
-        23. Render dòng phủ định cận lâm sàng.
-        24. Dùng A14_CURRENT_FOR_O2.
-        25. Dùng field A14 legacy tình trạng ra viện.
-        26. Render dòng “Hiện tại còn...”.
-        27. Có mục “Tình trạng hiện tại”.
-        28. Có dòng hiện tại cuối cùng.
-        29. Thêm chẩn đoán A12 thành dòng riêng.
-        30. Thêm hướng điều trị, thuốc, đơn thuốc, bệnh trình hoặc tổng kết ra viện.
-        31. Thêm dòng “Khám ghi nhận”, “Chẩn đoán”, “Hướng xử trí”, “Điều trị”, “Thuốc”, “Bệnh trình”, “Tổng kết”, “Nhận xét” hoặc “Hiện tại” nếu không có nguyên văn trong C4_FOR_O2.
-        32. Biến O2 thành đoạn văn tự do hoặc format nhiều mục cũ.
-        33. Tách O2 thành nhiều khung code.
-        34. Để tiêu đề “TÓM TẮT BỆNH ÁN” ngoài khung code.
-        35. Dùng tiêu đề “Tóm tắt bệnh án” trong output thật.
-        36. Tạo dòng trống giữa tiêu đề và câu mở đầu.
-        37. Tạo dòng trống giữa câu mở đầu và C4_FOR_O2.
-        38. Gộp O2 với output O khác.
-        39. Tự thêm placeholder hoặc dòng phủ định.
-        40. Tạo luật code block chung cho mọi O thay vì chỉ khóa trong O2.
-        41. Fallback sang C4_ITEMS khi C4_FOR_O2 thiếu hoặc sai.
-        42. Fallback sang A_STATE để tạo phần thân khi C4_FOR_O2 thiếu hoặc sai.
-        43. Parse, transform, derive hoặc diễn giải lại C4_FOR_O2.
+O2_NEEDS_FIX_IF
+    SKIP, không phải NEEDS_FIX, khi O2 không nằm trong render plan hoặc chưa đến lượt.
+    NEEDS_FIX/BLOCKED khi A_GATE thiếu/không PASS, full current A_STATE thiếu/không hợp lệ, C_GATE thiếu/không PASS, C4_CHECK thiếu/không PASS, C4 chưa được đưa vào C_RUN_ORDER trước O2 khi O2 formal output được yêu cầu, thiếu C4_STATE.C4_FOR_O2, C4_FOR_O2 không render-ready/sai format/chứa “Không áp dụng.” nếu contract cấm/chứa dòng phủ định cận lâm sàng bị cấm/chứa block giả hội chứng, thiếu required source cho câu mở đầu mà không có no-data handling sạch, output sai code block/heading/opening phrase/blank line, body không exact-copy C4_FOR_O2, O2 tự thêm/bớt/sửa/sắp xếp body, fallback sang C4_ITEMS hoặc A_STATE, dùng nguồn cấm, render metadata/check/error, hoặc tự sửa/che lỗi C4.
+
+O2_ERROR_RULE
+    Khi NEEDS_FIX/BLOCKED, O2_ERROR phải ghi rõ lỗi cụ thể và chỉ rõ nhóm lỗi: G render plan/order, A_GATE/A_STATE, C_GATE, C4_CHECK, C4_STATE.C4_FOR_O2, opening sentence, render schema, exact-copy, forbidden source, metadata hoặc outside-record.
+    Nếu lỗi do C4_FOR_O2, route rõ về C4/source C4.
+    Khi lỗi, O2 không render hoàn chỉnh “TÓM TẮT BỆNH ÁN”, không tự sửa C4 và không tự fill bằng nguồn cấm.
+    Khi PASS, O2_RENDER_CHECK = PASS nếu hệ thống dùng; không render check/error metadata trong bệnh án thường quy.
+
+O2_REUSE_RULE
+    Contract O2 không định nghĩa lifecycle CREATE/UPDATE/REUSE riêng.
+    O2 không đọc/reuse old O2_OUTPUT; khi G plan O2, O2 render lại từ current allowed sources.
+    Old output không phải source và không dùng rendered output cũ để dựng O2 mới.
+
+O2_END
+    Sau O2, hệ thống render O tiếp theo theo G_STATE.O_RENDER_ORDER.
+    O2 không tự chạy O3, không gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O2
 ####################################################################################################
