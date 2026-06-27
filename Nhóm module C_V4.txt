@@ -60,1182 +60,256 @@ C_CORE_SELECTIVE.3. C_GATE và kết thúc STEP C
 ####################################################################################################
 
 C1 — HỎI THÊM / KHÁM THÊM / CẬN LÂM SÀNG BỔ SUNG / ĐÁNH GIÁ LẠI
-Version: BA S-G-A-C-O v3
-Update 09:15 30/05/2026 GMT+7
+Version: BA S-G-A-C-O V4 compact allowlist
+Update: compact C1 V4 — ALLOWLIST MODE
 
 >>> READ-LOCK: C1
-- Bắt buộc đọc tuần tự toàn bộ C1 từ C1.1 đến C1.22.
-- Không được bỏ qua mục nào.
-- Chỉ tạo C1_STATE.
-- Không tạo state của C khác.
-- Không sửa A_STATE.
-- Không chạy A.
-- Không render O.
-- C1 là một module selective của nhóm C; C1 chỉ chạy khi C1 nằm trong G_STATE.C_RUN_ORDER.
-- C1 chỉ nêu các dữ kiện cần hỏi thêm, khám thêm, cận lâm sàng/thăm dò bổ sung và điểm cần đánh giá lại.
-- C1 không viết chẩn đoán thay A12.
-- C1 không viết hướng điều trị thay A13.
-- C1 không cảnh báo lâm sàng thay C2.
-- C1 không kiểm an toàn thuốc thay A15.
-- C1 không chuẩn hóa kết quả cận lâm sàng đã có thay A14/C5.
-- C1 không tổng hợp bệnh án thay C4.
-- Sau khi hoàn tất C1_STATE, chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER; nếu C1 là C cuối cùng thì STEP C kết thúc.
-- C1 không giả định C2 là module kế tiếp và không buộc C khác chạy.
+- Bắt buộc đọc toàn bộ C1 compact từ C1_ROLE đến C1_END.
+- C1 chỉ chạy khi C1 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
+- C1 chỉ tạo/cập nhật/reuse/check full C1_STATE; không tạo patch/delta.
+- C1 không sửa A/S/G/O hoặc C2-C7.
 <<< END READ-LOCK: C1
 
-C1.1. Nhiệm vụ của C1
-    C1.1.1. Vai trò chính của C1
-        C1 là module chuẩn hóa phần cần hỏi thêm, khám thêm, làm thêm và đánh giá lại.
-        C1 tạo C1_STATE để đưa vào current selective C_STATE của ROUND hiện tại.
-        C1_STATE là nguồn chính thức cho O9 khi cần render phần hỏi thêm/khám thêm/cận lâm sàng bổ sung/đánh giá lại.
-        C1 giúp hệ thống tách rõ phần “cần bổ sung dữ kiện” khỏi:
-            1. Dữ kiện nguồn của nhóm A.
-            2. Cảnh báo lâm sàng của C2.
-            3. Kiểm an toàn thuốc của A15 và cảnh báo tác dụng phụ / theo dõi của C3.
-            4. Tổng hợp bệnh án của C4.
-            5. Chẩn đoán phân biệt/nghi ngờ/bệnh khác có khả năng của C5.
-        C1 không phải module chẩn đoán.
-        C1 không phải module điều trị.
-        C1 không phải module cảnh báo.
-        C1 không phải module đơn thuốc.
-        C1 không phải module render output.
-
-    C1.1.2. Nội dung C1 tạo ra
-        C1 tạo:
-            1. C1_REV.
-            2. C1_SOURCE_A_REV.
-            3. C1_FINAL.
-            4. C1_CHECK.
-            5. C1_ERROR nếu C1_CHECK = NEEDS_FIX.
-
-    C1.1.3. Nguyên tắc trách nhiệm
-        C1 chỉ nêu phần cần bổ sung để hoàn thiện đánh giá lâm sàng.
-        C1 không tạo dữ liệu nguồn thay A.
-        C1 không sửa A_STATE.
-        C1 không render đầu ra cuối.
-        C1 không viết chẩn đoán chính thức.
-        C1 không viết hướng điều trị chính thức.
-        C1 không viết đơn thuốc.
-        C1 không kết luận cảnh báo lâm sàng cuối cùng.
-        C1 không kết luận an toàn thuốc cuối cùng.
-        Nếu phát hiện dữ kiện thiếu, C1 ghi rõ cần hỏi thêm/khám thêm/làm thêm/đánh giá lại.
-        Nếu phát hiện A_STATE thiếu hoặc mâu thuẫn, C1 ghi cần bổ sung hoặc cần xác minh; không tự sửa A_STATE.
-        Nếu C1 bị lẫn chẩn đoán, hướng điều trị, cảnh báo, thuốc, tổng hợp bệnh án hoặc kết quả cận lâm sàng đã có thì phải sửa C1.
-
-C1.2. Khi nào chạy C1
-    Điều kiện tiên quyết duy nhất để chạy C1 là: C1 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-    User request, O9 render, A_GATE PASS, A_STATE thay đổi hoặc dữ kiện còn thiếu không tự làm C1 chạy nếu G chưa đưa C1 vào C_RUN_ORDER.
-
-    C1.2.1. Khi user yêu cầu hỏi thêm / khám thêm
-        G đưa C1 vào C_RUN_ORDER khi user yêu cầu trực tiếp một trong các nội dung:
-            1. Cần hỏi gì thêm.
-            2. Cần khám gì thêm.
-            3. Cần làm thêm gì.
-            4. Còn thiếu dữ kiện gì.
-            5. Cần bổ sung gì.
-            6. Cần đánh giá lại gì.
-            7. Cần khai thác thêm gì.
-            8. Cần kiểm tra thêm gì.
-            9. Cần cận lâm sàng bổ sung gì.
-            10. Cần theo dõi lại điểm nào.
-        C1 không cần user dùng đúng một câu lệnh cố định.
-        Nếu ý định user là hỏi về phần bổ sung dữ kiện, G có thể đưa C1 vào C_RUN_ORDER.
-        User yêu cầu trực tiếp C1 không làm C1 tự chạy; C1 chỉ chạy sau khi G đã đưa C1 vào C_RUN_ORDER.
-
-    C1.2.2. Khi G xác định O9 cần render
-        Nếu O9 nằm trong O_RENDER_LIST, G phải thêm C1 vào C_RUN_ORDER vì O9 requires C1.
-        O9 được render không làm C1 tự chạy; C1 chỉ chạy sau khi G đã thêm C1 vào C_RUN_ORDER.
-        Khi được chạy, C1 tự áp dụng lifecycle nội bộ CREATE / UPDATE / REUSE và tạo C1_STATE đầy đủ hợp lệ.
-        O9 không được tự viết phần hỏi thêm/khám thêm nếu C1 chưa tạo C1_FINAL hợp lệ.
-        Nếu O9 cần C1 mà C1_STATE thiếu:
-            - C1 phải chạy trước O9.
-        Nếu C1_CHECK = NEEDS_FIX:
-            - O9 không được render như nội dung hoàn chỉnh nếu lỗi ảnh hưởng output.
-
-    C1.2.3. Khi output khác cần C1
-        Nếu output khác cần phần bổ sung dữ kiện, G phải đưa C1 vào C_RUN_ORDER trước khi C1 chạy.
-        Ví dụ:
-            1. Output hội chẩn cần phần đề nghị hỏi thêm/khám thêm.
-            2. Output tóm tắt cần ghi phần còn thiếu.
-            3. Output kế hoạch cần phần đánh giá lại.
-            4. Output dặn dò theo dõi cần điểm đánh giá lại.
-        Khi output khác dùng C1, C1 vẫn chỉ tạo C1_STATE.
-        C1 không tự render output đó.
-
-    C1.2.4. Khi A_GATE PASS nhưng còn dữ kiện chưa đủ chắc
-        A_GATE PASS là điều kiện nguồn hợp lệ; không phải điều kiện kích hoạt C1.
-        Nếu A_GATE đã PASS về kỹ thuật nhưng A_STATE còn dữ kiện chưa đủ chắc, C1 chỉ nêu phần cần bổ sung khi C1 đã nằm trong C_RUN_ORDER.
-        Ví dụ:
-            1. Bệnh sử có đau ngực nhưng thiếu thời gian khởi phát.
-            2. Khám hô hấp thiếu SpO₂ trong bệnh cảnh khó thở.
-            3. Có dùng thuốc nhưng thiếu dị ứng thuốc.
-            4. Có chẩn đoán nghi nhiễm khuẩn nhưng chưa có cận lâm sàng cần đánh giá thêm.
-            5. Có bệnh cảnh cần theo dõi đáp ứng điều trị nhưng chưa có điểm đánh giá lại.
-        C1 không sửa A_STATE; C1 chỉ ghi phần cần hỏi/khám/làm thêm/đánh giá lại.
-
-    C1.2.5. Khi không cần C1
-        Nếu output hiện tại không cần hỏi thêm/khám thêm/bổ sung/đánh giá lại:
-            - C1 có thể không chạy theo G_STATE.
-        Nếu C1 không nằm trong C_RUN_ORDER:
-            - Không chạy C1.
-            - Không tạo hoặc cập nhật C1_STATE.
-            - Không in C1_STATE dạng SKIP.
-            - Không tạo patch/delta.
-            - Không tăng C1_REV và không cập nhật C1_SOURCE_A_REV.
-            - C1_STATE cũ nếu có giữ nguyên cho đến khi PLAN yêu cầu chạy lại C1.
-        Nếu A_STATE thay đổi nhưng ROUND không yêu cầu C1, không có O9 và plan không chỉ định C1 thì C1 không chạy.
-        Không chạy C1 chỉ để tạo nội dung không cần thiết.
-        Không tạo danh sách hỏi thêm quá mức nếu user không yêu cầu và output không cần.
-
-C1.3. Nguồn được đọc
-    C1.3.1. Nguồn được đọc
-        C1 được đọc khi C1 nằm trong G_STATE.C_RUN_ORDER:
-            1. G_STATE metadata kỹ thuật và C_RUN_ORDER của ROUND hiện tại để xác nhận C1 được chạy.
-            2. A_GATE mới nhất.
-            3. Full current A_STATE mới nhất sau A_GATE.
-            4. A_MODULE_REV từ A_GATE / full current A_STATE để ghi C1_SOURCE_A_REV.
-            5. C1_STATE hiện hành mới nhất nếu đã có.
-            6. User input của ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C1.
-            7. File/module C1.
-        C1 chỉ đọc user input để xác định user đang hỏi gì hoặc đang yêu cầu bổ sung gì.
-        C1 không dùng user input để sửa trực tiếp A_STATE.
-        Nếu user input chứa dữ kiện nguồn mới cần đưa vào A, việc đó thuộc G/A, không thuộc C1.
-
-    C1.3.2. Các A_STATE có thể đối chiếu
-        C1 có thể đối chiếu:
-            1. A1_STATE để biết lý do vào viện và vấn đề chính ban đầu.
-            2. A2_STATE để biết tiền sử, dị ứng, thuốc đang dùng, bệnh nền cần hỏi thêm.
-            3. A3_STATE để biết bệnh sử và triệu chứng hiện tại.
-            4. A4_STATE để biết toàn thân.
-            5. A5_STATE để biết tuần hoàn.
-            6. A6_STATE để biết hô hấp.
-            7. A7_STATE để biết tiêu hóa.
-            8. A8_STATE để biết thận - tiết niệu.
-            9. A9_STATE để biết thần kinh.
-            10. A10_STATE để biết cơ xương khớp.
-            11. A11_STATE để biết cơ quan khác.
-            12. A14_STATE để biết thông tin hành chính và cận lâm sàng đã có.
-            13. A12_STATE để biết chẩn đoán hiện tại.
-            14. A13_STATE để biết hướng cần làm đã có.
-            15. A15_STATE nếu dữ kiện cần hỏi thêm liên quan thuốc/an toàn thuốc.
-        C1 đọc các A_STATE này để xác định phần còn thiếu, phần cần kiểm tra thêm hoặc phần cần đánh giá lại.
-        C1 không được sửa nội dung trong bất kỳ A_STATE nào.
-
-    C1.3.3. Nguồn không dùng
-        C1 không đọc C2-C7_STATE hiện hành trong cùng ROUND, trừ khi dependency C1 requires Cy được khai báo rõ trong tương lai.
-        Trong PLAN_9 ngoài bệnh án, C1 không chạy chính thức và không đọc C6.
-        Nếu tương lai cần dependency C1 requires C6 trong workflow bệnh án chính thức, phải khai báo dependency rõ trong G plan và xác định thứ tự chạy hợp lệ.
-        C1 không đọc O_OUTPUT hoặc output đã render.
-        C1 không dùng output đã render để suy ngược nội dung C1.
-        C1 không dùng dữ liệu ngoài state hợp lệ để sửa A hoặc tạo C1_STATE.
-        C1 không dùng hidden memory, trí nhớ ẩn, memory dài hạn hoặc dữ liệu ca bệnh khác.
-        C1 không tự đọc nguồn web/guideline ngoài nếu nguồn đó không thuộc user input hoặc contract C6 hợp lệ trong workflow bệnh án chính thức.
-        C1 không dùng kết quả xét nghiệm cần làm trong A13 như kết quả đã có.
-        C1 không dùng thuốc dự kiến trong A15 để kết luận an toàn thuốc.
-
-C1.4. Dependency nội bộ
-    C1.4.1. Dependency của C1
-        C1 phụ thuộc:
-            1. A_GATE PASS.
-            2. Full current A_STATE hợp lệ.
-            3. G_STATE xác định C1 có nằm trong C_RUN_ORDER hay không.
-            4. CREATE / UPDATE / REUSE là lifecycle nội bộ của C1 sau khi C1 được chạy; không do G chọn.
-        Nếu A_GATE = NEEDS_FIX:
-            - C1 không nên chạy như trạng thái hoàn chỉnh.
-            - Cần quay lại nhóm A hoặc in lại full current A_STATE đúng chuẩn.
-        Nếu full current A_STATE thiếu:
-            - C1_CHECK = NEEDS_FIX nếu vẫn bị yêu cầu chạy.
-            - C1_ERROR ghi rõ thiếu nguồn A_STATE.
-
-    C1.4.2. Mục đích đọc dependency
-        A1-A3 giúp xác định triệu chứng và dữ kiện nền còn thiếu.
-        A4-A11 giúp xác định phần khám cần bổ sung.
-        A14 giúp xác định cận lâm sàng đã có và phần còn thiếu.
-        A12 giúp xác định chẩn đoán hiện tại cần làm rõ.
-        A13 giúp đối chiếu hướng cần làm đã có để không lặp thừa.
-        C1 không đọc C7_STATE trong scope hiện tại. Nếu sau này cần dùng bệnh trình C7, G phải khai báo dependency C1 requires C7 và C7 phải chạy trước C1.
-        A15 giúp xác định dữ kiện cần hỏi thêm liên quan an toàn thuốc nếu cần.
-        G_STATE giúp xác định C1 đang phục vụ output nào và RUN_MODE nào.
-
-    C1.4.3. Giới hạn dependency
-        Dependency chỉ dùng để xác định nội dung cần bổ sung.
-        Dependency không dùng để sửa A_STATE.
-        Dependency không dùng để tạo chẩn đoán.
-        Dependency không dùng để tạo hướng điều trị.
-        Dependency không dùng để kê thuốc.
-        Dependency không dùng để viết bệnh trình.
-        Dependency không dùng để render output.
-        C1 không được thay đổi STATE_VERSION của A.
-        C1 không được tạo biến mới thuộc A.
-        C1 không được gọi hoặc buộc C2-C7 chạy từ bên trong C1.
-
-C1.5. Quy tắc CREATE / UPDATE / REUSE C1_STATE
-    CREATE / UPDATE / REUSE là lifecycle nội bộ của C1 sau khi C1 đã nằm trong C_RUN_ORDER; không phải RUN_MODE và không do G chọn.
-    Khi được chạy, C1 luôn in full C1_STATE, không dùng patch/delta.
-    Nếu C1 không nằm trong C_RUN_ORDER thì không in C1_STATE, không tạo patch/delta và không tăng C1_REV.
-
-    C1.5.1. CREATE C1_STATE
-        Áp dụng khi C1 được chạy và chưa có C1_STATE hiện hành.
-        C1 tạo C1_STATE mới từ:
-            1. G_STATE.
-            2. Full current A_STATE sau A_GATE.
-            3. A_MODULE_REV của full current A_STATE đã dùng.
-            4. User input của ROUND hiện tại để hiểu yêu cầu.
-        C1 phải xác định:
-            1. C1_REV = 1.
-            2. C1_SOURCE_A_REV theo A_MODULE_REV của full current A_STATE đã dùng.
-            3. C1_FINAL.
-            4. C1_CHECK.
-            5. C1_ERROR nếu cần.
-        C1_FINAL phải có đủ 4 nhóm:
-            1. Hỏi thêm.
-            2. Khám thêm.
-            3. Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung.
-            4. Đánh giá lại.
-
-    C1.5.2. UPDATE C1_STATE
-        Áp dụng khi C1 được chạy và nội dung thật C1 thay đổi do full current A_STATE, user input hoặc dependency hợp lệ.
-        Dữ liệu có thể ảnh hưởng C1 gồm:
-            1. Thay đổi lý do vào viện.
-            2. Thay đổi tiền sử/dị ứng/thuốc đang dùng.
-            3. Thay đổi bệnh sử/triệu chứng.
-            4. Thay đổi khám lâm sàng.
-            5. Thay đổi cận lâm sàng đã có.
-            6. Thay đổi chẩn đoán.
-            7. Thay đổi hướng cần làm.
-            8. Thay đổi bệnh trình.
-            9. Thay đổi thuốc hoặc dữ kiện an toàn thuốc.
-            10. User yêu cầu thêm nhóm hỏi thêm.
-            11. User yêu cầu bỏ một đề xuất.
-            12. User yêu cầu tập trung vào một hệ cơ quan.
-            13. User yêu cầu C1 phục vụ O9 hoặc output khác.
-        Khi cập nhật:
-            - C1 đọc C1_STATE hiện hành mới nhất nếu có.
-            - C1 thay phần bị ảnh hưởng bằng nội dung mới.
-            - C1 giữ phần không bị ảnh hưởng nếu vẫn còn đúng.
-            - C1_STATE sau cập nhật phải mang STATE_VERSION của ROUND hiện tại.
-            - C1_REV tăng khi nội dung thật C1 thay đổi.
-            - C1_SOURCE_A_REV cập nhật theo A_MODULE_REV của full current A_STATE đã dùng.
-            - C1_FINAL sau cập nhật vẫn phải đủ 4 nhóm.
-            - Không được ghi patch/delta thay C1_STATE chính thức.
-
-    C1.5.3. REUSE C1_STATE
-        Áp dụng khi C1 được chạy nhưng nội dung thật C1 không đổi.
-        C1 dùng lại nội dung thật của C1_STATE hiện hành mới nhất.
-        C1_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong current selective C_STATE nếu hệ thống yêu cầu.
-        C1_REV giữ nguyên khi REUSE hoặc khi A_MODULE_REV đổi nhưng nội dung thật C1 sau tính toán không đổi.
-        C1_SOURCE_A_REV vẫn cập nhật theo A_MODULE_REV của full current A_STATE đã dùng khi C1 được chạy.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được ghi “reuse C1” thay cho C1_FINAL.
-        Không được bỏ C1_CHECK/C1_ERROR.
-
-    C1.5.4. Nguyên tắc khi dùng lại
-        Khi dùng lại, vẫn phải in đủ schema C1_STATE.
-        C1_FINAL phải có đủ 4 nhóm.
-        Nếu A_STATE thay đổi làm C1 cũ không còn phù hợp:
-            - Không được dùng lại mù quáng.
-            - Phải cập nhật C1.
-        Nếu C1_STATE hiện hành có lỗi kỹ thuật rõ:
-            - C1_CHECK = NEEDS_FIX.
-        Nếu C1_FINAL chứa nội dung sai phạm vi:
-            - Không được dùng lại như PASS.
-
-C1.6. Quy tắc xử lý theo RUN_MODE
-    C1 không tự xác định RUN_MODE; nếu cần, C1 chỉ đọc RUN_MODE từ G_STATE.
-    RUN_MODE không phải CREATE / UPDATE / REUSE và không quyết định C1 có chạy hay không; quyền chạy chỉ do C_RUN_ORDER.
-    USER_ONLY / DEFAULT_COMPLETION / AUTO_SAMPLE là chế độ dữ liệu, không phải lifecycle.
-
-    C1.6.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        C1 chỉ nêu dữ kiện cần bổ sung dựa trên dữ liệu user đã cung cấp.
-        C1 không tự tạo dữ kiện.
-        C1 không tự giả định kết quả âm tính/bình thường.
-        C1 không tự thêm cận lâm sàng nếu user không yêu cầu và dữ kiện không gợi ý rõ cần bổ sung.
-        C1 không tự mở rộng danh sách hỏi thêm quá mức.
-        Nếu thiếu dữ kiện quan trọng nhưng user không cho phép suy luận:
-            - C1 ghi “cần hỏi thêm/cần khám thêm/cần bổ sung”.
-        Nếu không đủ dữ liệu để lập C1:
-            - C1_CHECK = NEEDS_FIX nếu output yêu cầu C1.
-            - C1_ERROR ghi rõ thiếu nguồn dữ liệu nào.
-
-    C1.6.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        C1 được đề xuất hỏi thêm, khám thêm, làm thêm và đánh giá lại phù hợp bệnh cảnh.
-        C1 phải dựa trên A_STATE hiện có.
-        C1 không đề xuất quá mức.
-        C1 không biến đề xuất bổ sung thành kết luận.
-        C1 không tạo kết quả cận lâm sàng.
-        C1 không tự viết chẩn đoán mới.
-        C1 không viết hướng điều trị thay A13.
-        C1 ưu tiên các dữ kiện có giá trị làm rõ bệnh cảnh, loại trừ nguy cơ và hoàn thiện đánh giá.
-        Nếu A13 đã có đủ hướng cần làm, C1 chỉ nêu phần còn thiếu hoặc điểm cần đánh giá lại, không lặp toàn bộ A13.
-
-    C1.6.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        C1 được tạo danh sách hỏi thêm/khám thêm/bổ sung/đánh giá lại mẫu phù hợp ca mẫu.
-        C1 phải phù hợp chẩn đoán, triệu chứng, khám và cận lâm sàng mẫu nếu có.
-        C1 không dùng AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
-        C1 không tạo dữ kiện như đã có.
-        C1 vẫn phải giữ vai trò “cần bổ sung”, không biến thành bệnh án chính thức.
-
-C1.7. Phạm vi C1
-    C1.7.1. Thành phần thuộc C1
-        C1 xử lý:
-            1. Hỏi thêm.
-            2. Khám thêm.
-            3. Xét nghiệm bổ sung.
-            4. Chẩn đoán hình ảnh bổ sung.
-            5. Thăm dò chức năng bổ sung.
-            6. Nội soi/thăm dò chuyên khoa bổ sung nếu cần.
-            7. Đánh giá lại triệu chứng.
-            8. Đánh giá lại dấu hiệu sinh tồn.
-            9. Đánh giá lại đáp ứng điều trị.
-            10. Đánh giá lại chẩn đoán sau khi có thêm dữ kiện.
-            11. Đánh giá lại nguy cơ chuyển nặng nếu cần nhưng không viết cảnh báo cuối cùng.
-            12. Dữ kiện cần hỏi thêm cho an toàn thuốc nhưng không kiểm thuốc cuối cùng.
-
-    C1.7.2. Thành phần không thuộc C1
-        C1 không xử lý:
-            1. Lý do vào viện chính thức.
-            2. Tiền sử chính thức.
-            3. Bệnh sử chính thức.
-            4. Khám chính thức.
-            5. Cận lâm sàng đã có dạng kết quả.
-            6. Chẩn đoán chính thức.
-            7. Hướng điều trị chính thức.
-            8. Đơn thuốc.
-            9. Cảnh báo lâm sàng cuối cùng.
-            10. Cảnh báo thuốc cuối cùng.
-            11. Tổng hợp bệnh án.
-            12. Bệnh trình.
-            13. Dặn dò/tái khám dài.
-            14. Kết luận chuyên môn cuối cùng.
-        Nếu nội dung thuộc nhóm trên, phải để module tương ứng xử lý.
-
-C1.8. Nguyên tắc chung của C1_FINAL
-    C1.8.1. C1_FINAL phải có 4 nhóm
-        C1_FINAL bắt buộc gồm đúng 4 nhóm chính:
-            1. Hỏi thêm.
-            2. Khám thêm.
-            3. Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung.
-            4. Đánh giá lại.
-        Không được bỏ nhóm nào.
-        Không được đổi tên nhóm tùy tiện.
-        Không được gộp 4 nhóm thành một đoạn văn.
-        Không được chỉ ghi “cần bổ sung thêm” chung chung.
-
-    C1.8.2. Phải cụ thể
-        Nội dung C1 phải cụ thể theo bệnh cảnh.
-        Nên nêu rõ cần hỏi thêm điều gì, khám thêm gì, làm thêm gì, đánh giá lại gì.
-        Không ghi quá chung chung như:
-            - “Hỏi thêm bệnh sử.”
-            - “Khám thêm.”
-            - “Làm xét nghiệm.”
-            - “Theo dõi.”
-        Nếu có thể, phải chỉ rõ:
-            - Hỏi thêm thời điểm khởi phát, mức độ, yếu tố tăng/giảm, triệu chứng kèm.
-            - Khám thêm dấu hiệu sinh tồn, cơ quan liên quan.
-            - Làm xét nghiệm/hình ảnh/thăm dò cụ thể.
-            - Đánh giá lại sau thời gian/diễn biến/dữ kiện cụ thể.
-
-    C1.8.3. Không bịa dữ kiện
-        C1 không được bịa thông tin chưa có.
-        C1 không viết “không sốt” nếu chưa có dữ kiện.
-        C1 không viết “không khó thở” nếu chưa có dữ kiện.
-        C1 không viết “không dị ứng thuốc” nếu chưa có dữ kiện.
-        C1 không viết “xét nghiệm bình thường” nếu chưa có kết quả.
-        C1 chỉ nêu cần bổ sung hoặc cần xác minh.
-        Khi thiếu dữ kiện, dùng ngôn ngữ:
-            - Cần hỏi thêm...
-            - Cần khám thêm...
-            - Cần bổ sung...
-            - Cần đánh giá lại...
-            - Cần xác minh...
-
-    C1.8.4. Khi một nhóm không có nội dung rõ
-        Nếu một nhóm không có nội dung cần bổ sung rõ, ghi:
-            Không có nội dung cần bổ sung rõ trong nhóm này.
-        Không được bỏ trống nhóm.
-        Không được ghi NONE nếu module đã chốt câu chuẩn.
-        Không được tự bịa nội dung để tránh trống.
-        Nếu toàn bộ C1 không có nội dung cần bổ sung rõ, 4 nhóm vẫn phải có câu chuẩn tương ứng.
-
-    C1.8.5. Không biến thiếu dữ kiện thành phủ định
-        C1 phải phân biệt:
-            - “Chưa có dữ kiện” khác “không có”.
-            - “Chưa hỏi” khác “bệnh nhân phủ định”.
-            - “Chưa khám” khác “khám bình thường”.
-            - “Chưa có kết quả” khác “kết quả bình thường”.
-        Không viết:
-            - Không dị ứng thuốc.
-            - Không có bệnh nền.
-            - Không khó thở.
-            - Không đau ngực.
-            - Không bất thường cận lâm sàng.
-        nếu dữ liệu chưa được cung cấp.
-        Phải viết:
-            - Cần hỏi thêm dị ứng thuốc.
-            - Cần hỏi thêm bệnh nền.
-            - Cần hỏi thêm khó thở/đau ngực nếu phù hợp bệnh cảnh.
-            - Cần bổ sung hoặc kiểm tra cận lâm sàng nếu cần.
-
-C1.9. Quy tắc nhóm Hỏi thêm
-    C1.9.1. Vai trò nhóm Hỏi thêm
-        Nhóm Hỏi thêm liệt kê thông tin cần khai thác thêm từ bệnh nhân hoặc người nhà.
-        Nhóm này giúp hoàn thiện bệnh sử, tiền sử, yếu tố nguy cơ và các dữ kiện liên quan quyết định chẩn đoán/hướng xử trí.
-        Nhóm Hỏi thêm không viết lại bệnh sử chính thức.
-        Nhóm Hỏi thêm không ghi câu trả lời nếu dữ kiện chưa có.
-        Nhóm Hỏi thêm chỉ nêu câu hỏi hoặc nhóm dữ kiện cần khai thác.
-
-    C1.9.2. Nội dung có thể hỏi thêm
-        Nội dung có thể hỏi thêm gồm:
-            1. Thời điểm khởi phát triệu chứng.
-            2. Hoàn cảnh khởi phát.
-            3. Diễn biến tăng/giảm.
-            4. Mức độ triệu chứng.
-            5. Tần suất triệu chứng.
-            6. Thời gian kéo dài mỗi lần.
-            7. Yếu tố làm tăng triệu chứng.
-            8. Yếu tố làm giảm triệu chứng.
-            9. Triệu chứng kèm theo.
-            10. Dấu hiệu nặng.
-            11. Tiền sử bệnh tương tự.
-            12. Tiền sử bệnh nền liên quan.
-            13. Tiền sử phẫu thuật/thủ thuật nếu liên quan.
-            14. Dị ứng thuốc.
-            15. Thuốc đang dùng.
-            16. Thuốc đã dùng trước vào viện.
-            17. Tiền sử thai kỳ/cho con bú nếu liên quan.
-            18. Yếu tố dịch tễ nếu bệnh cảnh nhiễm trùng/truyền nhiễm.
-            19. Yếu tố nghề nghiệp/môi trường nếu liên quan.
-            20. Chấn thương hoặc yếu tố cơ học nếu liên quan.
-            21. Tình trạng ăn uống, đại tiểu tiện nếu liên quan.
-            22. Dấu hiệu báo động theo bệnh cảnh.
-        C1 chỉ chọn nội dung phù hợp bệnh cảnh, không liệt kê tất cả máy móc.
-
-    C1.9.3. Giới hạn nhóm Hỏi thêm
-        Không viết lại bệnh sử.
-        Không kết luận triệu chứng âm tính nếu chưa hỏi.
-        Không hỏi quá dài nếu không liên quan bệnh cảnh.
-        Không biến nhóm Hỏi thêm thành bảng khai thác bệnh sử đầy đủ nếu output không yêu cầu.
-        Không dùng nhóm Hỏi thêm để thêm chẩn đoán mới.
-        Không dùng nhóm Hỏi thêm để kê thuốc.
-        Không dùng nhóm Hỏi thêm để cảnh báo nguy cơ cuối cùng.
-        Không hỏi lặp lại dữ kiện đã có rõ trong A_STATE, trừ khi cần xác minh mâu thuẫn.
-
-    C1.9.4. Hỏi thêm theo bệnh cảnh
-        Nếu bệnh cảnh hô hấp:
-            - Hỏi thêm khó thở, đau ngực, ho khạc đờm, màu đờm, sốt, SpO₂ nếu có, yếu tố dịch tễ, tiền sử hen/COPD, thuốc đang dùng.
-        Nếu bệnh cảnh tim mạch:
-            - Hỏi thêm đau ngực, khó thở, hồi hộp, ngất, tiền sử tăng huyết áp/tim mạch, thuốc đang dùng, yếu tố nguy cơ.
-        Nếu bệnh cảnh tiêu hóa:
-            - Hỏi thêm vị trí đau, tính chất đau, nôn, tiêu chảy, phân máu, ăn uống, thuốc NSAID/rượu, tiền sử dạ dày/gan mật.
-        Nếu bệnh cảnh tiết niệu:
-            - Hỏi thêm tiểu buốt, tiểu rắt, tiểu máu, đau hông lưng, sốt, tiền sử sỏi/nhiễm khuẩn tiết niệu.
-        Nếu bệnh cảnh thần kinh:
-            - Hỏi thêm đau đầu, chóng mặt, yếu liệt, nói khó, co giật, rối loạn ý thức, thời điểm khởi phát.
-        Nếu bệnh cảnh cơ xương khớp:
-            - Hỏi thêm vị trí đau, chấn thương, sưng nóng đỏ, hạn chế vận động, yếu tố tăng giảm, tiền sử gout/viêm khớp.
-
-C1.10. Quy tắc nhóm Khám thêm
-    C1.10.1. Vai trò nhóm Khám thêm
-        Nhóm Khám thêm liệt kê phần cần khám bổ sung hoặc đánh giá lại trên lâm sàng.
-        Nhóm này giúp xác định các khoảng trống trong khám A4-A11.
-        Nhóm Khám thêm không viết lại kết quả khám chính thức.
-        Nhóm Khám thêm không tự tạo dấu khám mới.
-        Nhóm Khám thêm không kết luận khám bình thường nếu chưa có dữ kiện.
-
-    C1.10.2. Nội dung có thể khám thêm
-        Nội dung có thể khám thêm gồm:
-            1. Toàn trạng.
-            2. Tri giác/ý thức.
-            3. Dấu hiệu sinh tồn.
-            4. Mạch.
-            5. Huyết áp.
-            6. Nhiệt độ.
-            7. Nhịp thở.
-            8. SpO₂ nếu liên quan.
-            9. Da niêm mạc.
-            10. Phù/mất nước.
-            11. Tim mạch.
-            12. Hô hấp.
-            13. Tiêu hóa.
-            14. Gan lách.
-            15. Thận - tiết niệu.
-            16. Thần kinh.
-            17. Cơ xương khớp.
-            18. Tai mũi họng.
-            19. Da liễu.
-            20. Vết thương/vết mổ nếu có.
-            21. Cơ quan khác liên quan bệnh cảnh.
-        C1 chỉ chọn phần khám liên quan hoặc còn thiếu.
-
-    C1.10.3. Giới hạn nhóm Khám thêm
-        Không viết lại khám A4-A11.
-        Không tự tạo dấu khám mới.
-        Không ghi khám bình thường nếu chưa có dữ kiện.
-        Không liệt kê toàn bộ khám hệ thống nếu bệnh cảnh chỉ cần một số phần.
-        Không dùng nhóm Khám thêm để thay A4-A11.
-        Không dùng nhóm Khám thêm để viết chẩn đoán.
-        Không dùng nhóm Khám thêm để viết cảnh báo.
-        Không dùng nhóm Khám thêm để ghi kết quả cận lâm sàng.
-
-    C1.10.4. Khám thêm theo bệnh cảnh
-        Nếu bệnh cảnh hô hấp:
-            - Khám thêm tần số thở, SpO₂, co kéo cơ hô hấp, ran phổi, hội chứng đông đặc/tràn dịch/tràn khí nếu phù hợp.
-        Nếu bệnh cảnh tim mạch:
-            - Khám thêm mạch, huyết áp hai tay nếu cần, nhịp tim, tiếng tim, dấu suy tim, phù ngoại biên.
-        Nếu bệnh cảnh tiêu hóa:
-            - Khám thêm bụng, điểm đau khu trú, phản ứng thành bụng, gan lách, dấu mất nước.
-        Nếu bệnh cảnh tiết niệu:
-            - Khám thêm điểm đau hông lưng, cầu bàng quang, phù, huyết áp nếu liên quan thận.
-        Nếu bệnh cảnh thần kinh:
-            - Khám thêm tri giác, dấu thần kinh khu trú, vận động, cảm giác, phản xạ, dấu màng não nếu phù hợp.
-        Nếu bệnh cảnh cơ xương khớp:
-            - Khám thêm vị trí đau, sưng nóng đỏ, biên độ vận động, biến dạng, dấu viêm khớp.
-
-C1.11. Quy tắc nhóm Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung
-    C1.11.1. Vai trò nhóm cận lâm sàng bổ sung
-        Nhóm này liệt kê xét nghiệm, chẩn đoán hình ảnh hoặc thăm dò cần bổ sung để làm rõ bệnh cảnh.
-        Nhóm này không chứa kết quả đã có.
-        Nhóm này không thay thế A13.
-        Nhóm này không biến “cần làm” thành “đã làm”.
-        Nhóm này không tự tạo kết quả cận lâm sàng.
-        Nhóm này chỉ nêu phần còn thiếu hoặc cần bổ sung thêm.
-
-    C1.11.2. Nội dung có thể đề xuất
-        Nội dung có thể đề xuất gồm:
-            1. Công thức máu.
-            2. CRP.
-            3. Procalcitonin nếu phù hợp.
-            4. Sinh hóa máu.
-            5. Điện giải đồ.
-            6. Chức năng gan.
-            7. Chức năng thận.
-            8. Đường máu.
-            9. HbA1c nếu phù hợp.
-            10. Đông máu nếu phù hợp.
-            11. Tổng phân tích nước tiểu.
-            12. Cấy máu/cấy nước tiểu/cấy đờm nếu phù hợp.
-            13. Khí máu động mạch nếu có suy hô hấp/nguy cơ nặng.
-            14. Men tim nếu bệnh cảnh đau ngực/nguy cơ tim mạch.
-            15. D-dimer nếu bệnh cảnh phù hợp và cần đánh giá huyết khối.
-            16. Điện tim.
-            17. X-quang.
-            18. Siêu âm.
-            19. CT/MRI.
-            20. Nội soi.
-            21. Siêu âm tim.
-            22. Thăm dò chức năng hô hấp.
-            23. Thăm dò chuyên khoa khác nếu phù hợp.
-        C1 chỉ đề xuất những mục phù hợp bệnh cảnh.
-        Không tạo danh sách quá dài nếu bệnh cảnh không cần.
-
-    C1.11.3. Giới hạn nhóm cận lâm sàng bổ sung
-        Không ghi kết quả cận lâm sàng.
-        Không biến cần làm thành đã có.
-        Không lặp lại A13 quá máy móc.
-        Không tự tạo cận lâm sàng bình thường.
-        Không tự tạo kết luận hình ảnh.
-        Không tự tạo xét nghiệm chuyên sâu nếu chưa có căn cứ.
-        Không dùng nhóm này để thay A13_TREATMENT.
-        Không dùng nhóm này để viết chẩn đoán.
-        Không dùng nhóm này để viết cảnh báo.
-        Nếu A13 đã bao phủ đủ hướng cần làm, C1 chỉ nêu phần còn thiếu hoặc cần nhấn mạnh, không lặp lại toàn bộ A13.
-
-    C1.11.4. Đồng bộ với A13
-        Nếu A13_LABS đã có công thức máu, CRP:
-            - C1 không cần lặp lại trừ khi cần nhấn mạnh lý do bổ sung hoặc còn thiếu xét nghiệm khác.
-        Nếu A13_IMAGING đã có X-quang ngực:
-            - C1 không cần lặp lại X-quang ngực trừ khi bệnh cảnh cần đánh giá lại hoặc cần thêm thăm dò khác.
-        Nếu A13 không có hướng cần làm nhưng bệnh cảnh thiếu dữ kiện:
-            - C1 có thể đề xuất bổ sung cận lâm sàng trong nhóm này.
-        Nếu user yêu cầu “cần làm thêm gì”:
-            - C1 có thể nêu cận lâm sàng bổ sung cụ thể.
-        C1 không sửa A13; nếu cần cập nhật A13 chính thức, G/A phải xử lý.
-
-C1.12. Quy tắc nhóm Đánh giá lại
-    C1.12.1. Vai trò nhóm Đánh giá lại
-        Nhóm Đánh giá lại liệt kê các điểm cần xem lại sau khi bổ sung dữ kiện hoặc sau xử trí ban đầu.
-        Nhóm này giúp xác định nội dung cần theo dõi/đánh giá lại nhưng không viết cảnh báo cuối cùng.
-        Nhóm này không thay C2.
-        Nhóm này không thay module bệnh trình.
-        Nhóm này không viết quyết định điều trị.
-
-    C1.12.2. Nội dung có thể đánh giá lại
-        Nội dung có thể đánh giá lại gồm:
-            1. Đánh giá lại triệu chứng chính.
-            2. Đánh giá lại mức độ đau/sốt/khó thở/nôn/tiêu chảy/chóng mặt tùy bệnh cảnh.
-            3. Đánh giá lại dấu hiệu sinh tồn.
-            4. Đánh giá lại SpO₂ nếu bệnh cảnh hô hấp.
-            5. Đánh giá lại huyết động nếu bệnh cảnh tuần hoàn/nhiễm trùng/mất nước.
-            6. Đánh giá lại tri giác nếu bệnh cảnh thần kinh/nhiễm trùng nặng.
-            7. Đánh giá lại đáp ứng điều trị.
-            8. Đánh giá lại sau khi có kết quả xét nghiệm/hình ảnh bổ sung.
-            9. Đánh giá lại chẩn đoán sau khi có thêm dữ kiện.
-            10. Đánh giá lại nguy cơ nặng.
-            11. Đánh giá lại nhu cầu hội chẩn.
-            12. Đánh giá lại nhu cầu chuyển tuyến nếu phù hợp.
-            13. Đánh giá lại an toàn thuốc sau khi có dữ kiện cần thiết nếu liên quan A15.
-        Nội dung phải phù hợp bệnh cảnh và không quá chung chung.
-
-    C1.12.3. Giới hạn nhóm Đánh giá lại
-        Không viết cảnh báo thay C2.
-        Không viết quyết định điều trị thay A13.
-        Không viết chẩn đoán thay A12.
-        Không viết bệnh trình.
-        Không viết đơn thuốc thay A15.
-        Không viết kết luận “ổn định ra viện” nếu chưa thuộc module bệnh trình/output tổng kết ra viện.
-        Không ghi “đã đáp ứng điều trị” nếu chưa có dữ kiện.
-        Không ghi “không cần theo dõi” nếu chưa đủ căn cứ.
-        Không dùng nhóm Đánh giá lại để thay dặn dò/tái khám nếu output riêng xử lý.
-
-C1.13. Đồng bộ với A13 và A14
-    C1.13.1. Đồng bộ với A13
-        A13 là hướng cần làm chính thức trong nhóm A.
-        C1 chỉ nêu phần cần bổ sung nếu còn thiếu hoặc cần làm rõ.
-        C1 không thay A13.
-        O không được lấy C1 thay A13 để render hướng điều trị chính.
-        Nếu C1 phát hiện A13 thiếu hướng cần làm rõ ràng:
-            - C1 có thể ghi cần bổ sung xét nghiệm/thăm dò/hướng đánh giá.
-            - Không trực tiếp sửa A13.
-        Nếu user yêu cầu cập nhật hướng cần làm chính thức:
-            - G phải chạy lại A13 theo quy trình.
-
-    C1.13.2. Đồng bộ với A14
-        A14 là cận lâm sàng đã có.
-        C1 không ghi lại kết quả đã có như cần làm.
-        C1 không tạo kết quả mới.
-        C1 chỉ đề xuất cận lâm sàng bổ sung nếu cần.
-        Nếu A14 đã có kết quả đầy đủ cho một vấn đề:
-            - C1 không lặp lại xét nghiệm/thăm dò đó nếu không cần làm lại.
-        Nếu A14 có kết quả cũ nhưng cần đánh giá lại:
-            - C1 có thể ghi cần kiểm tra lại hoặc đánh giá lại nếu phù hợp.
-        Nếu A14 thiếu dữ kiện quan trọng:
-            - C1 có thể ghi cận lâm sàng cần bổ sung.
-
-    C1.13.3. Tránh lặp thừa
-        Nếu A13 đã có đủ xét nghiệm/thăm dò cần làm, C1 không cần lặp lại toàn bộ.
-        Nếu A14 đã có kết quả, C1 không ghi lại như hướng cần làm.
-        Nếu C1 chỉ lặp nguyên A13 mà không bổ sung giá trị, C1 cần rút gọn.
-        Nếu cần nhấn mạnh một mục đã có trong A13 do user hỏi “cần lưu ý bổ sung gì”, C1 có thể ghi “đã có trong A13, cần thực hiện/đối chiếu kết quả” nhưng không biến thành kết quả đã có.
-        C1 phải ưu tiên phần còn thiếu, phần cần xác minh, phần cần đánh giá lại.
-
-C1.14. Ranh giới với A_STATE
-    C1.14.1. Không sửa A
-        C1 không sửa bất kỳ A_STATE nào.
-        Nếu phát hiện A thiếu dữ kiện:
-            - C1 ghi cần bổ sung dữ kiện.
-        Nếu phát hiện A mâu thuẫn:
-            - C1 ghi cần xác minh lại dữ kiện.
-        Nếu cần sửa A chính thức:
-            - G phải chọn plan sửa A.
-        C1 không trực tiếp thay đổi A1-A15.
-
-    C1.14.2. Không viết lại A
-        C1 không viết lại:
-            1. Lý do vào viện A1.
-            2. Tiền sử A2.
-            3. Bệnh sử A3.
-            4. Khám A4-A11.
-            5. Hành chính/cận lâm sàng đã có A14.
-            6. Chẩn đoán A12.
-            7. Hướng cần làm A13.
-            8. Bệnh trình không thuộc phạm vi module này.
-            9. Thuốc A15.
-        C1 chỉ nêu cần hỏi thêm/khám thêm/làm thêm/đánh giá lại.
-
-    C1.14.3. Không tạo dữ liệu nguồn
-        C1 không tạo dữ kiện mới để lấp vào A.
-        C1 không viết:
-            - Bệnh nhân không dị ứng thuốc.
-            - Khám phổi không ran.
-            - X-quang bình thường.
-            - Chẩn đoán xác định...
-        nếu các dữ kiện này chưa có trong A_STATE.
-        C1 chỉ viết:
-            - Cần hỏi dị ứng thuốc.
-            - Cần khám phổi kỹ.
-            - Cần bổ sung X-quang nếu phù hợp.
-            - Cần đánh giá lại chẩn đoán sau khi có thêm dữ kiện.
-
-C1.15. Ranh giới với C2
-    C1.15.1. C1 không thay C2
-        C1 là hỏi thêm/khám thêm/làm thêm/đánh giá lại.
-        C2 là cảnh báo lâm sàng, nguy cơ, tiên lượng, dấu hiệu cần theo dõi sát hoặc xử trí kịp thời.
-        C1 có thể nêu điểm cần đánh giá lại để phát hiện nguy cơ.
-        C1 không viết cảnh báo cuối cùng.
-        C1 không dùng ngôn ngữ khuyến cáo xử trí khẩn cấp thay C2.
-
-    C1.15.2. Ví dụ phân ranh
-        Ví dụ đúng:
-            - C1: Cần đánh giá lại SpO₂, nhịp thở và dấu hiệu co kéo cơ hô hấp nếu người bệnh khó thở tăng.
-            - C2: Khó thở tăng, SpO₂ giảm hoặc co kéo cơ hô hấp là dấu hiệu nguy cơ cần xử trí kịp thời.
-        Ví dụ đúng:
-            - C1: Cần hỏi thêm đau ngực, vã mồ hôi, khó thở kèm theo.
-            - C2: Đau ngực kèm vã mồ hôi/khó thở có thể là dấu hiệu nguy cơ tim mạch cần đánh giá khẩn.
-        C1 không được biến câu hỏi thêm thành cảnh báo C2.
-
-    C1.15.3. Không viết cảnh báo cuối cùng
-        C1 không render cảnh báo lâm sàng cuối cùng.
-        C1 không ghi:
-            - Cần xử trí cấp cứu ngay.
-            - Nguy cơ tử vong cao.
-            - Phải chuyển tuyến ngay.
-        nếu đó là kết luận cảnh báo thuộc C2/O liên quan.
-        Nếu cần, C1 chỉ ghi:
-            - Cần đánh giá lại dấu hiệu nguy cơ.
-            - Cần bổ sung dữ kiện để phân tầng nguy cơ.
-        C2 sẽ xử lý cảnh báo.
-
-C1.16. Ranh giới với C3
-    C1.16.1. C1 không thay C3
-        A15 xử lý chọn thuốc và kiểm an toàn thuốc; C3 cảnh báo tác dụng phụ và vấn đề cần theo dõi khi dùng thuốc.
-        C1 không kiểm thuốc cuối cùng.
-        C1 không kết luận thuốc an toàn.
-        C1 không kết luận không tương tác.
-        C1 không chặn thuốc.
-        C1 không cho phép O6 xuất đơn.
-
-    C1.16.2. C1 có thể nêu dữ kiện cần hỏi thêm
-        C1 có thể ghi các dữ kiện cần hỏi thêm phục vụ C3, ví dụ:
-            1. Cần hỏi thêm dị ứng thuốc.
-            2. Cần hỏi thuốc đang dùng.
-            3. Cần hỏi tiền sử bệnh gan/thận.
-            4. Cần hỏi tiền sử loét dạ dày/xuất huyết tiêu hóa nếu cân nhắc NSAID.
-            5. Cần xác nhận thai kỳ/cho con bú nếu liên quan.
-            6. Cần bổ sung chức năng thận nếu thuốc cần chỉnh liều.
-        Đây là dữ kiện cần bổ sung, không phải kiểm an toàn thuốc cuối cùng.
-
-    C1.16.3. C1 không kết luận an toàn thuốc
-        C1 không ghi:
-            - Thuốc an toàn.
-            - Không có chống chỉ định.
-            - Không có tương tác.
-            - Có thể xuất đơn.
-            - Cho phép dùng thuốc.
-        C1 chỉ ghi:
-            - Cần hỏi thêm...
-            - Cần bổ sung...
-            - Cần A15 kiểm an toàn thuốc...
-        nếu nội dung liên quan thuốc.
-        Nếu user hỏi trực tiếp về an toàn thuốc, A15 xử lý; không dùng C1 hoặc C3 thay A15.
-
-C1.17. Ranh giới với C5
-    C1.17.1. C1 không thay C5
-        C5 xử lý chẩn đoán phân biệt/nghi ngờ/bệnh khác có khả năng hoặc logic chuyên biệt theo hệ thống C5.
-        C1 không tạo danh sách chẩn đoán phân biệt chính thức.
-        C1 không viết bệnh khác có khả năng thay C5.
-        C1 không diễn giải cận lâm sàng đã có thành kết luận C5.
-        C1 chỉ nêu phần cần bổ sung để làm rõ bệnh cảnh.
-
-    C1.17.2. C1 chỉ đề xuất bổ sung
-        C1 có thể ghi:
-            - Cần hỏi thêm triệu chứng giúp phân biệt các nguyên nhân.
-            - Cần khám thêm cơ quan liên quan.
-            - Cần bổ sung xét nghiệm/hình ảnh để làm rõ chẩn đoán.
-            - Cần đánh giá lại sau khi có kết quả.
-        C1 không ghi:
-            - Chẩn đoán phân biệt gồm...
-            - Nghi ngờ bệnh...
-            - Bệnh khác có khả năng...
-        nếu đây là output chính của C5/O13.
-
-    C1.17.3. Không tạo kết quả
-        C1 không ghi kết quả cận lâm sàng nếu user chưa cung cấp.
-        C1 không tự tạo:
-            - Bạch cầu tăng.
-            - CRP tăng.
-            - X-quang viêm phổi.
-            - CT bình thường.
-            - Nội soi viêm dạ dày.
-        C1 chỉ có thể đề xuất cần làm hoặc cần bổ sung các xét nghiệm/thăm dò đó nếu phù hợp.
-
-C1.18. Ranh giới với C4 và O9
-    C1.18.1. C1 không thay C4
-        C4 là module tổng hợp để phục vụ O2/O3 hoặc output tổng hợp liên quan.
-        C1 không tổng hợp bệnh án.
-        C1 không viết tóm tắt bệnh án.
-        C1 không kết luận diễn biến.
-        C1 không viết tình trạng ra viện.
-        C1 không chọn nội dung cuối để render O2/O3.
-        Nếu cần tổng hợp, C4 xử lý.
-
-    C1.18.2. C1 phục vụ O9
-        O9 đọc C1_FINAL để render phần hỏi thêm/khám thêm/bổ sung/đánh giá lại.
-        O9 không tự tạo nội dung C1 nếu C1_FINAL thiếu.
-        O9 chỉ trình bày lại C1_FINAL theo format O9.
-        Nếu C1_FINAL có 4 nhóm, O9 phải tôn trọng 4 nhóm đó.
-        Nếu C1_CHECK = NEEDS_FIX, O9 phải xử lý theo quy tắc O/C_GATE, không render như nội dung hoàn chỉnh.
-
-    C1.18.3. O không tự viết thêm C1
-        Nếu C1 thiếu hoặc sai, phải chạy lại C1.
-        O9 không tự thêm hỏi thêm/khám thêm/làm thêm ngoài C1_FINAL.
-        O9 không tự lấy A_STATE để bổ sung C1 nếu C1 chưa chạy.
-        O9 không tự biến A13 thành C1.
-        O9 không tự biến C2/C3/C5 thành C1.
-        Nếu output cần nội dung khác ngoài C1, G phải chạy module tương ứng.
-
-    C1.18.4. PLAN_9 / outside-record boundary
-        PLAN_9 không làm C1 chạy.
-        C1 không phải module trả lời outside-record.
-        Nếu câu hỏi ngoài bệnh án cần kiến thức chung, không dùng C1 chính thức; PLAN_9 bypass hoặc source/reference rules của C6 và response-style rules của O12 xử lý khi cần.
-        C1 không ghi câu trả lời outside-record vào bệnh án.
-
-C1.19. Ví dụ cụ thể
-    C1.19.1. Ví dụ thiếu bệnh sử
-        Input:
-            A1_REASON = Đau bụng.
-            A3_DISEASE_HISTORY còn thiếu thời điểm khởi phát, vị trí đau, nôn/tiêu chảy.
-        C1_STATE:
-            STATE_VERSION = V1
-            C1_REV = 1
-            C1_SOURCE_A_REV = {A1_REV-A15_REV tương ứng đã dùng}
-            C1_FINAL:
-                Hỏi thêm:
-                    - Cần hỏi thời điểm khởi phát đau bụng, vị trí đau, tính chất đau, mức độ đau và yếu tố làm tăng/giảm đau.
-                    - Cần hỏi thêm nôn, tiêu chảy, sốt, phân máu hoặc bí trung đại tiện nếu phù hợp bệnh cảnh.
-                Khám thêm:
-                    - Cần khám bụng khu trú, phản ứng thành bụng, điểm đau, dấu mất nước và dấu hiệu sinh tồn.
-                Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                    - Cân nhắc công thức máu, CRP, sinh hóa máu, tổng phân tích nước tiểu và siêu âm bụng tùy bệnh cảnh.
-                Đánh giá lại:
-                    - Cần đánh giá lại mức độ đau, dấu hiệu mất nước và dấu hiệu bụng ngoại khoa sau khi có thêm dữ kiện.
-            C1_CHECK = PASS
-            C1_ERROR = NONE
-
-    C1.19.2. Ví dụ thiếu khám hô hấp
-        Input:
-            A3 có ho, khó thở.
-            A6_RESPIRATORY_EXAM thiếu SpO₂ và ran phổi.
-        C1_STATE:
-            STATE_VERSION = V1
-            C1_REV = 1
-            C1_SOURCE_A_REV = {A1_REV-A15_REV tương ứng đã dùng}
-            C1_FINAL:
-                Hỏi thêm:
-                    - Cần hỏi thêm thời điểm xuất hiện khó thở, mức độ khó thở, ho khạc đờm, sốt, đau ngực và tiền sử hen/COPD nếu có.
-                Khám thêm:
-                    - Cần đo SpO₂, nhịp thở, đánh giá co kéo cơ hô hấp và nghe phổi tìm ran bất thường.
-                Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                    - Cân nhắc X-quang ngực, công thức máu, CRP và khí máu động mạch nếu khó thở nhiều hoặc SpO₂ giảm.
-                Đánh giá lại:
-                    - Cần đánh giá lại tình trạng khó thở, SpO₂ và đáp ứng sau xử trí ban đầu.
-            C1_CHECK = PASS
-            C1_ERROR = NONE
-
-    C1.19.3. Ví dụ cần bổ sung cận lâm sàng
-        Input:
-            A12_DIAGNOSIS = Nhiễm khuẩn tiết niệu.
-            A14_PARACLINICAL = NONE.
-            A13_LABS chưa có tổng phân tích nước tiểu.
-        C1_STATE:
-            STATE_VERSION = V1
-            C1_REV = 1
-            C1_SOURCE_A_REV = {A1_REV-A15_REV tương ứng đã dùng}
-            C1_FINAL:
-                Hỏi thêm:
-                    - Cần hỏi thêm tiểu buốt, tiểu rắt, tiểu máu, sốt, đau hông lưng và tiền sử nhiễm khuẩn tiết niệu/sỏi tiết niệu.
-                Khám thêm:
-                    - Cần khám điểm đau hông lưng, dấu hiệu sốt, tình trạng mất nước và dấu hiệu sinh tồn.
-                Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                    - Cần bổ sung tổng phân tích nước tiểu; cân nhắc cấy nước tiểu, công thức máu, CRP, chức năng thận và siêu âm hệ tiết niệu nếu có dấu hiệu nặng hoặc tái phát.
-                Đánh giá lại:
-                    - Cần đánh giá lại triệu chứng tiết niệu và sốt sau khi có kết quả nước tiểu/cận lâm sàng.
-            C1_CHECK = PASS
-            C1_ERROR = NONE
-
-    C1.19.4. Ví dụ cần hỏi thêm an toàn thuốc
-        Input:
-            A15 có nhóm thuốc giảm đau/kháng viêm dự kiến.
-            A2 chưa có dị ứng thuốc, tiền sử dạ dày và chức năng thận chưa rõ.
-        C1_STATE:
-            STATE_VERSION = V1
-            C1_REV = 1
-            C1_SOURCE_A_REV = {A1_REV-A15_REV tương ứng đã dùng}
-            C1_FINAL:
-                Hỏi thêm:
-                    - Cần hỏi thêm dị ứng thuốc, thuốc đang dùng, tiền sử bệnh dạ dày - tá tràng/xuất huyết tiêu hóa và bệnh thận nếu cân nhắc thuốc giảm đau/kháng viêm.
-                Khám thêm:
-                    - Cần đánh giá huyết áp, tình trạng phù/mất nước và dấu hiệu đau khu trú nếu liên quan bệnh cảnh.
-                Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                    - Cân nhắc bổ sung chức năng thận và các xét nghiệm liên quan nếu cần dùng thuốc có nguy cơ ảnh hưởng thận.
-                Đánh giá lại:
-                    - Cần chuyển dữ kiện thuốc và dữ kiện an toàn thuốc sang A15 để kiểm trước khi xuất đơn; nếu cần cảnh báo tác dụng phụ / theo dõi, A15 chuyển thuốc và vấn đề theo dõi qua A15_TO_C3.
-            C1_CHECK = PASS
-            C1_ERROR = NONE
-        Ghi chú:
-            - C1 chỉ nêu dữ kiện cần hỏi thêm.
-            - A15 mới kiểm an toàn thuốc.
-
-    C1.19.5. Ví dụ không có nội dung cần bổ sung rõ
-        Input:
-            A_STATE đã đủ dữ kiện cho output hiện tại.
-        C1_STATE:
-            STATE_VERSION = V1
-            C1_REV = 1
-            C1_SOURCE_A_REV = {A1_REV-A15_REV tương ứng đã dùng}
-            C1_FINAL:
-                Hỏi thêm:
-                    Không có nội dung cần bổ sung rõ trong nhóm này.
-                Khám thêm:
-                    Không có nội dung cần bổ sung rõ trong nhóm này.
-                Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                    Không có nội dung cần bổ sung rõ trong nhóm này.
-                Đánh giá lại:
-                    Không có nội dung cần bổ sung rõ trong nhóm này.
-            C1_CHECK = PASS
-            C1_ERROR = NONE
-
-    C1.19.6. Ví dụ không được biến C1 thành cảnh báo C2
-        Sai:
-            C1_FINAL:
-                Đánh giá lại:
-                    Bệnh nhân có nguy cơ suy hô hấp, cần xử trí cấp cứu ngay.
-        Đúng:
-            C1_FINAL:
-                Đánh giá lại:
-                    - Cần đánh giá lại SpO₂, nhịp thở, dấu hiệu co kéo cơ hô hấp và mức độ khó thở.
-        Giải thích:
-            - Câu cảnh báo nguy cơ và xử trí cấp cứu thuộc C2/O cảnh báo.
-            - C1 chỉ ghi điểm cần đánh giá lại.
-
-    C1.19.7. Ví dụ không được biến C1 thành hướng cần làm A13
-        Sai:
-            C1_FINAL:
-                Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                    - Chỉ định công thức máu, CRP, X-quang ngực.
-                Đánh giá lại:
-                    - Điều trị kháng sinh, hạ sốt, long đờm.
-        Đúng:
-            C1_FINAL:
-                Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                    - Cần đối chiếu A13; nếu chưa có, cân nhắc bổ sung công thức máu, CRP và X-quang ngực theo bệnh cảnh.
-                Đánh giá lại:
-                    - Cần đánh giá lại sốt, ho, khó thở và đáp ứng sau khi có thêm dữ kiện.
-        Giải thích:
-            - Hướng điều trị thuộc A13.
-            - C1 chỉ nêu phần bổ sung/đánh giá lại.
-
-    C1.19.8. Ví dụ hệ thống selective-run và lifecycle
-        Ví dụ C1 không nằm trong C_RUN_ORDER:
-            G_STATE.C_RUN_ORDER = NONE hoặc không chứa C1.
-            Dù A_STATE thay đổi, nếu không có O9, user không yêu cầu C1 và plan không chỉ định C1:
-                - C1 không chạy.
-                - Không tạo, cập nhật hoặc in C1_STATE.
-                - Không tạo patch/delta.
-                - Không tăng C1_REV và không cập nhật C1_SOURCE_A_REV.
-
-        Ví dụ CREATE full C1_STATE khi G plan C1 lần đầu:
-            G_STATE.C_RUN_ORDER = {C1}.
-            C1_STATE:
-                STATE_VERSION = V2
-                C1_REV = 1
-                C1_SOURCE_A_REV = {A1_REV-A15_REV tương ứng đã dùng}
-                C1_FINAL:
-                    Hỏi thêm:
-                        Không có nội dung cần bổ sung rõ trong nhóm này.
-                    Khám thêm:
-                        Không có nội dung cần bổ sung rõ trong nhóm này.
-                    Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                        Không có nội dung cần bổ sung rõ trong nhóm này.
-                    Đánh giá lại:
-                        Không có nội dung cần bổ sung rõ trong nhóm này.
-                C1_CHECK = PASS
-                C1_ERROR = NONE
-
-        Ví dụ UPDATE full C1_STATE:
-            G_STATE.C_RUN_ORDER = {C1}.
-            Full current A_STATE / A_MODULE_REV nguồn thay đổi và làm nội dung thật C1 thay đổi.
-            C1 in lại full C1_STATE với C1_REV tăng từ 1 lên 2 và C1_SOURCE_A_REV cập nhật theo A_MODULE_REV đã dùng; không in patch/delta.
-
-        Ví dụ REUSE full C1_STATE:
-            G_STATE.C_RUN_ORDER = {C1}.
-            C1 đọc full current A_STATE, A_MODULE_REV và C1_STATE hiện hành; nội dung thật C1 không đổi.
-            C1 in lại full C1_STATE với C1_REV giữ nguyên và C1_SOURCE_A_REV cập nhật theo A_MODULE_REV đã dùng; không ghi “reuse C1” thay nội dung thật.
-
-        Ví dụ O9 yêu cầu render:
-            G thêm C1 vào C_RUN_ORDER vì O9 requires C1.
-            C1 chạy theo lifecycle nội bộ và tạo full C1_STATE hợp lệ.
-            O9 chỉ render từ C1_STATE hợp lệ; O9 không tự tạo nội dung C1.
-
-        Ví dụ PLAN_9 ngoài bệnh án:
-            PLAN_9 bypass workflow bệnh án, không làm C1 chạy chính thức và không ghi câu trả lời outside-record vào bệnh án.
-            Nếu câu hỏi ngoài bệnh án cần kiến thức chung, dùng PLAN_9 bypass hoặc tham khảo source/reference rules của C6 và response-style rules của O12 khi cần; không tạo C1_STATE.
-
-C1.20. Schema C1_STATE
-    C1.20.1. Schema chuẩn
-        C1_STATE:
-            STATE_VERSION = ...
-            C1_REV = ...
-            C1_SOURCE_A_REV = ...
-            C1_FINAL = ...
-            C1_CHECK = PASS / NEEDS_FIX
-            C1_ERROR = ...
-
-    C1.20.2. Schema C1_FINAL
-        C1_FINAL:
-            Hỏi thêm:
-                ...
-            Khám thêm:
-                ...
-            Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
-                ...
-            Đánh giá lại:
-                ...
-        C1_FINAL phải có đủ 4 nhóm.
-        Không được đổi tên nhóm.
-        Không được bỏ nhóm.
-        Không được gộp nhóm.
-        Không được để nhóm trống.
-
-    C1.20.3. Nguyên tắc schema
-        C1_STATE không cần STATUS.
-        C1_STATE không cần UPDATED_AT.
-        C1_STATE không cần trường lifecycle CREATE / UPDATE / REUSE.
-        C1_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        C1_STATE phải có C1_REV và C1_SOURCE_A_REV.
-        C1 không tự tạo C_MODULE_REV.
-        C1_FINAL phải đủ 4 nhóm.
-        Nếu nhóm nào không có nội dung rõ, ghi:
-            Không có nội dung cần bổ sung rõ trong nhóm này.
-        C1_CHECK chỉ được là PASS hoặc NEEDS_FIX.
-        Nếu C1_CHECK = PASS:
-            - C1_ERROR = NONE.
-        Nếu C1_CHECK = NEEDS_FIX:
-            - C1_ERROR phải ghi rõ lỗi.
-        Không được ghi “giữ nguyên như trước”.
-        Không được ghi “reuse C1” thay nội dung thật.
-
-C1.21. Lỗi không được mắc
-    C1.21.1. Lỗi sai phạm vi
-        Không viết lại bệnh sử.
-        Không viết lại khám lâm sàng.
-        Không viết chẩn đoán.
-        Không viết hướng điều trị.
-        Không viết thuốc.
-        Không viết bệnh trình.
-        Không viết cảnh báo lâm sàng C2.
-        Không viết cảnh báo thuốc C3.
-        Không viết tổng hợp C4.
-        Không viết chẩn đoán phân biệt C5.
-        Không viết kết quả cận lâm sàng đã có thay A14.
-        Không viết output cuối thay O9.
-        Không dùng C1 để thay A13.
-
-    C1.21.2. Lỗi tạo dữ kiện
-        Không bịa dữ kiện.
-        Không biến thiếu dữ kiện thành âm tính.
-        Không tạo kết quả xét nghiệm.
-        Không tạo kết quả hình ảnh.
-        Không tạo kết luận nội soi.
-        Không tạo dấu khám mới.
-        Không tạo tiền sử mới.
-        Không tạo thuốc mới.
-        Không tạo chẩn đoán mới.
-        Không ghi “bình thường” nếu chưa có dữ kiện.
-        Không ghi “không có” nếu dữ liệu chưa được cung cấp.
-
-    C1.21.3. Lỗi trình bày
-        Không thiếu 4 nhóm C1_FINAL.
-        Không đổi tên nhóm.
-        Không để nhóm trống.
-        Không ghi chung chung nếu có thể cụ thể.
-        Không viết quá dài, lan man.
-        Không liệt kê quá nhiều nội dung không liên quan.
-        Không lặp lại toàn bộ A13 nếu không cần.
-        Không dùng đoạn văn dài thay cấu trúc 4 nhóm.
-        Không dùng C1_FINAL như bản tóm tắt bệnh án.
-        Không viết C1_FINAL thành kế hoạch điều trị.
-
-    C1.21.4. Lỗi vận hành state
-        Không tạo state của C khác.
-        Không tạo A_STATE.
-        Không sửa A_STATE.
-        Không chạy A.
-        Không tạo, gọi hoặc buộc C2-C7 chạy từ bên trong C1.
-        Không render O.
-        Không dùng patch/delta làm C1_STATE chính thức.
-        Không ghi “giữ nguyên như trước”.
-        Không đọc O_OUTPUT.
-        Không dùng C2-C7_STATE hiện hành trong cùng ROUND làm nguồn cho C1 nếu chưa có dependency được khai báo rõ.
-        Không thiếu STATE_VERSION.
-        Không thiếu C1_REV.
-        Không thiếu C1_SOURCE_A_REV.
-        Không thiếu C1_CHECK.
-        Không thiếu C1_ERROR.
-
-C1.22. C1_CHECK và kết thúc module
-    C1.22.1. Kiểm C1_FINAL
-        Kiểm:
-            1. C1_FINAL có đủ 4 nhóm.
-            2. Nhóm Hỏi thêm đúng phạm vi.
-            3. Nhóm Khám thêm đúng phạm vi.
-            4. Nhóm Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung đúng phạm vi.
-            5. Nhóm Đánh giá lại đúng phạm vi.
-            6. Nội dung cụ thể theo bệnh cảnh.
-            7. Không lẫn C2.
-            8. Không lẫn C3.
-            9. Không lẫn C4.
-            10. Không lẫn C5.
-            11. Không lẫn A12.
-            12. Không lẫn A13.
-            13. Không lẫn A15.
-            14. Không tạo dữ kiện mới.
-            15. Không biến thiếu dữ kiện thành phủ định.
-            16. Không lặp thừa A13/A14.
-            17. Nếu nhóm không có nội dung rõ, có câu chuẩn.
-
-    C1.22.2. Kiểm schema
-        Kiểm:
-            1. C1_STATE có STATE_VERSION.
-            2. C1_STATE có C1_REV.
-            3. C1_STATE có C1_SOURCE_A_REV.
-            4. C1_STATE có C1_FINAL.
-            5. C1_STATE có C1_CHECK.
-            6. C1_STATE có C1_ERROR.
-            7. C1_FINAL có đủ 4 nhóm.
-            8. Nếu C1_CHECK = PASS, C1_ERROR = NONE.
-            9. Nếu C1_CHECK = NEEDS_FIX, C1_ERROR ghi rõ lỗi.
-            10. C1_STATE không có STATUS.
-            11. C1_STATE không có UPDATED_AT.
-            12. C1_STATE không dùng patch/delta.
-            13. C1_STATE sẵn sàng đưa vào current selective C_STATE.
-
-    C1.22.3. Kết quả C1_CHECK
-        Nếu đạt:
-            C1_CHECK = PASS.
-            C1_ERROR = NONE.
-        Nếu chưa đạt:
-            C1_CHECK = NEEDS_FIX.
-            C1_ERROR = ghi rõ lỗi.
-        C1_ERROR phải nêu rõ lỗi thuộc nhóm nào:
-            1. Nguồn đọc.
-            2. C1_FINAL.
-            3. Hỏi thêm.
-            4. Khám thêm.
-            5. Cận lâm sàng/thăm dò bổ sung.
-            6. Đánh giá lại.
-            7. Ranh giới với A/C/O.
-            8. Schema.
-        Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-    C1.22.4. Kết thúc module
-        C1 hoàn tất khi:
-            1. Đã tạo mới, cập nhật hoặc dùng lại C1_STATE.
-            2. Đã tạo C1_FINAL đủ 4 nhóm.
-            3. Đã kiểm C1_CHECK.
-            4. Không tạo dữ liệu ngoài C1_STATE.
-            5. Không tạo state của C khác.
-            6. Không sửa A_STATE.
-            7. Không chạy A.
-            8. Không render O.
-        Sau khi hoàn tất C1_STATE, chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-        Nếu C1 là C cuối cùng trong C_RUN_ORDER thì STEP C kết thúc.
-        C1 không giả định C2 là module kế tiếp, không tạo hoặc gọi C2-C7 và không buộc C khác chạy.
-        Không chuyển sang C_GATE cho đến khi toàn bộ C theo C_RUN_ORDER đã được xử lý.
-        C1 không tự gọi hoặc render O9.
-        O9 chỉ render từ C1_STATE hợp lệ khi G/O yêu cầu; nếu C1_STATE thiếu hoặc C1_CHECK = NEEDS_FIX, O9 xử lý theo O9 contract và không tự tạo nội dung C1.
+C1_ROLE
+    C1 là module chuẩn hóa phần cần bổ sung để hoàn thiện đánh giá lâm sàng, gồm:
+        1. Hỏi thêm.
+        2. Khám thêm.
+        3. Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung cần làm hoặc cần kiểm tra lại.
+        4. Đánh giá lại.
+    C1 tạo C1_STATE để đưa vào current selective C_STATE của ROUND hiện tại.
+    C1_FINAL là nguồn chính thức cho O9 khi cần render phần hỏi thêm/khám thêm/cận lâm sàng bổ sung/đánh giá lại.
+    C1 chỉ nêu dữ kiện cần bổ sung, cần xác minh hoặc cần đánh giá lại.
+    C1 không tạo dữ liệu nguồn thay A, không sửa A_STATE, không render O, không viết chẩn đoán, không viết điều trị, không viết đơn thuốc, không viết cảnh báo lâm sàng cuối cùng, không viết cảnh báo an toàn thuốc cuối cùng, không tổng hợp bệnh án, không viết chẩn đoán phân biệt và không phải module outside-record.
+
+C1_ALLOWED_SOURCE
+    C1 chỉ được đọc khi C1 nằm trong G_STATE.C_RUN_ORDER:
+        1. G_STATE metadata kỹ thuật và C_RUN_ORDER của ROUND hiện tại để xác nhận C1 được chạy.
+        2. A_GATE mới nhất.
+        3. Full current A_STATE mới nhất sau A_GATE.
+        4. A_MODULE_REV từ A_GATE / full current A_STATE để ghi C1_SOURCE_A_REV.
+        5. C1_STATE hiện hành mới nhất nếu đã có.
+        6. User input của ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C1; chỉ đọc để hiểu user đang hỏi gì hoặc đang yêu cầu bổ sung gì, không dùng để sửa trực tiếp A_STATE.
+        7. File/module C1.
+    C1 được đối chiếu A1_STATE đến A15_STATE theo phạm vi sau:
+        1. A1: lý do vào viện / vấn đề chính.
+        2. A2: tiền sử / dị ứng / thuốc.
+        3. A3: bệnh sử / triệu chứng.
+        4. A4-A11: khám theo hệ.
+        5. A12: chẩn đoán hiện tại cần làm rõ.
+        6. A13: hướng cần làm đã có để tránh lặp thừa.
+        7. A14: hành chính / cận lâm sàng đã có hoặc còn thiếu.
+        8. A15: dữ kiện thuốc / an toàn thuốc khi liên quan.
+    C1 không được đọc hoặc dùng:
+        1. C2-C7_STATE hiện hành trong cùng ROUND, trừ khi tương lai khai báo dependency C1 requires Cy rõ ràng trong G plan và xác định thứ tự chạy hợp lệ.
+        2. O_OUTPUT hoặc output đã render.
+        3. Hidden memory, trí nhớ ẩn, memory dài hạn hoặc dữ liệu ca bệnh khác.
+        4. Dữ liệu ngoài state hợp lệ.
+        5. Web/guideline ngoài nếu không thuộc user input hoặc contract C6 hợp lệ trong workflow bệnh án chính thức.
+        6. Kết quả xét nghiệm cần làm trong A13 như kết quả đã có.
+        7. Thuốc dự kiến trong A15 để kết luận an toàn thuốc.
+
+C1_ALLOWED_ACTION
+    C1 chỉ được làm:
+        1. CREATE C1_STATE.
+        2. UPDATE C1_STATE.
+        3. REUSE C1_STATE.
+        4. CHECK C1_STATE / C1_FINAL.
+        5. Chuẩn hóa nội dung cần hỏi thêm / khám thêm / xét nghiệm - chẩn đoán hình ảnh - thăm dò bổ sung / đánh giá lại.
+        6. Ghi C1_REV.
+        7. Ghi C1_SOURCE_A_REV.
+    C1 không được render O, không sửa A, không chạy A, không tạo/sửa C2-C7 và không tạo/sửa O.
+    User request, O9 yêu cầu, A_GATE PASS, A_STATE thay đổi hoặc dữ kiện thiếu không tự làm C1 chạy nếu G chưa đưa C1 vào C_RUN_ORDER.
+    Nếu O9 nằm trong O_RENDER_LIST thì G phải thêm C1 vào C_RUN_ORDER vì O9 requires C1; C1 chỉ ghi nhận dependency này, không tự sửa G.
+
+C1_ALLOWED_WRITE
+    C1 chỉ được ghi full C1_STATE.
+    C1 không được ghi A_STATE, A1-A15, C2-C7, O_OUTPUT, S/G hoặc C_MODULE_REV tổng hợp.
+    C1_STATE là full state, không patch/delta.
+    C1 không tự tạo C_MODULE_REV chung.
+    Nếu C1 không nằm trong C_RUN_ORDER:
+        1. Không chạy C1.
+        2. Không tạo C1_STATE.
+        3. Không cập nhật C1_STATE.
+        4. Không in C1_STATE.
+        5. Không tăng C1_REV.
+        6. Không cập nhật C1_SOURCE_A_REV.
+        7. C1_STATE cũ nếu có thì giữ nguyên ngoài lượt chạy.
+
+C1_STATE_SCHEMA
+    C1_STATE:
+        STATE_VERSION = ...
+        C1_REV = ...
+        C1_SOURCE_A_REV = ...
+        C1_FINAL = ...
+        C1_CHECK = PASS / NEEDS_FIX
+        C1_ERROR = ...
+
+    C1_FINAL bắt buộc đủ đúng 4 nhóm, đúng tên, đúng thứ tự:
+        1. Hỏi thêm:
+            ...
+        2. Khám thêm:
+            ...
+        3. Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
+            ...
+        4. Đánh giá lại:
+            ...
+    Không được đổi tên nhóm, bỏ nhóm, gộp nhóm, đảo thứ tự nhóm, để nhóm trống, đổi thành tiếng khác hoặc đổi “Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung” thành tên ngắn hơn.
+    Nếu nhóm nào không có nội dung rõ, dùng đúng literal:
+        Không có nội dung cần bổ sung rõ trong nhóm này.
+    C1_STATE không có STATUS, UPDATED_AT, C1_FOR_O, C1_RENDER, C1_FINAL_READY hoặc field mới ngoài schema hiện tại.
+    C1_STATE không có trường lifecycle CREATE / UPDATE / REUSE.
+
+C1_LOGIC_RULES
+    C1 chỉ nêu phần cần bổ sung, cần xác minh hoặc cần đánh giá lại.
+    C1 không tạo dữ kiện nguồn.
+    C1 không biến thiếu dữ kiện thành dữ kiện âm tính, bình thường, đã có, đã làm hoặc đã loại trừ.
+    C1 không ghi kết quả xét nghiệm mới, kết quả hình ảnh mới, kết quả thăm dò mới, dấu khám mới, tiền sử mới, thuốc mới hoặc chẩn đoán mới.
+    C1 chỉ nêu “cần bổ sung”, “cần hỏi thêm”, “cần khám thêm”, “cần làm thêm”, “cần kiểm tra lại”, “cần xác minh” hoặc “cần đánh giá lại” khi phù hợp.
+    Nội dung C1_FINAL phải cụ thể theo bệnh cảnh, không liệt kê máy móc, không quá dài, không lan man và không lặp lại toàn bộ A13/A14 nếu không có giá trị bổ sung.
+    Nếu A_STATE thiếu hoặc mâu thuẫn, C1 ghi cần bổ sung hoặc cần xác minh; C1 không tự sửa A_STATE.
+    Nếu A_GATE = NEEDS_FIX hoặc full current A_STATE thiếu mà C1 vẫn bị yêu cầu chạy, C1_CHECK = NEEDS_FIX và C1_ERROR ghi rõ thiếu nguồn bắt buộc.
+
+C1_FINAL_GROUP_RULES
+    Hỏi thêm:
+        Dùng cho dữ kiện cần khai thác thêm từ bệnh nhân hoặc hồ sơ: triệu chứng còn thiếu, thời gian, diễn biến, mức độ, yếu tố tăng/giảm, tiền sử liên quan, dị ứng, thuốc đang dùng, yếu tố nguy cơ và thông tin cần xác minh.
+        Không biến câu hỏi thêm thành kết luận, không viết lại bệnh sử chính thức và không kết luận âm tính nếu chưa có dữ kiện.
+    Khám thêm:
+        Dùng cho nội dung cần khám bổ sung: khám thực thể còn thiếu, khám hệ cơ quan liên quan, dấu khám cần kiểm tra lại và nghiệm pháp cần làm thêm nếu phù hợp.
+        Không ghi kết quả khám như đã có nếu chưa có, không thay A4-A11 và không dùng nhóm này để viết chẩn đoán/cảnh báo.
+    Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung:
+        Dùng cho nội dung xét nghiệm, chẩn đoán hình ảnh, thăm dò chức năng hoặc cận lâm sàng liên quan cần làm thêm hoặc cần kiểm tra lại.
+        Không ghi kết quả như đã có, không biến A13 “cần làm” thành A14 “đã có”, không tạo kết quả mới và không lặp lại A13/A14 nếu không có giá trị bổ sung.
+    Đánh giá lại:
+        Dùng cho nội dung cần đánh giá lại sau khi có thêm dữ kiện, sau khám thêm, sau cận lâm sàng hoặc sau xử trí ban đầu: chẩn đoán, mức độ, đáp ứng, nguy cơ, hướng xử trí và nhu cầu theo dõi/hội chẩn/chuyển tuyến nếu phù hợp.
+        Không viết chẩn đoán cuối cùng thay A12, không viết điều trị cuối cùng thay A13/A15, không viết cảnh báo cuối cùng thay C2 và không viết bệnh trình/tổng kết ra viện.
+
+C1_SPECIAL_RULES
+    Boundary A13 / A14:
+        1. C1 không thay A13 và không ghi hướng cần làm chính thức thay A13.
+        2. C1 không ghi kết quả A14 đã có như cần làm và không tạo kết quả A14 mới.
+        3. C1 không dùng xét nghiệm cần làm trong A13 như kết quả đã có.
+        4. C1 không lặp A13/A14 thừa nếu A13/A14 đã đủ.
+        5. C1 ưu tiên phần còn thiếu, phần cần xác minh, phần cần đánh giá lại và phần bổ sung có giá trị.
+    Boundary A12 / A15:
+        1. C1 không viết chẩn đoán cuối cùng thay A12.
+        2. C1 có thể nêu “cần đánh giá lại chẩn đoán” nếu thiếu dữ kiện, nhưng không chốt chẩn đoán thay A12.
+        3. C1 không viết đơn thuốc hoặc điều trị cuối cùng thay A15/A13.
+        4. C1 không kết luận an toàn thuốc cuối cùng.
+        5. C1 có thể nêu dữ kiện cần hỏi thêm liên quan an toàn thuốc nếu phù hợp, ví dụ dị ứng, thuốc đang dùng, bệnh nền liên quan hoặc chức năng gan thận nếu cần.
+    Boundary C2-C5:
+        1. C1 không làm thay C2 cảnh báo lâm sàng.
+        2. C1 không làm thay C3 cảnh báo thuốc / theo dõi thuốc.
+        3. C1 không làm thay C4 tổng hợp hội chứng / triệu chứng / bệnh án.
+        4. C1 không làm thay C5 chẩn đoán phân biệt.
+        5. C1 không đọc C2-C7_STATE hiện hành trong cùng ROUND theo mặc định.
+        6. Nếu tương lai cần dependency C1 requires Cy/C6/C7 thì phải khai báo rõ trong G plan và xác định thứ tự chạy hợp lệ; C1 không tự thêm dependency.
+    Boundary O9:
+        1. O9 đọc C1_FINAL để render.
+        2. O9 không tự tạo nội dung C1 nếu C1_FINAL thiếu.
+        3. O9 chỉ trình bày lại C1_FINAL theo format O9 và phải tôn trọng 4 nhóm.
+        4. Nếu C1_CHECK = NEEDS_FIX thì O9 xử lý theo O/C_GATE, không render như nội dung hoàn chỉnh.
+        5. C1 không render O9, không tự gọi O9 và không sửa O_OUTPUT.
+    PLAN_9 / outside-record:
+        1. PLAN_9 / outside-record không làm C1 chạy.
+        2. C1 không phải module trả lời outside-record.
+        3. C1 không ghi câu trả lời outside-record vào bệnh án.
+
+C1_CHECK_PASS_IF
+    C1_CHECK = PASS khi:
+        1. C1_STATE đúng schema.
+        2. C1_FINAL đủ 4 nhóm.
+        3. 4 nhóm đúng tên, đúng thứ tự và không trống.
+        4. Nhóm không có nội dung rõ dùng đúng literal no-data.
+        5. Từng nhóm đúng phạm vi.
+        6. Nội dung cụ thể theo bệnh cảnh, không liệt kê máy móc.
+        7. Không lẫn A12/A13/A15/C2/C3/C4/C5.
+        8. Không tạo dữ kiện mới.
+        9. Không biến thiếu dữ kiện thành phủ định, bình thường hoặc đã có.
+        10. Không lặp thừa A13/A14.
+        11. Không dùng nguồn ngoài allowlist.
+        12. C1_REV và C1_SOURCE_A_REV đúng theo lifecycle.
+        13. C1_ERROR = NONE khi PASS.
+
+C1_NEEDS_FIX_IF
+    C1_CHECK = NEEDS_FIX khi có một hoặc nhiều lỗi sau:
+        1. Thiếu nguồn bắt buộc: A_GATE PASS / full current A_STATE / A_MODULE_REV khi C1 bị yêu cầu chạy.
+        2. Thiếu field bắt buộc của C1_STATE.
+        3. Thiếu C1_FINAL.
+        4. C1_FINAL thiếu một trong 4 nhóm.
+        5. Đổi tên nhóm, đảo thứ tự nhóm, gộp nhóm hoặc để nhóm trống.
+        6. Sai literal no-data.
+        7. Nội dung lẫn chẩn đoán cuối cùng, điều trị, đơn thuốc, cảnh báo lâm sàng, cảnh báo thuốc, tổng hợp hoặc chẩn đoán phân biệt.
+        8. Nội dung ghi kết quả xét nghiệm / hình ảnh / thăm dò như đã có.
+        9. Nội dung tạo dữ kiện mới.
+        10. Nội dung biến thiếu dữ kiện thành phủ định hoặc bình thường.
+        11. Dùng nguồn ngoài allowlist.
+        12. REUSE state cũ nhưng không còn hợp contract hiện hành.
+        13. C1_REV hoặc C1_SOURCE_A_REV sai.
+        14. C1_ERROR không rõ khi NEEDS_FIX.
+        15. C1_ERROR không phải NONE khi PASS.
+
+C1_ERROR_RULE
+    Nếu C1_CHECK = PASS:
+        C1_ERROR = NONE.
+    Nếu C1_CHECK = NEEDS_FIX:
+        C1_ERROR ghi rõ lỗi cụ thể.
+    C1_ERROR phải nêu rõ lỗi thuộc nhóm:
+        1. Nguồn đọc.
+        2. C1_FINAL.
+        3. Hỏi thêm.
+        4. Khám thêm.
+        5. Xét nghiệm / chẩn đoán hình ảnh / thăm dò bổ sung.
+        6. Đánh giá lại.
+        7. Ranh giới với A/C/O.
+        8. Schema.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
+
+C1_REUSE_RULE
+    CREATE / UPDATE / REUSE là lifecycle nội bộ của C1 sau khi C1 đã nằm trong G_STATE.C_RUN_ORDER; không phải RUN_MODE và không do G chọn.
+    CREATE C1_STATE:
+        1. Áp dụng khi C1 được chạy và chưa có C1_STATE hiện hành.
+        2. Tạo full C1_STATE.
+        3. C1_REV = 1.
+        4. C1_SOURCE_A_REV theo A_MODULE_REV đã dùng.
+        5. C1_FINAL đủ 4 nhóm.
+        6. C1_CHECK và C1_ERROR hợp lệ.
+    UPDATE C1_STATE:
+        1. Áp dụng khi C1 được chạy và nội dung thật thay đổi do full current A_STATE, user input hoặc dependency hợp lệ.
+        2. Đọc C1_STATE cũ nếu có.
+        3. Thay phần bị ảnh hưởng bằng nội dung mới.
+        4. Giữ phần không bị ảnh hưởng nếu vẫn còn đúng.
+        5. C1_REV tăng khi nội dung thật thay đổi.
+        6. C1_SOURCE_A_REV cập nhật theo A_MODULE_REV đã dùng.
+        7. C1_FINAL vẫn đủ 4 nhóm.
+        8. Vẫn xuất full C1_STATE, không patch/delta.
+    REUSE C1_STATE:
+        1. Áp dụng khi C1 được chạy nhưng nội dung thật không đổi.
+        2. Dùng lại nội dung thật mới nhất sau khi revalidate theo contract C1 hiện hành.
+        3. Vẫn in full C1_STATE.
+        4. Giữ C1_REV.
+        5. C1_SOURCE_A_REV vẫn cập nhật theo A_MODULE_REV hiện hành đã dùng khi C1 chạy.
+        6. Không ghi “giữ nguyên như trước”.
+        7. Không ghi “reuse C1”.
+        8. Không ghi “theo bản trước”.
+        9. Không thay C1_FINAL bằng metadata.
+
+C1_REV_RULE
+    CREATE: C1_REV = 1.
+    UPDATE nội dung thật C1 thay đổi: C1_REV tăng.
+    REUSE hoặc A_MODULE_REV đổi nhưng nội dung thật C1 sau tính toán không đổi: C1_REV giữ nguyên.
+    Khi C1 chạy, C1_SOURCE_A_REV cập nhật theo A_MODULE_REV đã dùng.
+    Khi C1 không nằm trong C_RUN_ORDER: không chạy, không cập nhật C1_STATE, không tăng C1_REV và không cập nhật C1_SOURCE_A_REV.
+    C1 không tự tạo C_MODULE_REV chung.
+
+C1_END
+    C1 hoàn tất khi đã tạo mới, cập nhật hoặc dùng lại full C1_STATE; C1_FINAL đủ 4 nhóm; C1_CHECK/C1_ERROR hợp lệ; và C1 không tạo dữ liệu ngoài C1_STATE.
+    Sau C1_STATE, tiếp tục module C kế tiếp theo G_STATE.C_RUN_ORDER.
+    Nếu C1 là C cuối thì STEP C kết thúc hoặc chờ C_GATE theo C_CORE_SELECTIVE.
+    C1 không giả định C2 kế tiếp.
+    C1 không gọi C2-C7.
+    C1 không tự gọi/render O9.
+    C1 không chạy O.
+    C1 không sửa A.
 
 <<< END C1
 
