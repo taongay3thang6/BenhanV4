@@ -316,1371 +316,206 @@ C1_END
 ####################################################################################################
 
 C2 — CẢNH BÁO LÂM SÀNG / NGUY CƠ / THEO DÕI SÁT
-Version: BA S-G-A-C-O v3
-Update 16:41 30/05/2026 GMT+7
+Version: BA S-G-A-C-O V4 compact allowlist
+Update: compact C2 V4 — ALLOWLIST MODE
 
 >>> READ-LOCK: C2
-- Bắt buộc đọc tuần tự toàn bộ C2 từ C2.1 đến C2.22.
-- Không được bỏ qua mục nào.
-- Chỉ tạo C2_STATE.
-- Không tạo state của C khác.
-- Không sửa A_STATE.
-- Không chạy A.
-- Không render O.
-- C2 là module cảnh báo lâm sàng, nguy cơ, dấu hiệu nặng, dấu hiệu cần theo dõi sát và tình huống cần xử trí/chuyển tuyến/hội chẩn.
-- C2 không hỏi thêm/khám thêm thay C1.
-- C2 không kiểm thuốc/thận trọng thuốc/tương tác thuốc thay A15.
-- C2 không tạo chẩn đoán phân biệt thay C5.
-- C2 không tổng hợp bệnh án thay C4.
-- C2 không tự tạo dữ kiện mới.
-- Sau khi hoàn tất C2_STATE, chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER; nếu C2 là C cuối cùng thì STEP C kết thúc.
+- Bắt buộc đọc toàn bộ C2 compact từ C2_ROLE đến C2_END.
+- C2 chỉ chạy khi C2 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
+- C2 chỉ tạo/cập nhật/reuse/check full C2_STATE; không tạo patch/delta.
+- C2 không sửa A/S/G/O hoặc C1/C3-C7, không chạy A, không render O/O10 và không tạo C_MODULE_REV.
 <<< END READ-LOCK: C2
 
-C2.1. Nhiệm vụ của C2
-    C2.1.1. Vai trò chính của C2
-        C2 là module chuẩn hóa cảnh báo lâm sàng, nguy cơ chuyển nặng, dấu hiệu cần theo dõi sát và tình huống cần xử trí kịp thời.
-        C2 tạo C2_STATE để đưa vào current selective C_STATE của ROUND hiện tại.
-        C2_STATE là nguồn chính thức cho output cảnh báo lâm sàng, đặc biệt O10 nếu hệ thống dùng O10 để render cảnh báo.
-        C2 giúp tách rõ cảnh báo lâm sàng khỏi:
-            1. C1 — hỏi thêm / khám thêm / cận lâm sàng bổ sung / đánh giá lại.
-            2. A15 — chọn thuốc / kiểm an toàn thuốc; C3 — cảnh báo tác dụng phụ / theo dõi.
-            3. C4 — tổng hợp bệnh án.
-            4. C5 — chẩn đoán phân biệt / nghi ngờ / bệnh khác có khả năng.
-            5. A13 — hướng cần làm / hướng điều trị.
-        C2 không phải module điều trị thường quy.
-        C2 không phải module kê thuốc.
-        C2 không phải module tạo dữ kiện mới.
-        C2 không phải module render output.
-
-    C2.1.2. Nội dung C2 tạo ra
-        C2 tạo:
-            1. C2_WARNING_LEVEL.
-            2. C2_RED_FLAGS.
-            3. C2_MONITORING_POINTS.
-            4. C2_ACTION_ALERTS.
-            5. C2_FINAL.
-            6. C2_CHECK.
-            7. C2_ERROR nếu C2_CHECK = NEEDS_FIX.
-
-    C2.1.3. Nguyên tắc trách nhiệm
-        C2 chỉ cảnh báo dựa trên dữ kiện đã có trong full current A_STATE sau A_GATE và user input ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C2.
-        C2 không tạo dữ kiện mới.
-        C2 không sửa A_STATE.
-        C2 không render output cuối.
-        C2 không biến dữ kiện thiếu thành bình thường.
-        C2 không biến nguy cơ cần theo dõi thành chẩn đoán chắc chắn.
-        C2 không cảnh báo quá mức khi dữ kiện không ủng hộ.
-        C2 không bỏ sót dấu hiệu nguy hiểm rõ ràng đã có trong A_STATE.
-        Nếu dữ kiện chưa đủ để loại trừ nguy cơ, C2 phải ghi là chưa đủ dữ kiện, không được ghi phủ định chắc chắn.
-        Nếu C2 phát hiện dữ kiện nguy cơ rõ nhưng A_STATE còn thiếu thông tin đánh giá, C2 có thể ghi cần theo dõi sát hoặc cần đánh giá lại, nhưng không sửa A_STATE.
-
-C2.2. Khi nào chạy C2
-    Điều kiện tiên quyết duy nhất để chạy C2 là: C2 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-    User request, O10 render, A_GATE PASS, A_STATE thay đổi, dữ kiện nguy cơ hoặc dữ kiện còn thiếu chỉ là căn cứ để G lập plan; không tự kích hoạt C2.
-
-    C2.2.1. Khi user yêu cầu cảnh báo
-        Khi user hỏi hoặc yêu cầu cảnh báo lâm sàng/nguy cơ/theo dõi sát, G có thể đưa C2 vào C_RUN_ORDER.
-        User không cần dùng đúng câu lệnh cố định.
-        User yêu cầu trực tiếp C2 không làm C2 tự chạy; C2 chỉ chạy sau khi G đã đưa C2 vào C_RUN_ORDER.
-
-    C2.2.2. Khi G xác định O10 cần render
-        Nếu O10 nằm trong O_RENDER_LIST, G phải thêm C2 vào C_RUN_ORDER vì O10 requires C2.
-        O10 được render không làm C2 tự chạy; C2 chỉ chạy sau khi G đã thêm C2 vào C_RUN_ORDER.
-        Khi được chạy, C2 tự áp dụng lifecycle nội bộ CREATE / UPDATE / REUSE và tạo full C2_STATE hợp lệ.
-        O10 không được tự tạo cảnh báo lâm sàng nếu C2 chưa có C2_FINAL hợp lệ.
-        Nếu C2_STATE thiếu hoặc C2_CHECK = NEEDS_FIX, O10 xử lý theo O10 contract và không tự tạo nội dung C2.
-
-    C2.2.3. Khi A_STATE có dữ kiện nguy cơ
-        A_STATE có dữ kiện gợi ý nguy cơ là căn cứ để G lập plan hoặc để C2 xử lý khi C2 đã nằm trong C_RUN_ORDER; không tự kích hoạt C2.
-        Dữ kiện gợi ý nguy cơ có thể gồm:
-            1. Dấu hiệu sinh tồn bất thường.
-            2. Rối loạn ý thức.
-            3. Khó thở, SpO₂ giảm hoặc dấu suy hô hấp.
-            4. Đau ngực nguy cơ.
-            5. Tụt huyết áp hoặc sốc.
-            6. Đau bụng dữ dội, phản ứng thành bụng.
-            7. Xuất huyết tiêu hóa hoặc mất máu.
-            8. Co giật, yếu liệt, dấu thần kinh khu trú.
-            9. Sốt cao kéo dài, nghi nhiễm khuẩn nặng.
-            10. Thiểu niệu/vô niệu hoặc dấu suy thận.
-            11. Diễn biến bệnh trình nặng lên hoặc không cải thiện.
-            12. Cận lâm sàng đã có bất thường rõ.
-            13. Bệnh nền nguy cơ làm ca bệnh dễ chuyển nặng.
-        C2 chỉ dùng dữ kiện đã có trong full current A_STATE để cảnh báo, không tự thêm dấu hiệu nguy cơ chưa có.
-        A_GATE PASS, A_STATE thay đổi, A_MODULE_REV thay đổi hoặc dữ kiện còn thiếu không tự làm C2 chạy.
-
-    C2.2.4. Khi không cần C2
-        Nếu C2 không nằm trong C_RUN_ORDER:
-            - Không chạy C2.
-            - Không tạo hoặc cập nhật C2_STATE.
-            - Không in C2_STATE dạng SKIP.
-            - Không tạo patch/delta.
-            - Không tăng C2_REV và không cập nhật C2_SOURCE_A_REV.
-            - C2_STATE cũ nếu có giữ nguyên cho đến khi PLAN yêu cầu chạy lại C2.
-        Nếu A_STATE thay đổi nhưng ROUND không yêu cầu C2, không có O10 và plan hiện tại không chỉ định C2 thì C2 không chạy.
-        Không chạy C2 chỉ để tạo cảnh báo không cần thiết.
-
-C2.3. Nguồn được đọc
-    C2.3.1. Nguồn được đọc
-        Khi C2 nằm trong G_STATE.C_RUN_ORDER, C2 được đọc:
-            1. User input ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C2.
-            2. G_STATE metadata kỹ thuật và C_RUN_ORDER để xác nhận C2 được chạy.
-            3. A_GATE mới nhất.
-            4. Full current A_STATE mới nhất sau A_GATE.
-            5. A_MODULE_REV từ A_GATE / full current A_STATE.
-            6. C2_STATE hiện hành mới nhất nếu đã có.
-            7. File/module C2.
-        C2 không dùng user input để sửa trực tiếp A_STATE.
-        Nếu user input chứa dữ kiện lâm sàng mới chưa vào A_STATE, G phải quyết định chạy lại A trước khi C2 tạo cảnh báo chính thức.
-
-    C2.3.2. Các A_STATE có thể đối chiếu
-        C2 có thể đọc full current A_STATE đủ A1-A15 sau A_GATE để biết dữ kiện bệnh án hiện hành có liên quan nguy cơ, gồm:
-            1. A1_STATE để biết lý do vào viện và vấn đề chính.
-            2. A2_STATE để biết tiền sử, bệnh nền, dị ứng, thuốc đang dùng nếu có liên quan nguy cơ.
-            3. A3_STATE để biết bệnh sử, triệu chứng chính và diễn biến ban đầu.
-            4. A4_STATE để biết toàn thân, tri giác, dấu hiệu sinh tồn, tình trạng chung.
-            5. A5_STATE để biết tuần hoàn, mạch, huyết áp, dấu hiệu tim mạch.
-            6. A6_STATE để biết hô hấp, khó thở, SpO₂, ran phổi, dấu suy hô hấp.
-            7. A7_STATE để biết tiêu hóa, đau bụng, nôn, tiêu chảy, xuất huyết tiêu hóa.
-            8. A8_STATE để biết thận - tiết niệu, tiểu tiện, đau hông lưng, phù, vô niệu/thiểu niệu.
-            9. A9_STATE để biết thần kinh, ý thức, co giật, yếu liệt, dấu thần kinh khu trú.
-            10. A10_STATE để biết cơ xương khớp, đau/sưng/giới hạn vận động, dấu viêm/nhiễm khuẩn nếu có.
-            11. A11_STATE để biết cơ quan khác liên quan.
-            12. A14_STATE để biết thông tin hành chính và cận lâm sàng đã có.
-            13. A12_STATE để biết chẩn đoán hiện tại.
-            14. A13_STATE để biết hướng cần làm/hướng xử trí hiện có, nhưng không thay A13.
-            15. A15_STATE chỉ để biết bối cảnh thuốc/đơn có thể liên quan bệnh cảnh, không kiểm an toàn thuốc thay A15.
-        C2_SOURCE_A_REV phải ghi A_MODULE_REV của full current A_STATE mà C2 đã dùng.
-
-    C2.3.3. Nguồn không dùng
-        C2 không đọc O_OUTPUT hoặc output đã render.
-        C2 không dùng output đã render để suy ngược.
-        C2 không đọc C1_STATE hoặc C3-C7_STATE hiện hành trong cùng ROUND theo mặc định.
-        Nếu tương lai cần dependency C2 requires Cy, dependency đó phải được khai báo rõ trong G plan và audit riêng trước khi áp dụng.
-        C2 không dùng hidden memory / trí nhớ ẩn.
-        C2 không dùng dữ liệu ngoài state hợp lệ để tự tạo cảnh báo.
-        C2 không dùng nguồn web/guideline ngoài nếu không thuộc user input hoặc contract C6.
-        C2 không dùng thuốc dự kiến để kết luận an toàn thuốc.
-        C2 không dùng A13_LABS/A13_IMAGING như kết quả đã có.
-        C2 không tạo kết quả cận lâm sàng mới.
-
-C2.4. Dependency nội bộ
-    C2.4.1. Dependency của C2
-        C2 phụ thuộc:
-            1. C2 nằm trong G_STATE.C_RUN_ORDER.
-            2. A_GATE PASS.
-            3. Full current A_STATE hợp lệ.
-            4. A_MODULE_REV của full current A_STATE.
-        Nếu A_GATE = NEEDS_FIX:
-            - C2 không nên chạy như trạng thái hoàn chỉnh.
-            - Cần quay lại nhóm A hoặc in lại full current A_STATE đúng chuẩn.
-        Nếu full current A_STATE hoặc A_MODULE_REV thiếu:
-            - C2_CHECK = NEEDS_FIX nếu vẫn bị yêu cầu chạy.
-            - C2_ERROR ghi rõ thiếu nguồn A_STATE hoặc A_MODULE_REV.
-
-    C2.4.2. Mục đích và giới hạn dependency
-        A1-A3 giúp xác định triệu chứng nguy cơ và bối cảnh vào viện.
-        A4-A11 giúp xác định dấu hiệu lâm sàng nguy cơ.
-        A14 giúp xác định cận lâm sàng đã có gợi ý nguy cơ.
-        A12 giúp đồng bộ cảnh báo với chẩn đoán.
-        A13 giúp biết hướng xử trí hiện có nhưng không thay A13.
-        A15 cung cấp bối cảnh thuốc; C3 chỉ tạo cảnh báo tác dụng phụ / vấn đề theo dõi khi được G plan.
-        C2 không đọc C1_STATE hoặc C3-C7_STATE mặc định.
-        C2 không tạo state của C khác và không buộc C khác chạy.
-        Nếu tương lai cần dependency C2 requires C1 hoặc C2 requires Cy, G phải khai báo rõ dependency trong plan và dependency đó phải được audit riêng trước khi áp dụng.
-        Dependency không dùng để sửa A_STATE, tạo thuốc, tạo chẩn đoán mới, tạo bệnh trình mới, tạo kết quả xét nghiệm/hình ảnh hoặc render output.
-
-C2.5. Quy tắc CREATE / UPDATE / REUSE C2_STATE
-    Khi được chạy, C2 luôn đọc full current A_STATE và A_MODULE_REV sau A_GATE rồi in full C2_STATE; không dùng patch/delta.
-    CREATE / UPDATE / REUSE là lifecycle nội bộ của C2 khi đã được chạy, không phải RUN_MODE và không do G chọn.
-    Nếu C2 không nằm trong C_RUN_ORDER thì không in C2_STATE, không tạo patch/delta, không tăng C2_REV và không cập nhật C2_SOURCE_A_REV.
-
-    C2.5.1. CREATE C2_STATE
-        Áp dụng khi C2 được chạy và chưa có C2_STATE hiện hành.
-        C2 tạo full C2_STATE mới từ G_STATE, full current A_STATE, A_MODULE_REV và user input ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C2.
-        CREATE C2_STATE đặt C2_REV = 1.
-        C2_SOURCE_A_REV ghi A_MODULE_REV của full current A_STATE đã dùng.
-
-    C2.5.2. UPDATE C2_STATE
-        Chỉ xét UPDATE sau khi C2 đã nằm trong C_RUN_ORDER.
-        UPDATE áp dụng khi nội dung thật C2 thay đổi do user input ROUND hiện tại hoặc full current A_STATE/dependency hợp lệ.
-        Dữ liệu có thể ảnh hưởng C2 gồm:
-            1. Thay đổi triệu chứng chính.
-            2. Thay đổi dấu hiệu sinh tồn.
-            3. Thay đổi tri giác.
-            4. Thay đổi khám hô hấp.
-            5. Thay đổi khám tuần hoàn.
-            6. Thay đổi khám tiêu hóa.
-            7. Thay đổi khám thần kinh.
-            8. Thay đổi cận lâm sàng đã có.
-            9. Thay đổi chẩn đoán.
-            10. Thay đổi bệnh trình/diễn biến.
-            11. Thêm bệnh nền nguy cơ.
-            12. Thêm yếu tố nguy cơ.
-            13. User yêu cầu tập trung cảnh báo vào một cơ quan hoặc tình huống.
-        C2 đọc C2_STATE hiện hành mới nhất, thay nội dung bị ảnh hưởng, giữ nội dung không bị ảnh hưởng nếu vẫn đúng và in lại full C2_STATE.
-        Khi nội dung thật C2 thay đổi, C2_REV tăng.
-        C2_SOURCE_A_REV cập nhật theo A_MODULE_REV của full current A_STATE đã dùng.
-        Không dùng patch/delta làm C2_STATE chính thức.
-
-    C2.5.3. REUSE C2_STATE
-        Áp dụng khi C2 được chạy nhưng nội dung thật C2 không đổi.
-        C2 dùng lại nội dung thật của C2_STATE hiện hành mới nhất và in lại full C2_STATE.
-        REUSE giữ nguyên C2_REV.
-        Nếu A_MODULE_REV đổi nhưng nội dung thật C2 sau tính toán không đổi, C2_REV vẫn giữ nguyên và C2_SOURCE_A_REV cập nhật theo A_MODULE_REV đã dùng.
-        Không được ghi “giữ nguyên như trước” hoặc “reuse C2” thay nội dung thật.
-
-    C2.5.4. Revision C2
-        C2 không tự tạo C_MODULE_REV.
-        C2_STATE phải có C2_REV và C2_SOURCE_A_REV.
-        C2_SOURCE_A_REV ghi A_MODULE_REV của full current A_STATE mà C2 dựa vào.
-
-C2.6. Quy tắc xử lý theo RUN_MODE
-    C2 không tự xác định RUN_MODE; nếu cần RUN_MODE, C2 chỉ đọc RUN_MODE từ G_STATE.
-    RUN_MODE không phải CREATE / UPDATE / REUSE và không quyết định C2 có chạy hay không; quyết định chạy do C_RUN_ORDER.
-    USER_ONLY / DEFAULT_COMPLETION / AUTO_SAMPLE là chế độ dữ liệu, không phải lifecycle.
-
-    C2.6.1. USER_ONLY
-        USER_ONLY là chế độ thủ công.
-        C2 chỉ cảnh báo dựa trên dữ kiện user đã cung cấp và đã có trong A_STATE.
-        C2 không tự tạo dấu hiệu nguy cơ chưa có.
-        C2 không tự giả định diễn biến xấu.
-        C2 không tự thêm chỉ số sinh tồn.
-        C2 không tự tạo SpO₂, mạch, huyết áp, nhiệt độ.
-        C2 không tự tạo kết quả xét nghiệm.
-        Nếu thiếu dữ kiện để đánh giá nguy cơ:
-            - C2 ghi “chưa đủ dữ kiện để loại trừ...” nếu phù hợp.
-            - Không ghi “không có nguy cơ” một cách chắc chắn.
-        Nếu A_STATE không có dấu hiệu nguy cơ rõ:
-            - C2_WARNING_LEVEL thường là LOW hoặc NOT_APPLICABLE tùy yêu cầu output.
-        Nếu user yêu cầu cảnh báo nhưng dữ kiện quá ít:
-            - C2_CHECK có thể PASS nếu đã ghi rõ thiếu dữ kiện.
-            - C2_CHECK = NEEDS_FIX nếu thiếu nguồn A_STATE bắt buộc.
-
-    C2.6.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công.
-        C2 được nêu cảnh báo phù hợp bệnh cảnh và dữ kiện A_STATE.
-        C2 có thể suy luận mức nguy cơ hợp lý từ dữ kiện đã có.
-        C2 không cảnh báo quá mức.
-        C2 không làm người đọc hiểu là chắc chắn có biến chứng nếu chưa đủ dữ kiện.
-        C2 không dùng ngôn ngữ cấp cứu nếu dữ kiện chỉ ở mức nhẹ.
-        C2 có thể ghi các dấu hiệu cần theo dõi để phát hiện nặng lên.
-        C2 có thể ghi hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng.
-        C2 không thay thế hướng điều trị A13.
-        C2 không viết phác đồ cấp cứu chi tiết nếu hệ thống chưa yêu cầu.
-
-    C2.6.3. AUTO_SAMPLE
-        AUTO_SAMPLE là chế độ tự động / tạo mẫu.
-        C2 được tạo cảnh báo mẫu phù hợp ca mẫu.
-        C2 phải phù hợp chẩn đoán, triệu chứng, khám, cận lâm sàng và bệnh trình mẫu nếu có.
-        C2 không dùng AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu thật.
-        C2 không tạo cảnh báo quá mức so với ca mẫu.
-        C2 không tạo dữ kiện nguy cơ như đã có nếu ca mẫu không có dữ kiện đó.
-        C2 có thể nêu các dấu hiệu cần theo dõi trong ca mẫu để tránh bỏ sót diễn biến nặng.
-
-C2.7. Phạm vi C2
-    C2.7.1. Thành phần thuộc C2
-        C2 xử lý:
-            1. Mức cảnh báo lâm sàng.
-            2. Dấu hiệu nguy hiểm/red flags.
-            3. Nguy cơ chuyển nặng.
-            4. Điểm cần theo dõi sát.
-            5. Tình huống cần đánh giá lại ngay.
-            6. Tình huống cần xử trí kịp thời.
-            7. Tình huống cần báo bác sĩ trực/bác sĩ điều trị.
-            8. Tình huống cần hội chẩn.
-            9. Tình huống cần chuyển tuyến/chuyển viện.
-            10. Tình huống cần theo dõi dấu hiệu sinh tồn sát hơn.
-            11. Tình huống cần đánh giá đáp ứng điều trị.
-            12. Tình huống cần chú ý diễn biến nặng lên.
-        C2 tập trung vào nguy cơ và hành động cảnh báo, không phải kế hoạch điều trị thường quy.
-
-    C2.7.2. Thành phần không thuộc C2
-        C2 không xử lý:
-            1. Hỏi thêm/khám thêm/cận lâm sàng bổ sung thuộc C1.
-            2. Kiểm an toàn thuốc thuộc A15; C3 chỉ cảnh báo tác dụng phụ / vấn đề cần theo dõi.
-            3. Tổng hợp bệnh án thuộc C4.
-            4. Chẩn đoán phân biệt thuộc C5.
-            5. Chẩn đoán chính thức thuộc A12.
-            6. Hướng điều trị chính thức thuộc A13.
-            7. Bệnh trình không thuộc phạm vi module này.
-            8. Đơn thuốc thuộc A15.
-            9. Kết quả cận lâm sàng đã có thuộc A14.
-            10. Render cảnh báo cuối cùng thuộc O.
-            11. Dặn dò chi tiết nếu output riêng xử lý.
-            12. Phác đồ cấp cứu chi tiết nếu hệ thống chưa có module riêng.
-
-C2.8. Nguyên tắc chung của C2_FINAL
-    C2.8.1. C2_FINAL phải có 4 nhóm
-        C2_FINAL bắt buộc gồm đúng 4 nhóm chính:
-            1. Mức cảnh báo.
-            2. Dấu hiệu nguy cơ cần lưu ý.
-            3. Điểm cần theo dõi sát.
-            4. Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng.
-        Không được bỏ nhóm nào.
-        Không được đổi tên nhóm tùy tiện.
-        Không được gộp 4 nhóm thành một đoạn văn.
-        Không được chỉ ghi một câu chung chung.
-
-    C2.8.2. Dựa trên dữ kiện đã có
-        C2_FINAL phải dựa trên:
-            1. Full current A_STATE sau A_GATE.
-            2. User input của ROUND hiện tại chỉ khi liên quan trực tiếp tới yêu cầu C2.
-        C2_FINAL không được dựa trên dữ kiện chưa được đưa vào A_STATE.
-        Nếu dữ kiện mới quan trọng chưa qua A, cần G chạy lại A trước.
-        Nếu thiếu dữ kiện, C2 ghi thiếu dữ kiện thay vì phủ định chắc chắn.
-
-    C2.8.3. Không bịa dấu hiệu nặng
-        Nếu chưa có dấu hiệu nặng, không ghi như đã có.
-        Không viết:
-            - Bệnh nhân suy hô hấp.
-            - Bệnh nhân sốc.
-            - Bệnh nhân rối loạn ý thức.
-            - Bệnh nhân xuất huyết tiêu hóa.
-            - Bệnh nhân có dấu thần kinh khu trú.
-        nếu A_STATE chưa có dữ kiện đó.
-        Chỉ viết:
-            - Cần theo dõi dấu hiệu suy hô hấp nếu bệnh cảnh hô hấp có nguy cơ.
-            - Cần theo dõi huyết động nếu có nguy cơ mất nước/nhiễm khuẩn.
-            - Cần đánh giá lại tri giác nếu bệnh cảnh thần kinh/nhiễm trùng nặng.
-
-    C2.8.4. Không làm quá mức
-        Không biến ca nhẹ thành cảnh báo cấp cứu nếu dữ kiện không ủng hộ.
-        Không dùng CRITICAL nếu chưa có dữ kiện nguy kịch.
-        Không dùng HIGH nếu chỉ có triệu chứng nhẹ, sinh tồn ổn định và không có red flags.
-        Không viết “cần chuyển viện ngay” nếu dữ kiện không ủng hộ.
-        Không viết “nguy cơ tử vong cao” nếu không có căn cứ.
-        Cảnh báo phải cân đối với mức độ dữ kiện đã có.
-
-    C2.8.5. Khi không có cảnh báo rõ
-        Nếu dữ kiện hiện tại chưa ghi nhận dấu hiệu nguy cơ rõ:
-            - C2_WARNING_LEVEL = LOW.
-            - C2_RED_FLAGS = Chưa ghi nhận dấu hiệu nguy cơ rõ từ dữ kiện hiện có.
-            - C2_MONITORING_POINTS vẫn có thể nêu các điểm theo dõi phù hợp bệnh cảnh.
-            - C2_ACTION_ALERTS nêu hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng.
-        Nếu output không cần cảnh báo hoặc không có dữ liệu:
-            - C2_WARNING_LEVEL = NOT_APPLICABLE.
-            - Các trường còn lại ghi Không áp dụng hoặc nội dung phù hợp schema.
-
-C2.9. Quy tắc C2_WARNING_LEVEL
-    C2.9.1. Các mức hợp lệ
-        C2_WARNING_LEVEL chỉ được dùng một trong các giá trị:
-            1. LOW.
-            2. MODERATE.
-            3. HIGH.
-            4. CRITICAL.
-            5. NOT_APPLICABLE.
-        Không dùng giá trị khác.
-        Không dùng tiếng Việt tự do trong C2_WARNING_LEVEL.
-        Không để trống C2_WARNING_LEVEL.
-
-    C2.9.2. LOW
-        LOW dùng khi:
-            1. Dữ kiện hiện tại chưa ghi nhận dấu hiệu nguy cơ rõ.
-            2. Triệu chứng mức nhẹ hoặc ổn định.
-            3. Dấu hiệu sinh tồn ổn định nếu có.
-            4. Không có red flags rõ trong A_STATE.
-            5. Vẫn có điểm cần theo dõi phù hợp bệnh cảnh.
-        LOW không có nghĩa “không còn nguy cơ tuyệt đối”.
-        Nếu dữ kiện thiếu nhiều, có thể ghi “chưa đủ dữ kiện để loại trừ nguy cơ” trong C2_RED_FLAGS hoặc C2_FINAL.
-
-    C2.9.3. MODERATE
-        MODERATE dùng khi:
-            1. Có yếu tố nguy cơ nhưng chưa có dấu hiệu đe dọa tức thì.
-            2. Có triệu chứng cần theo dõi sát.
-            3. Có bệnh nền làm tăng nguy cơ.
-            4. Có cận lâm sàng bất thường mức cần theo dõi.
-            5. Có diễn biến chưa cải thiện rõ.
-            6. Có triệu chứng có thể chuyển nặng nếu không theo dõi.
-        MODERATE phù hợp khi cần theo dõi sát hơn nhưng chưa đủ dữ kiện HIGH/CRITICAL.
-
-    C2.9.4. HIGH
-        HIGH dùng khi:
-            1. Có dấu hiệu nặng.
-            2. Có nguy cơ chuyển nặng rõ.
-            3. Có diễn biến xấu hoặc không cải thiện kèm nguy cơ.
-            4. Có dấu hiệu cần đánh giá/xử trí kịp thời.
-            5. Có cận lâm sàng bất thường rõ có thể liên quan nguy cơ.
-            6. Có bệnh nền nặng kèm triệu chứng hiện tại đáng lo ngại.
-        HIGH không nhất thiết là cấp cứu tức thì, nhưng cần đánh giá/xử trí kịp thời và theo dõi sát.
-
-    C2.9.5. CRITICAL
-        CRITICAL dùng khi có dữ kiện gợi ý tình trạng nguy kịch hoặc cần xử trí cấp cứu/chuyển tuyến khẩn.
-        Ví dụ dữ kiện có thể làm CRITICAL:
-            1. Tụt huyết áp/sốc.
-            2. Suy hô hấp rõ.
-            3. SpO₂ giảm nặng nếu có dữ kiện.
-            4. Rối loạn ý thức nặng.
-            5. Co giật kéo dài hoặc tái diễn.
-            6. Đau ngực nghi hội chứng vành cấp kèm dấu hiệu nguy cơ.
-            7. Dấu thần kinh khu trú cấp.
-            8. Xuất huyết tiêu hóa nặng hoặc mất máu.
-            9. Đau bụng ngoại khoa rõ.
-            10. Dữ kiện khác cho thấy đe dọa tính mạng.
-        Không dùng CRITICAL nếu chỉ có triệu chứng nhẹ hoặc thiếu dữ kiện.
-
-    C2.9.6. NOT_APPLICABLE
-        NOT_APPLICABLE dùng khi:
-            1. Không áp dụng cảnh báo trong output hiện tại.
-            2. Không có dữ liệu để tạo cảnh báo.
-            3. C2 nằm trong C_RUN_ORDER nhưng kết luận cảnh báo không áp dụng.
-        Khi C2_WARNING_LEVEL = NOT_APPLICABLE:
-            - C2_RED_FLAGS = Không áp dụng.
-            - C2_MONITORING_POINTS = Không áp dụng.
-            - C2_ACTION_ALERTS = Không áp dụng.
-            - C2_FINAL ghi Không áp dụng.
-        Không dùng NOT_APPLICABLE nếu user đang yêu cầu cảnh báo và có đủ dữ kiện để đánh giá.
-
-    C2.9.7. Không dùng mức ngoài danh sách
-        Không dùng:
-            - MILD.
-            - SEVERE.
-            - NORMAL.
-            - URGENT.
-            - EMERGENCY.
-            - RẤT CAO.
-            - THẤP.
-            - TRUNG BÌNH.
-        trong C2_WARNING_LEVEL.
-        Nếu cần giải thích bằng tiếng Việt, giải thích trong C2_FINAL, không đổi giá trị chuẩn của C2_WARNING_LEVEL.
-
-C2.10. Quy tắc C2_RED_FLAGS
-    C2.10.1. Vai trò C2_RED_FLAGS
-        C2_RED_FLAGS là danh sách dấu hiệu nguy hiểm hoặc dấu hiệu cần chú ý đặc biệt.
-        C2_RED_FLAGS giúp O cảnh báo các điểm không được bỏ sót.
-        C2_RED_FLAGS phải ngắn gọn, rõ ràng và dựa trên dữ kiện đã có.
-        C2_RED_FLAGS không phải toàn bộ tóm tắt bệnh án.
-        C2_RED_FLAGS không phải danh sách hỏi thêm.
-        C2_RED_FLAGS không phải hướng điều trị.
-
-    C2.10.2. Nguồn tạo red flags
-        Red flags lấy từ:
-            1. Triệu chứng trong A1/A3.
-            2. Tiền sử nguy cơ trong A2.
-            3. Toàn trạng và sinh tồn trong A4.
-            4. Khám tuần hoàn trong A5.
-            5. Khám hô hấp trong A6.
-            6. Khám tiêu hóa trong A7.
-            7. Khám thận - tiết niệu trong A8.
-            8. Khám thần kinh trong A9.
-            9. Khám cơ xương khớp trong A10.
-            10. Khám cơ quan khác trong A11.
-            11. Cận lâm sàng đã có trong A14.
-            12. Chẩn đoán hiện tại trong A12.
-            13. Không lấy bệnh trình/diễn biến từ module bệnh trình trong scope hiện tại.
-        Không lấy red flags từ dữ kiện chưa có.
-        Không lấy red flags từ xét nghiệm cần làm trong A13.
-
-    C2.10.3. Không tạo red flags giả
-        Không ghi red flag như đã có nếu A_STATE chưa có dữ kiện.
-        Không viết:
-            - Có suy hô hấp.
-            - Có sốc.
-            - Có xuất huyết tiêu hóa.
-            - Có rối loạn ý thức.
-            - Có đau ngực nguy cơ cao.
-        nếu A_STATE không có dữ kiện tương ứng.
-        Nếu bệnh cảnh có nguy cơ nhưng chưa có dấu hiệu, ghi:
-            - Cần theo dõi nguy cơ...
-            - Chưa đủ dữ kiện để loại trừ...
-        Không biến khả năng thành sự kiện đã có.
-
-    C2.10.4. Nếu chưa có red flags rõ
-        Nếu chưa ghi nhận dấu hiệu nguy cơ rõ từ dữ kiện hiện có:
-            C2_RED_FLAGS = Chưa ghi nhận dấu hiệu nguy cơ rõ từ dữ kiện hiện có.
-        Có thể bổ sung:
-            - Cần tiếp tục theo dõi dấu hiệu sinh tồn và triệu chứng chính theo bệnh cảnh.
-        Không ghi:
-            - Không có nguy cơ.
-            - Hoàn toàn an toàn.
-            - Loại trừ biến chứng.
-        nếu chưa đủ dữ kiện.
-
-    C2.10.5. Nếu thiếu dữ kiện để đánh giá
-        Nếu thiếu dữ kiện quan trọng để đánh giá nguy cơ, ghi rõ:
-            - Chưa đủ dữ kiện để loại trừ suy hô hấp do thiếu SpO₂/nhịp thở nếu bệnh cảnh hô hấp.
-            - Chưa đủ dữ kiện để đánh giá huyết động do thiếu mạch/huyết áp nếu bệnh cảnh nặng.
-            - Chưa đủ dữ kiện để đánh giá nguy cơ thần kinh do thiếu tri giác/dấu thần kinh nếu bệnh cảnh thần kinh.
-        Không ghi phủ định chắc chắn khi thiếu dữ kiện.
-        Nếu thiếu dữ kiện chủ yếu thuộc C1, C2 có thể nhắc ngắn gọn nhưng không biến thành danh sách hỏi thêm dài.
-
-C2.11. Quy tắc C2_MONITORING_POINTS
-    C2.11.1. Vai trò C2_MONITORING_POINTS
-        C2_MONITORING_POINTS là các điểm cần theo dõi sát trong quá trình đánh giá hoặc điều trị.
-        C2_MONITORING_POINTS giúp xác định những dấu hiệu cần quan sát để phát hiện chuyển nặng.
-        C2_MONITORING_POINTS không phải bệnh trình.
-        C2_MONITORING_POINTS không phải dặn dò cuối cùng nếu O có module riêng.
-        C2_MONITORING_POINTS không phải hướng điều trị thường quy A13.
-
-    C2.11.2. Nội dung có thể theo dõi
-        Nội dung có thể theo dõi gồm:
-            1. Triệu chứng chính.
-            2. Mức độ đau.
-            3. Sốt và đáp ứng hạ sốt.
-            4. Khó thở, ho, SpO₂ nếu bệnh cảnh hô hấp.
-            5. Dấu hiệu sinh tồn.
-            6. Ý thức/tri giác.
-            7. Huyết động.
-            8. Lượng nước tiểu.
-            9. Tình trạng nôn/tiêu chảy.
-            10. Dấu mất nước.
-            11. Dấu xuất huyết.
-            12. Dấu thần kinh khu trú.
-            13. Ăn uống, đại tiểu tiện nếu liên quan.
-            14. Cận lâm sàng liên quan nếu đã có hoặc cần theo dõi lại.
-            15. Đáp ứng điều trị.
-            16. Diễn biến bệnh trình.
-        C2 chỉ chọn điểm theo dõi phù hợp bệnh cảnh.
-
-    C2.11.3. Không thay bệnh trình
-        Theo dõi sát không phải bệnh trình.
-        C2 không viết:
-            - Ngày điều trị thứ 1...
-            - Ngày điều trị thứ 2...
-            - Diễn biến từng ngày...
-        C2 chỉ ghi điểm cần theo dõi, ví dụ:
-            - Theo dõi nhịp thở, SpO₂ và mức độ khó thở.
-            - Theo dõi mạch, huyết áp và dấu mất nước.
-            - Theo dõi tri giác và dấu thần kinh khu trú.
-        Nếu cần bệnh trình, phải dùng module bệnh trình được G lập kế hoạch phù hợp.
-
-    C2.11.4. Không thay dặn dò
-        C2_MONITORING_POINTS không phải dặn dò cuối cùng cho bệnh nhân nếu output riêng xử lý.
-        C2 có thể ghi điểm cần theo dõi về mặt lâm sàng.
-        C2 không viết dặn dò dài dạng:
-            - Uống thuốc như thế nào.
-            - Ăn uống sinh hoạt chi tiết.
-            - Hẹn tái khám cụ thể.
-        nếu module O hoặc phần khác xử lý.
-        Nếu cần dặn dò liên quan dấu hiệu nặng, O có thể render dựa trên C2 nhưng C2 không tự render.
-
-C2.12. Quy tắc C2_ACTION_ALERTS
-    C2.12.1. Vai trò C2_ACTION_ALERTS
-        C2_ACTION_ALERTS là hành động cần cân nhắc nếu xuất hiện hoặc đã có dấu hiệu nặng.
-        C2_ACTION_ALERTS là cảnh báo hành động, không phải hướng điều trị thường quy.
-        C2_ACTION_ALERTS không thay thế A13_TREATMENT.
-        C2_ACTION_ALERTS không phải phác đồ cấp cứu chi tiết.
-        C2_ACTION_ALERTS giúp O cảnh báo người đọc cần phản ứng khi có dấu hiệu nguy cơ.
-
-    C2.12.2. Nội dung có thể gồm
-        C2_ACTION_ALERTS có thể gồm:
-            1. Đánh giá lại ngay khi dấu hiệu nặng xuất hiện.
-            2. Báo bác sĩ trực/bác sĩ điều trị.
-            3. Theo dõi sát dấu hiệu sinh tồn.
-            4. Hội chẩn chuyên khoa nếu vượt phạm vi đánh giá ban đầu.
-            5. Xử trí cấp cứu theo tình huống nếu có dấu hiệu nguy kịch.
-            6. Chuyển tuyến/chuyển viện khi vượt khả năng chuyên môn hoặc phương tiện.
-            7. Làm lại/kiểm tra lại cận lâm sàng liên quan khi diễn biến xấu.
-            8. Đánh giá lại chẩn đoán khi không đáp ứng hoặc có dấu hiệu mới.
-        C2_ACTION_ALERTS phải phù hợp mức cảnh báo.
-        LOW thường chỉ cần theo dõi và đánh giá lại khi có dấu hiệu nặng.
-        HIGH/CRITICAL cần hành động mạnh hơn nhưng vẫn không viết phác đồ chi tiết nếu chưa có module riêng.
-
-    C2.12.3. Không thay A13
-        C2_ACTION_ALERTS không phải hướng điều trị thường quy.
-        Không viết:
-            - Dùng kháng sinh...
-            - Truyền dịch...
-            - Kê thuốc...
-            - Điều trị bằng...
-        như một kế hoạch điều trị chính thức.
-        Nếu cần hướng điều trị, A13 xử lý.
-        Nếu cần thuốc, A15 xử lý; C3 cảnh báo tác dụng phụ / theo dõi nếu G gọi.
-        C2 chỉ ghi hành động cảnh báo theo tình huống:
-            - Cần đánh giá/xử trí kịp thời.
-            - Cần hội chẩn/chuyển tuyến nếu xuất hiện dấu hiệu nặng.
-            - Cần theo dõi sát.
-
-    C2.12.4. Không thay phác đồ cấp cứu chi tiết
-        C2 không viết phác đồ cấp cứu chi tiết nếu hệ thống không yêu cầu.
-        Không viết các liều thuốc cấp cứu cụ thể.
-        Không viết quy trình hồi sức chi tiết.
-        Không viết chỉ định thủ thuật cụ thể nếu không thuộc module.
-        C2 có thể ghi:
-            - Xử trí cấp cứu theo tình huống nếu có dấu hiệu nguy kịch.
-            - Hội chẩn/chuyển tuyến khi vượt khả năng.
-        Nếu user cần phác đồ chi tiết, G có thể chọn plan tra cứu hoặc module chuyên biệt nếu hệ thống có.
-
-C2.13. Cảnh báo theo nhóm toàn thân / sinh tồn
-    C2.13.1. Dấu hiệu sinh tồn
-        C2 phải chú ý dấu hiệu sinh tồn nếu A4/A5/A6 có dữ kiện:
-            1. Sốt cao kéo dài.
-            2. Hạ nhiệt bất thường nếu có.
-            3. Mạch nhanh rõ.
-            4. Mạch chậm bất thường nếu liên quan.
-            5. Tụt huyết áp.
-            6. Huyết áp tăng rất cao kèm triệu chứng nếu có.
-            7. Nhịp thở nhanh.
-            8. SpO₂ giảm.
-            9. Rối loạn tri giác.
-        Nếu có bất thường rõ, C2 phải cân nhắc tăng C2_WARNING_LEVEL.
-        Nếu thiếu dấu hiệu sinh tồn trong bệnh cảnh cần đánh giá, C2 không ghi bình thường; có thể ghi chưa đủ dữ kiện.
-
-    C2.13.2. Toàn trạng
-        C2 phải chú ý toàn trạng nếu A4 có dữ kiện:
-            1. Mệt lả.
-            2. Li bì.
-            3. Vật vã.
-            4. Kích thích.
-            5. Suy kiệt.
-            6. Mất nước nặng.
-            7. Da niêm mạc nhợt.
-            8. Tím tái.
-            9. Phù toàn thân.
-            10. Diễn biến xấu.
-        Nếu toàn trạng xấu, C2 không được bỏ qua cảnh báo.
-        Nếu toàn trạng ổn định và không có red flags, C2 có thể LOW nhưng vẫn theo dõi theo bệnh cảnh.
-
-    C2.13.3. Không bịa chỉ số
-        C2 không tự tạo:
-            1. Mạch.
-            2. Huyết áp.
-            3. Nhiệt độ.
-            4. Nhịp thở.
-            5. SpO₂.
-            6. Glasgow/điểm tri giác.
-            7. Lượng nước tiểu.
-        Nếu A_STATE không có chỉ số, C2 không được ghi chỉ số.
-        Nếu cần chỉ số để đánh giá nguy cơ:
-            - C2 ghi chưa đủ dữ kiện hoặc cần theo dõi/đánh giá lại.
-        Không được giả định sinh tồn ổn định nếu chưa có dữ kiện trong USER_ONLY.
-
-C2.14. Cảnh báo theo hệ cơ quan
-    C2.14.1. Hô hấp
-        C2 cần chú ý các dấu hiệu nguy cơ hô hấp:
-            1. Khó thở tăng.
-            2. SpO₂ giảm nếu có dữ kiện.
-            3. Tím tái.
-            4. Co kéo cơ hô hấp.
-            5. Thở nhanh.
-            6. Ngừng thở hoặc cơn ngừng thở nếu có.
-            7. Ran phổi lan tỏa hoặc dấu suy hô hấp nếu A6 có.
-            8. Đau ngực kèm khó thở.
-            9. Ho máu nếu có.
-            10. Bệnh nền hen/COPD kèm khó thở tăng.
-        Nếu có dấu suy hô hấp, C2_WARNING_LEVEL có thể HIGH hoặc CRITICAL tùy dữ kiện.
-        Nếu chỉ ho nhẹ, không khó thở, sinh tồn ổn định, không nên nâng cảnh báo quá mức.
-
-    C2.14.2. Tuần hoàn
-        C2 cần chú ý các dấu hiệu nguy cơ tuần hoàn:
-            1. Đau ngực nguy cơ.
-            2. Tụt huyết áp.
-            3. Mạch nhanh kèm dấu nặng.
-            4. Rối loạn nhịp nếu có.
-            5. Ngất.
-            6. Vã mồ hôi lạnh nếu có.
-            7. Dấu suy tim.
-            8. Phù phổi nếu có dữ kiện.
-            9. Sốc.
-            10. Huyết áp tăng rất cao kèm triệu chứng thần kinh/tim mạch nếu có.
-        Nếu có dấu hiệu nguy kịch tuần hoàn, C2_WARNING_LEVEL có thể HIGH/CRITICAL.
-        C2 không tự chẩn đoán hội chứng vành cấp nếu A_STATE chưa có dữ kiện, nhưng có thể cảnh báo đau ngực nguy cơ cần đánh giá kịp thời.
-
-    C2.14.3. Tiêu hóa
-        C2 cần chú ý các dấu hiệu nguy cơ tiêu hóa:
-            1. Đau bụng dữ dội.
-            2. Đau bụng tăng nhanh.
-            3. Phản ứng thành bụng.
-            4. Bụng chướng, bí trung đại tiện nếu có.
-            5. Nôn nhiều.
-            6. Nôn máu.
-            7. Đi ngoài phân đen/phân máu.
-            8. Mất nước nặng.
-            9. Sốt kèm đau bụng khu trú.
-            10. Vàng da kèm sốt/đau bụng nếu có.
-        Nếu có dấu ngoại khoa hoặc xuất huyết tiêu hóa, C2 phải cảnh báo mức phù hợp.
-        C2 không tự kết luận viêm phúc mạc nếu dữ kiện chưa có.
-
-    C2.14.4. Thận - tiết niệu
-        C2 cần chú ý các dấu hiệu nguy cơ thận - tiết niệu:
-            1. Vô niệu.
-            2. Thiểu niệu.
-            3. Đau hông lưng kèm sốt cao.
-            4. Sốt rét run trong bệnh cảnh tiết niệu.
-            5. Tiểu máu đại thể kèm đau nhiều.
-            6. Phù kèm tăng huyết áp nếu có.
-            7. Dấu suy thận hoặc creatinin/eGFR bất thường nếu A14 có.
-            8. Nhiễm khuẩn tiết niệu có dấu nặng.
-        Nếu có dấu nhiễm khuẩn nặng hoặc suy thận, C2_WARNING_LEVEL có thể MODERATE/HIGH tùy dữ kiện.
-        C2 không tự tạo kết quả chức năng thận nếu A14 chưa có.
-
-    C2.14.5. Thần kinh
-        C2 cần chú ý các dấu hiệu nguy cơ thần kinh:
-            1. Rối loạn ý thức.
-            2. Co giật.
-            3. Yếu liệt.
-            4. Nói khó.
-            5. Méo miệng.
-            6. Đau đầu dữ dội.
-            7. Dấu màng não.
-            8. Chóng mặt kèm dấu thần kinh khu trú.
-            9. Ngất.
-            10. Rối loạn cảm giác/vận động cấp.
-        Nếu có dấu thần kinh khu trú cấp hoặc rối loạn ý thức, C2_WARNING_LEVEL thường không được LOW.
-        C2 không tự chẩn đoán đột quỵ nếu A_STATE chưa đủ, nhưng có thể cảnh báo cần đánh giá kịp thời.
-
-    C2.14.6. Cơ xương khớp
-        C2 cần chú ý các dấu hiệu nguy cơ cơ xương khớp:
-            1. Sưng nóng đỏ khớp kèm sốt.
-            2. Đau tăng nhanh.
-            3. Mất vận động.
-            4. Biến dạng sau chấn thương.
-            5. Tê bì/yếu chi kèm đau cột sống.
-            6. Dấu chèn ép thần kinh nếu có.
-            7. Vết thương kèm dấu nhiễm trùng lan rộng nếu có.
-            8. Dấu thiếu máu chi nếu có.
-        C2 không tự chẩn đoán nhiễm khuẩn khớp/thiếu máu chi nếu A_STATE chưa đủ, nhưng phải cảnh báo nếu có dữ kiện nguy cơ.
-
-    C2.14.7. Cơ quan khác
-        C2 phải xem A11 nếu có dữ kiện cơ quan khác.
-        Ví dụ:
-            1. Tai mũi họng: khó thở thanh quản, nuốt nghẹn, sưng nề vùng cổ.
-            2. Da: ban xuất huyết, hoại tử, nhiễm trùng lan rộng.
-            3. Mắt: đau mắt đỏ kèm giảm thị lực nếu có.
-            4. Sản phụ khoa nếu có dữ kiện: đau bụng thai kỳ, ra máu âm đạo, tiền sản giật nghi ngờ.
-            5. Vết thương: chảy máu, nhiễm trùng, dấu hoại tử.
-        C2 chỉ cảnh báo theo dữ kiện A11 có, không tự tạo dữ kiện.
-
-C2.15. Cảnh báo theo cận lâm sàng đã có
-    C2.15.1. Dữ liệu từ A14
-        C2 có thể dùng kết quả cận lâm sàng đã có trong A14 để cảnh báo.
-        Ví dụ dữ kiện có thể liên quan cảnh báo:
-            1. Bạch cầu tăng/giảm rõ nếu user cung cấp.
-            2. CRP/PCT tăng nếu user cung cấp.
-            3. Creatinin/eGFR bất thường nếu user cung cấp.
-            4. Điện giải bất thường nếu user cung cấp.
-            5. Men tim bất thường nếu user cung cấp.
-            6. Đông máu bất thường nếu user cung cấp.
-            7. Hb giảm rõ nếu user cung cấp.
-            8. Khí máu bất thường nếu user cung cấp.
-            9. X-quang/CT/MRI có tổn thương nguy cơ nếu user cung cấp.
-            10. Điện tim bất thường nếu user cung cấp.
-        C2 chỉ dùng kết quả đã có, không tự tạo thêm.
-
-    C2.15.2. Không tạo kết quả
-        C2 không tạo xét nghiệm/hình ảnh mới.
-        C2 không ghi:
-            - Bạch cầu tăng.
-            - CRP tăng.
-            - X-quang bất thường.
-            - Creatinin tăng.
-            - Điện tim bất thường.
-        nếu A14/user input chưa có.
-        Nếu cần cận lâm sàng để đánh giá nguy cơ:
-            - C1/A13 xử lý phần cần bổ sung.
-            - C2 có thể ghi chưa đủ dữ kiện để đánh giá nguy cơ.
-
-    C2.15.3. Cảnh báo từ bất thường rõ
-        Nếu A14 có bất thường rõ, C2 có thể cảnh báo cần theo dõi/xử trí phù hợp.
-        Ví dụ:
-            - Creatinin tăng: theo dõi chức năng thận, lượng nước tiểu, thận trọng diễn biến suy thận.
-            - Hb giảm rõ: theo dõi dấu mất máu/thiếu máu, huyết động.
-            - Khí máu xấu: cảnh báo nguy cơ suy hô hấp nếu phù hợp.
-            - Điện giải bất thường: theo dõi rối loạn nhịp/triệu chứng liên quan nếu phù hợp.
-        C2 không diễn giải sâu toàn bộ cận lâm sàng thay C5/C4.
-        C2 không tự viết chẩn đoán từ cận lâm sàng.
-
-    C2.15.4. Nếu thiếu cận lâm sàng
-        Nếu thiếu cận lâm sàng:
-            - C2 không ghi cận lâm sàng bình thường.
-            - C2 không ghi “chưa có nguy cơ cận lâm sàng”.
-            - C2 có thể ghi chưa đủ dữ kiện để loại trừ nguy cơ liên quan nếu phù hợp.
-        Ví dụ:
-            - Chưa có SpO₂/khí máu nên chưa đủ dữ kiện đánh giá đầy đủ mức độ suy hô hấp nếu bệnh cảnh khó thở.
-            - Chưa có creatinin/eGFR nên chưa đủ dữ kiện đánh giá nguy cơ thận nếu cần dùng thuốc ảnh hưởng thận.
-        C2 không biến việc thiếu kết quả thành kết quả bình thường.
-
-    C2.15.5. Không thay C5
-        C2 không chuẩn hóa hay phân tích sâu toàn bộ cận lâm sàng thay C5.
-        C2 không tạo kết luận chẩn đoán phân biệt từ cận lâm sàng.
-        C2 chỉ lấy bất thường rõ để cảnh báo nguy cơ.
-        Nếu cần phân tích cận lâm sàng hoặc chẩn đoán phân biệt, C5 xử lý.
-        Nếu cần tổng hợp bệnh án, C4 xử lý.
-
-C2.16. Ranh giới với C1
-    C2.16.1. C1 là bổ sung dữ kiện
-        C1 ghi:
-            1. Cần hỏi thêm.
-            2. Cần khám thêm.
-            3. Cần xét nghiệm/chẩn đoán hình ảnh/thăm dò bổ sung.
-            4. Cần đánh giá lại.
-        C1 không cảnh báo cuối cùng.
-        C1 không xác định mức cảnh báo.
-        C1 không viết red flags như kết luận.
-
-    C2.16.2. C2 là cảnh báo
-        C2 ghi:
-            1. Mức cảnh báo.
-            2. Dấu hiệu nguy cơ cần lưu ý.
-            3. Điểm cần theo dõi sát.
-            4. Hành động cần cân nhắc nếu có dấu hiệu nặng.
-        C2 không đọc C1_STATE mặc định và không lặp lại danh sách hỏi thêm/khám thêm của C1.
-        Nếu tương lai cần dependency C2 requires C1, G phải khai báo rõ trong plan và dependency đó phải được audit riêng trước khi áp dụng.
-
-    C2.16.3. Ví dụ phân ranh
-        Ví dụ 1:
-            C1:
-                Cần đo SpO₂ nếu người bệnh khó thở.
-            C2:
-                SpO₂ giảm, khó thở tăng hoặc co kéo cơ hô hấp là dấu hiệu cần đánh giá/xử trí kịp thời.
-
-        Ví dụ 2:
-            C1:
-                Cần hỏi thêm đau ngực, vã mồ hôi, khó thở kèm theo.
-            C2:
-                Đau ngực kèm vã mồ hôi/khó thở hoặc huyết động không ổn định là dấu hiệu nguy cơ tim mạch cần đánh giá kịp thời.
-
-        Ví dụ 3:
-            C1:
-                Cần bổ sung công thức máu, CRP nếu nghi nhiễm khuẩn.
-            C2:
-                Sốt cao kéo dài, mạch nhanh, huyết áp giảm hoặc tri giác thay đổi là dấu hiệu nguy cơ nhiễm khuẩn nặng cần theo dõi sát.
-
-    C2.16.4. Không lặp máy móc C1
-        C2 không đọc hoặc sao chép C1_FINAL mặc định.
-        C2 chỉ tạo cảnh báo từ full current A_STATE và nguồn hợp lệ của C2.
-        C2 không biến nội dung cần hỏi thêm/khám thêm/làm thêm thành red flags hoặc kết quả đã có.
-
-C2.17. Ranh giới với C3
-    C2.17.1. Phân ranh A15 và C3
-        A15 chọn thuốc và kiểm an toàn thuốc.
-        C3 cảnh báo tác dụng phụ và vấn đề cần theo dõi khi dùng thuốc.
-        C2 không làm các việc trên.
-
-    C2.17.2. C2 không kiểm thuốc
-        C2 không kết luận:
-            - Thuốc an toàn.
-            - Thuốc không an toàn.
-            - Không có tương tác.
-            - Không có chống chỉ định.
-            - Có thể xuất đơn.
-            - Không cần kiểm thuốc.
-        Nếu có vấn đề chọn thuốc hoặc kiểm an toàn thuốc, A15 xử lý; nếu cần cảnh báo theo dõi khi dùng thuốc, C3 xử lý.
-        C2 chỉ cảnh báo lâm sàng theo dấu hiệu và nguy cơ bệnh cảnh.
-
-    C2.17.3. Khi cảnh báo liên quan thuốc
-        Nếu dấu hiệu lâm sàng có thể liên quan thuốc, C2 có thể ghi cần theo dõi biểu hiện lâm sàng.
-        Ví dụ:
-            - Nếu có nôn nhiều/đau bụng và đang dùng thuốc nguy cơ tiêu hóa, C2 có thể ghi cần theo dõi dấu xuất huyết tiêu hóa nếu dữ kiện phù hợp.
-            - Nếu có chóng mặt/ngất và thuốc có thể ảnh hưởng huyết áp nhưng chưa có cảnh báo C3, C2 không kết luận do thuốc.
-        A15 xử lý an toàn thuốc; C3 xử lý cảnh báo tác dụng phụ và vấn đề cần theo dõi khi dùng thuốc.
-        C2 không chặn thuốc.
-
-    C2.17.4. Không quyết định đơn thuốc
-        C2 không cho phép O6 xuất đơn.
-        C2 không ghi “đơn thuốc được phép xuất”.
-        Nếu output O6 cần đơn thuốc, A15 phải hoàn tất chọn thuốc và kiểm an toàn thuốc.
-        C2_ACTION_ALERTS không được dùng để hợp thức hóa đơn thuốc.
-
-C2.18. Ranh giới với C4 và C5
-    C2.18.1. Không thay C4
-        C4 là module tổng hợp bệnh án hoặc tổng hợp lâm sàng theo hệ thống.
-        C2 không tổng hợp bệnh án.
-        C2 không viết tóm tắt toàn bộ ca.
-        C2 không viết hiện tại/ra viện thay C4/O.
-        C2 chỉ viết cảnh báo và nguy cơ.
-        Nếu cần tổng hợp, C4 xử lý.
-
-    C2.18.2. Không thay C5
-        C5 xử lý chẩn đoán phân biệt/nghi ngờ/bệnh khác có khả năng hoặc logic chuyên biệt theo hệ thống C5.
-        C2 không tạo danh sách chẩn đoán phân biệt.
-        C2 không viết:
-            - Cần nghĩ đến bệnh A, B, C...
-            - Chẩn đoán phân biệt gồm...
-            - Bệnh khác có khả năng...
-        nếu đó là nội dung chính của C5/O13.
-        C2 có thể ghi “cần đánh giá lại nếu xuất hiện dấu hiệu nặng hoặc dữ kiện mới”, nhưng không tạo C5.
-
-    C2.18.3. Cảnh báo có thể dựa trên chẩn đoán
-        C2 có thể dựa trên A12 để cảnh báo.
-        Ví dụ:
-            - Nếu A12 là viêm phổi, C2 có thể theo dõi khó thở, SpO₂, sốt, dấu suy hô hấp.
-            - Nếu A12 là nhiễm khuẩn tiết niệu, C2 có thể theo dõi sốt cao, đau hông lưng, huyết động, dấu nhiễm khuẩn nặng.
-            - Nếu A12 là đau bụng chưa rõ nguyên nhân, C2 có thể theo dõi dấu bụng ngoại khoa.
-        C2 không sửa A12.
-        C2 không tự thay đổi chẩn đoán.
-
-    C2.18.4. Cảnh báo có thể gợi ý cần xem xét thêm
-        C2 có thể ghi cần đánh giá lại nguy cơ nếu:
-            1. Triệu chứng nặng lên.
-            2. Xuất hiện dấu hiệu mới.
-            3. Không đáp ứng điều trị.
-            4. Cận lâm sàng bất thường.
-            5. Sinh tồn xấu đi.
-        Nhưng C2 không tạo chẩn đoán phân biệt.
-        Nếu cần chẩn đoán phân biệt chính thức, C5 xử lý.
-
-
-    C2.18.4. PLAN_9 / outside-record boundary
-        PLAN_9 không làm C2 chạy.
-        C2 không phải module trả lời outside-record và không ghi câu trả lời outside-record vào bệnh án.
-        Nếu câu hỏi ngoài bệnh án cần kiến thức chung, không dùng C2 chính thức; PLAN_9 bypass hoặc source/reference rules của C6 và response-style rules của O12 xử lý khi cần.
-        Trong PLAN_9 ngoài bệnh án, C2 không chạy chính thức và không đọc C6.
-
-C2.19. Ví dụ cụ thể
-    C2.19.1. Ví dụ không có cảnh báo rõ
-        Input:
-            Bệnh nhân tỉnh, sinh tồn ổn định, triệu chứng nhẹ, chưa ghi nhận dấu hiệu nặng.
-        C2_STATE:
-            STATE_VERSION = V1
-            C2_REV = 1
-            C2_SOURCE_A_REV = A_MODULE_REV của full current A_STATE đã dùng
-            C2_WARNING_LEVEL = LOW.
-            C2_RED_FLAGS = Chưa ghi nhận dấu hiệu nguy cơ rõ từ dữ kiện hiện có.
-            C2_MONITORING_POINTS = Theo dõi triệu chứng chính, dấu hiệu sinh tồn và diễn biến đáp ứng điều trị theo bệnh cảnh.
-            C2_ACTION_ALERTS = Cần đánh giá lại nếu xuất hiện sốt cao kéo dài, đau tăng, khó thở, rối loạn ý thức, huyết động không ổn định hoặc triệu chứng nặng lên.
-            C2_FINAL:
-                Mức cảnh báo:
-                    LOW — Chưa ghi nhận dấu hiệu nguy cơ rõ từ dữ kiện hiện có.
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Chưa ghi nhận red flags rõ trong A_STATE hiện tại.
-                Điểm cần theo dõi sát:
-                    - Theo dõi triệu chứng chính, dấu hiệu sinh tồn và diễn biến đáp ứng điều trị.
-                Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng:
-                    - Đánh giá lại kịp thời nếu xuất hiện dấu hiệu nặng hoặc diễn biến xấu.
-            C2_CHECK = PASS
-            C2_ERROR = NONE
-
-    C2.19.2. Ví dụ cảnh báo hô hấp
-        Input:
-            A3 có ho, sốt, khó thở.
-            A6 có SpO₂ giảm hoặc khó thở tăng nếu user cung cấp.
-        C2_STATE:
-            STATE_VERSION = V1
-            C2_REV = 1
-            C2_SOURCE_A_REV = A_MODULE_REV của full current A_STATE đã dùng
-            C2_WARNING_LEVEL = HIGH nếu có SpO₂ giảm/khó thở tăng rõ; MODERATE nếu chỉ có khó thở cần theo dõi chưa có dấu nặng.
-            C2_RED_FLAGS = Khó thở tăng, SpO₂ giảm, co kéo cơ hô hấp hoặc tím tái nếu có dữ kiện là các dấu hiệu nguy cơ hô hấp.
-            C2_MONITORING_POINTS = Theo dõi nhịp thở, SpO₂, mức độ khó thở, dấu co kéo cơ hô hấp, sốt và đáp ứng điều trị.
-            C2_ACTION_ALERTS = Nếu khó thở tăng, SpO₂ giảm hoặc xuất hiện tím tái/co kéo cơ hô hấp, cần đánh giá và xử trí kịp thời, cân nhắc hội chẩn/chuyển tuyến tùy mức độ.
-            C2_FINAL:
-                Mức cảnh báo:
-                    Ghi mức phù hợp dữ kiện.
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Khó thở tăng, SpO₂ giảm hoặc dấu suy hô hấp nếu có.
-                Điểm cần theo dõi sát:
-                    - Theo dõi nhịp thở, SpO₂, mức độ khó thở và sốt.
-                Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng:
-                    - Đánh giá/xử trí kịp thời nếu xuất hiện dấu suy hô hấp hoặc diễn biến xấu.
-            C2_CHECK = PASS
-            C2_ERROR = NONE
-
-    C2.19.3. Ví dụ cảnh báo tuần hoàn
-        Input:
-            A5 có đau ngực, mạch nhanh, huyết áp không ổn định hoặc ngất nếu user cung cấp.
-        C2_STATE:
-            STATE_VERSION = V1
-            C2_REV = 1
-            C2_SOURCE_A_REV = A_MODULE_REV của full current A_STATE đã dùng
-            C2_WARNING_LEVEL = HIGH hoặc CRITICAL tùy mức độ dữ kiện.
-            C2_RED_FLAGS = Đau ngực kèm khó thở, vã mồ hôi, ngất, rối loạn nhịp hoặc huyết động không ổn định là dấu hiệu nguy cơ tim mạch nếu có trong A_STATE.
-            C2_MONITORING_POINTS = Theo dõi mạch, huyết áp, đau ngực, khó thở, tri giác và dấu suy tim/sốc nếu có.
-            C2_ACTION_ALERTS = Nếu đau ngực tăng, tụt huyết áp, rối loạn nhịp, ngất hoặc khó thở tăng, cần đánh giá/xử trí kịp thời và cân nhắc hội chẩn/chuyển tuyến.
-            C2_FINAL:
-                Mức cảnh báo:
-                    Ghi mức phù hợp dữ kiện.
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Dấu hiệu nguy cơ tim mạch theo dữ kiện A_STATE.
-                Điểm cần theo dõi sát:
-                    - Theo dõi mạch, huyết áp, đau ngực, khó thở và tri giác.
-                Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng:
-                    - Đánh giá/xử trí kịp thời và hội chẩn/chuyển tuyến nếu vượt khả năng.
-            C2_CHECK = PASS
-            C2_ERROR = NONE
-
-    C2.19.4. Ví dụ cảnh báo tiêu hóa
-        Input:
-            A3/A7 có đau bụng dữ dội, nôn nhiều, mất nước, phân máu hoặc phản ứng thành bụng nếu user cung cấp.
-        C2_STATE:
-            STATE_VERSION = V1
-            C2_REV = 1
-            C2_SOURCE_A_REV = A_MODULE_REV của full current A_STATE đã dùng
-            C2_WARNING_LEVEL = MODERATE / HIGH / CRITICAL tùy dữ kiện.
-            C2_RED_FLAGS = Đau bụng dữ dội, phản ứng thành bụng, nôn nhiều, phân máu/nôn máu hoặc dấu mất nước nặng là các dấu hiệu nguy cơ tiêu hóa nếu có trong A_STATE.
-            C2_MONITORING_POINTS = Theo dõi mức độ đau bụng, nôn, đại tiện, dấu mất nước, mạch, huyết áp và tri giác.
-            C2_ACTION_ALERTS = Nếu đau bụng tăng, có phản ứng thành bụng, xuất huyết tiêu hóa hoặc mất nước nặng, cần đánh giá/xử trí kịp thời và cân nhắc hội chẩn/chuyển tuyến.
-            C2_FINAL:
-                Mức cảnh báo:
-                    Ghi mức phù hợp dữ kiện.
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Dấu hiệu bụng ngoại khoa, xuất huyết tiêu hóa hoặc mất nước nặng nếu có.
-                Điểm cần theo dõi sát:
-                    - Theo dõi đau bụng, nôn, đại tiện, dấu mất nước và huyết động.
-                Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng:
-                    - Đánh giá/xử trí kịp thời nếu có dấu hiệu nặng hoặc diễn biến xấu.
-            C2_CHECK = PASS
-            C2_ERROR = NONE
-
-    C2.19.5. Ví dụ cảnh báo thần kinh
-        Input:
-            A9 có rối loạn ý thức, co giật, yếu liệt, nói khó hoặc đau đầu dữ dội nếu user cung cấp.
-        C2_STATE:
-            STATE_VERSION = V1
-            C2_REV = 1
-            C2_SOURCE_A_REV = A_MODULE_REV của full current A_STATE đã dùng
-            C2_WARNING_LEVEL = HIGH hoặc CRITICAL tùy mức độ.
-            C2_RED_FLAGS = Rối loạn ý thức, co giật, yếu liệt, nói khó, dấu thần kinh khu trú hoặc đau đầu dữ dội là dấu hiệu nguy cơ thần kinh nếu có trong A_STATE.
-            C2_MONITORING_POINTS = Theo dõi tri giác, dấu thần kinh khu trú, co giật, đau đầu, mạch, huyết áp và diễn biến triệu chứng.
-            C2_ACTION_ALERTS = Nếu xuất hiện hoặc nặng lên rối loạn ý thức, co giật, yếu liệt hoặc dấu thần kinh khu trú, cần đánh giá/xử trí kịp thời và cân nhắc hội chẩn/chuyển tuyến.
-            C2_FINAL:
-                Mức cảnh báo:
-                    Ghi mức phù hợp dữ kiện.
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Dấu hiệu thần kinh nặng nếu có.
-                Điểm cần theo dõi sát:
-                    - Theo dõi tri giác, vận động, cảm giác, co giật và dấu thần kinh khu trú.
-                Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng:
-                    - Đánh giá/xử trí kịp thời và hội chẩn/chuyển tuyến nếu cần.
-            C2_CHECK = PASS
-            C2_ERROR = NONE
-
-    C2.19.6. Ví dụ cảnh báo cận lâm sàng bất thường
-        Input:
-            A14 có creatinin tăng hoặc khí máu bất thường hoặc Hb giảm rõ.
-        C2_STATE:
-            STATE_VERSION = V1
-            C2_REV = 1
-            C2_SOURCE_A_REV = A_MODULE_REV của full current A_STATE đã dùng
-            C2_WARNING_LEVEL = MODERATE / HIGH tùy mức độ dữ kiện và bệnh cảnh.
-            C2_RED_FLAGS = Bất thường cận lâm sàng đã có trong A14 có thể gợi ý nguy cơ cần theo dõi sát.
-            C2_MONITORING_POINTS = Theo dõi triệu chứng lâm sàng liên quan, dấu hiệu sinh tồn và chỉ số cận lâm sàng bất thường nếu cần đánh giá lại.
-            C2_ACTION_ALERTS = Nếu bất thường cận lâm sàng đi kèm diễn biến lâm sàng xấu, cần đánh giá/xử trí kịp thời và cân nhắc hội chẩn.
-            C2_FINAL:
-                Mức cảnh báo:
-                    Ghi mức phù hợp dữ kiện.
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Bất thường cận lâm sàng đã có trong A14 nếu liên quan nguy cơ.
-                Điểm cần theo dõi sát:
-                    - Theo dõi triệu chứng, sinh tồn và chỉ số liên quan.
-                Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng:
-                    - Đánh giá/xử trí kịp thời nếu lâm sàng xấu đi hoặc bất thường tiến triển.
-            C2_CHECK = PASS
-            C2_ERROR = NONE
-
-    C2.19.7. Ví dụ không được biến C2 thành C1
-        Sai:
-            C2_FINAL:
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Cần hỏi thêm bệnh sử.
-                    - Cần khám thêm hô hấp.
-                    - Cần làm X-quang.
-        Đúng:
-            C2_FINAL:
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Khó thở tăng, SpO₂ giảm hoặc co kéo cơ hô hấp là dấu hiệu nguy cơ nếu xuất hiện.
-                Điểm cần theo dõi sát:
-                    - Theo dõi nhịp thở, SpO₂ và mức độ khó thở.
-        Giải thích:
-            - Hỏi thêm/khám thêm/làm thêm thuộc C1.
-            - C2 chỉ cảnh báo và theo dõi sát.
-
-    C2.19.8. Ví dụ không được biến C2 thành C3
-        Sai:
-            C2_FINAL:
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - NSAID chống chỉ định do tiền sử dạ dày.
-                    - Không được dùng thuốc X do tương tác thuốc Y.
-        Đúng:
-            C2_FINAL:
-                Dấu hiệu nguy cơ cần lưu ý:
-                    - Nếu có đau bụng tăng, nôn máu hoặc đi ngoài phân đen, cần đánh giá nguy cơ xuất huyết tiêu hóa.
-                Điểm cần theo dõi sát:
-                    - Theo dõi đau bụng, nôn, phân đen/phân máu và huyết động nếu bệnh cảnh tiêu hóa liên quan.
-        Giải thích:
-            - Chống chỉ định/tương tác thuốc thuộc A15.
-            - C2 chỉ theo dõi biểu hiện lâm sàng nguy cơ.
-
-    C2.19.9. Ví dụ không được biến C2 thành A13
-        Sai:
-            C2_ACTION_ALERTS = Truyền dịch, dùng kháng sinh, dùng thuốc hạ sốt, làm xét nghiệm.
-        Đúng:
-            C2_ACTION_ALERTS = Nếu xuất hiện huyết động không ổn định, sốt cao kéo dài, rối loạn ý thức hoặc diễn biến xấu, cần đánh giá/xử trí kịp thời và cân nhắc hội chẩn/chuyển tuyến.
-        Giải thích:
-            - Hướng điều trị và chỉ định cần làm thuộc A13.
-            - C2 chỉ ghi hành động cảnh báo khi xuất hiện dấu hiệu nặng.
-
-
-    C2.19.10. Ví dụ vận hành selective và revision
-        Ví dụ C2 không chạy khi không có trong C_RUN_ORDER:
-            A_STATE có thể thay đổi, nhưng ROUND không yêu cầu C2, không có O10 và plan không chỉ định C2.
-            Kết quả: C2 không chạy, không tạo/cập nhật/in C2_STATE, không tạo patch/delta, không tăng C2_REV và không cập nhật C2_SOURCE_A_REV.
-
-        Ví dụ CREATE full C2_STATE khi G plan C2 lần đầu:
-            G_STATE.C_RUN_ORDER có C2; chưa có C2_STATE cũ.
-            C2_STATE:
-                STATE_VERSION = V2
-                C2_REV = 1
-                C2_SOURCE_A_REV = A_MODULE_REV của full current A_STATE đã dùng
-                C2_WARNING_LEVEL = LOW
-                C2_RED_FLAGS = Chưa ghi nhận dấu hiệu nguy cơ rõ từ dữ kiện hiện có.
-                C2_MONITORING_POINTS = Theo dõi triệu chứng chính, dấu hiệu sinh tồn và diễn biến.
-                C2_ACTION_ALERTS = Đánh giá lại kịp thời nếu xuất hiện dấu hiệu nặng hoặc diễn biến xấu.
-                C2_FINAL = đủ 4 nhóm theo schema C2_FINAL.
-                C2_CHECK = PASS
-                C2_ERROR = NONE
-
-        Ví dụ UPDATE full C2_STATE:
-            G_STATE.C_RUN_ORDER có C2; full current A_STATE có thay đổi làm nội dung thật C2 thay đổi.
-            C2 in lại full C2_STATE với C2_REV tăng từ 1 lên 2 và C2_SOURCE_A_REV cập nhật theo A_MODULE_REV đã dùng; không in patch/delta.
-
-        Ví dụ REUSE full C2_STATE:
-            G_STATE.C_RUN_ORDER có C2; C2 đọc full current A_STATE, A_MODULE_REV và C2_STATE hiện hành; nội dung thật C2 không đổi.
-            C2 in lại full C2_STATE với C2_REV giữ nguyên và C2_SOURCE_A_REV cập nhật theo A_MODULE_REV đã dùng; không ghi “reuse C2” thay nội dung thật.
-
-        Ví dụ O10 yêu cầu render:
-            G thêm C2 vào C_RUN_ORDER vì O10 requires C2.
-            C2 chạy theo lifecycle nội bộ và tạo full C2_STATE hợp lệ.
-            O10 chỉ render từ C2_STATE hợp lệ; O10 không tự tạo nội dung C2.
-
-        Ví dụ PLAN_9 ngoài bệnh án:
-            PLAN_9 bypass workflow bệnh án, không làm C2 chạy chính thức và không ghi câu trả lời outside-record vào bệnh án.
-            Nếu câu hỏi ngoài bệnh án cần kiến thức chung, dùng PLAN_9 bypass hoặc tham khảo source/reference rules của C6 và response-style rules của O12 khi cần; C2 không đọc C6 và không tạo C2_STATE.
-
-C2.20. Schema C2_STATE
-    C2.20.1. Schema chuẩn
-        C2_STATE:
-            STATE_VERSION = ...
-            C2_REV = ...
-            C2_SOURCE_A_REV = ...
-            C2_WARNING_LEVEL = LOW / MODERATE / HIGH / CRITICAL / NOT_APPLICABLE
-            C2_RED_FLAGS = ...
-            C2_MONITORING_POINTS = ...
-            C2_ACTION_ALERTS = ...
-            C2_FINAL = ...
-            C2_CHECK = PASS / NEEDS_FIX
-            C2_ERROR = ...
-
-    C2.20.2. Schema C2_FINAL
-        C2_FINAL:
-            Mức cảnh báo:
-                ...
-            Dấu hiệu nguy cơ cần lưu ý:
-                ...
-            Điểm cần theo dõi sát:
-                ...
-            Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng:
-                ...
-        C2_FINAL phải có đủ 4 nhóm.
-        Không được đổi tên nhóm.
-        Không được bỏ nhóm.
-        Không được gộp nhóm.
-        Không được để nhóm trống.
-
-    C2.20.3. Nguyên tắc schema
-        C2_STATE không cần STATUS.
-        C2_STATE không cần UPDATED_AT.
-        C2_STATE không cần trường tạo mới/cập nhật/dùng lại.
-        C2_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        C2_STATE phải có C2_REV và C2_SOURCE_A_REV.
-        C2 không tự tạo C_MODULE_REV.
-        C2_WARNING_LEVEL chỉ được dùng LOW / MODERATE / HIGH / CRITICAL / NOT_APPLICABLE.
-        C2_FINAL phải đủ 4 nhóm.
-        Nếu không áp dụng:
-            C2_WARNING_LEVEL = NOT_APPLICABLE.
-            C2_RED_FLAGS = Không áp dụng.
-            C2_MONITORING_POINTS = Không áp dụng.
-            C2_ACTION_ALERTS = Không áp dụng.
-        Nếu C2_CHECK = PASS:
-            C2_ERROR = NONE.
-        Nếu C2_CHECK = NEEDS_FIX:
-            C2_ERROR phải ghi rõ lỗi.
-        Không được ghi “giữ nguyên như trước”.
-        Không được ghi “reuse C2” thay nội dung thật.
-
-C2.21. Lỗi không được mắc
-    C2.21.1. Lỗi sai phạm vi
-        Không hỏi thêm/khám thêm thay C1.
-        Không viết cận lâm sàng cần làm thay C1/A13.
-        Không kiểm thuốc thay A15.
-        Không tổng hợp bệnh án thay C4.
-        Không tạo chẩn đoán phân biệt thay C5.
-        Không viết chẩn đoán chính thức thay A12.
-        Không viết hướng điều trị thay A13.
-        Không viết bệnh trình.
-        Không viết đơn thuốc thay A15.
-        Không render O.
-        Không viết phác đồ cấp cứu chi tiết nếu hệ thống chưa yêu cầu.
-
-    C2.21.2. Lỗi tạo dữ kiện
-        Không bịa dấu hiệu nặng.
-        Không tự tạo mạch.
-        Không tự tạo huyết áp.
-        Không tự tạo SpO₂.
-        Không tự tạo nhiệt độ.
-        Không tự tạo nhịp thở.
-        Không tự tạo tri giác.
-        Không tự tạo lượng nước tiểu.
-        Không tự tạo kết quả cận lâm sàng.
-        Không biến thiếu dữ kiện thành bình thường.
-        Không ghi “không có nguy cơ” khi chưa đủ dữ kiện.
-        Không ghi red flag như đã có nếu A_STATE chưa ghi.
-
-    C2.21.3. Lỗi cảnh báo quá mức
-        Không nâng cảnh báo lên HIGH/CRITICAL nếu dữ kiện không ủng hộ.
-        Không dùng ngôn ngữ cấp cứu nếu chỉ có dữ kiện nhẹ.
-        Không ghi cần chuyển viện ngay nếu không có căn cứ.
-        Không ghi nguy cơ tử vong cao nếu dữ kiện không ủng hộ.
-        Không làm người đọc hiểu chắc chắn có biến chứng nếu chỉ là nguy cơ cần theo dõi.
-        Không phóng đại cảnh báo trong ca ổn định.
-
-    C2.21.4. Lỗi cảnh báo thiếu
-        Không bỏ qua dấu hiệu nguy hiểm rõ trong A_STATE.
-        Không cho LOW nếu có dữ kiện rõ nguy cơ cao.
-        Không cho NOT_APPLICABLE nếu user đang yêu cầu cảnh báo và có dữ kiện đánh giá.
-        Không bỏ qua SpO₂ giảm/khó thở tăng nếu A_STATE có.
-        Không bỏ qua tụt huyết áp/sốc nếu A_STATE có.
-        Không bỏ qua rối loạn ý thức/co giật/yếu liệt nếu A_STATE có.
-        Không bỏ qua xuất huyết tiêu hóa/dấu bụng ngoại khoa nếu A_STATE có.
-        Không bỏ qua cận lâm sàng bất thường rõ nếu A14 có.
-
-    C2.21.5. Lỗi vận hành state
-        Không tạo state của C khác.
-        Không tạo A_STATE.
-        Không sửa A_STATE.
-        Không chạy A.
-        Không chạy C3/C4/C5 từ bên trong C2.
-        Không render O.
-        Không dùng patch/delta làm C2_STATE chính thức.
-        Không ghi “giữ nguyên như trước”.
-        Không đọc O_OUTPUT.
-        Không đọc C1_STATE hoặc C3-C7_STATE hiện hành trong cùng ROUND theo mặc định.
-        Nếu tương lai cần dependency C2 requires Cy, dependency đó phải được khai báo rõ trong G plan và audit riêng trước khi áp dụng.
-        Không thiếu STATE_VERSION.
-        Không thiếu C2_REV.
-        Không thiếu C2_SOURCE_A_REV.
-        Không thiếu C2_WARNING_LEVEL.
-        Không thiếu C2_RED_FLAGS.
-        Không thiếu C2_MONITORING_POINTS.
-        Không thiếu C2_ACTION_ALERTS.
-        Không thiếu C2_FINAL.
-        Không thiếu C2_CHECK.
-        Không thiếu C2_ERROR.
-
-C2.22. C2_CHECK và kết thúc module
-    C2.22.1. Kiểm C2_WARNING_LEVEL
-        Kiểm:
-            1. C2_WARNING_LEVEL thuộc danh sách hợp lệ.
-            2. C2_WARNING_LEVEL phù hợp dữ kiện A_STATE.
-            3. Không dùng mức ngoài danh sách.
-            4. Không dùng HIGH/CRITICAL nếu dữ kiện không ủng hộ.
-            5. Không dùng LOW nếu có dữ kiện nguy cơ cao rõ.
-            6. Không dùng NOT_APPLICABLE khi user đang yêu cầu cảnh báo và có dữ kiện đánh giá.
-            7. Nếu thiếu dữ kiện, mức cảnh báo và C2_FINAL phải phản ánh đúng giới hạn dữ kiện.
-
-    C2.22.2. Kiểm C2_RED_FLAGS
-        Kiểm:
-            1. C2_RED_FLAGS dựa trên dữ kiện đã có.
-            2. Không bịa red flags.
-            3. Không biến thiếu dữ kiện thành phủ định.
-            4. Nếu chưa có red flags rõ, dùng câu chuẩn.
-            5. Nếu thiếu dữ kiện để đánh giá, ghi rõ chưa đủ dữ kiện.
-            6. Không lẫn hỏi thêm/khám thêm của C1.
-            7. Không lẫn cảnh báo thuốc của C3.
-            8. Không lẫn chẩn đoán phân biệt C5.
-
-    C2.22.3. Kiểm C2_MONITORING_POINTS
-        Kiểm:
-            1. Điểm theo dõi sát cụ thể theo bệnh cảnh.
-            2. Không lan man.
-            3. Không lặp toàn bộ C1.
-            4. Không viết bệnh trình.
-            5. Không viết dặn dò dài nếu không thuộc C2.
-            6. Không tự tạo dấu hiệu chưa có.
-            7. Phù hợp C2_WARNING_LEVEL.
-            8. Phù hợp C2_RED_FLAGS.
-
-    C2.22.4. Kiểm C2_ACTION_ALERTS
-        Kiểm:
-            1. Hành động cảnh báo đúng phạm vi.
-            2. Không thay A13.
-            3. Không viết phác đồ cấp cứu chi tiết nếu hệ thống chưa yêu cầu.
-            4. Không kê thuốc.
-            5. Không cho phép O6.
-            6. Phù hợp mức cảnh báo.
-            7. Nếu LOW, không dùng hành động quá mức.
-            8. Nếu HIGH/CRITICAL, không bỏ qua hành động đánh giá/xử trí kịp thời.
-            9. Không lẫn cảnh báo thuốc C3.
-            10. Không lẫn output render O.
-
-    C2.22.5. Kiểm C2_FINAL
-        Kiểm:
-            1. C2_FINAL có đủ 4 nhóm.
-            2. Nhóm Mức cảnh báo khớp C2_WARNING_LEVEL.
-            3. Nhóm Dấu hiệu nguy cơ cần lưu ý khớp C2_RED_FLAGS.
-            4. Nhóm Điểm cần theo dõi sát khớp C2_MONITORING_POINTS.
-            5. Nhóm Hành động cần cân nhắc khớp C2_ACTION_ALERTS.
-            6. Nội dung đúng phạm vi C2.
-            7. Không lẫn C1.
-            8. Không lẫn C3.
-            9. Không lẫn C4.
-            10. Không lẫn C5.
-            11. Không lẫn A12/A13/A15 hoặc module bệnh trình.
-            12. Không tạo dữ kiện mới.
-            13. Không cảnh báo quá mức.
-            14. Không bỏ sót cảnh báo rõ.
-
-    C2.22.6. Kiểm schema
-        Kiểm:
-            1. C2_STATE có STATE_VERSION.
-            2. C2_STATE có C2_REV.
-            3. C2_STATE có C2_SOURCE_A_REV.
-            4. C2_STATE có C2_WARNING_LEVEL.
-            5. C2_STATE có C2_RED_FLAGS.
-            6. C2_STATE có C2_MONITORING_POINTS.
-            7. C2_STATE có C2_ACTION_ALERTS.
-            8. C2_STATE có C2_FINAL.
-            9. C2_STATE có C2_CHECK.
-            10. C2_STATE có C2_ERROR.
-            11. C2_FINAL có đủ 4 nhóm.
-            12. Nếu C2_CHECK = PASS, C2_ERROR = NONE.
-            13. Nếu C2_CHECK = NEEDS_FIX, C2_ERROR ghi rõ lỗi.
-            14. C2_STATE không có STATUS.
-            15. C2_STATE không có UPDATED_AT.
-            16. C2_STATE không dùng patch/delta.
-            17. C2_STATE sẵn sàng đưa vào current selective C_STATE.
-
-    C2.22.7. Kết quả C2_CHECK
-        Nếu đạt:
-            C2_CHECK = PASS.
-            C2_ERROR = NONE.
-        Nếu chưa đạt:
-            C2_CHECK = NEEDS_FIX.
-            C2_ERROR = ghi rõ lỗi.
-        C2_ERROR phải nêu rõ lỗi thuộc nhóm nào:
-            1. Nguồn đọc.
-            2. C2_WARNING_LEVEL.
-            3. C2_RED_FLAGS.
-            4. C2_MONITORING_POINTS.
-            5. C2_ACTION_ALERTS.
-            6. C2_FINAL.
-            7. Ranh giới với A/C/O.
-            8. Schema.
-        Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-    C2.22.8. Kết thúc module
-        C2 hoàn tất khi:
-            1. Đã tạo mới, cập nhật hoặc dùng lại C2_STATE.
-            2. Đã xác định C2_WARNING_LEVEL.
-            3. Đã xác định C2_RED_FLAGS.
-            4. Đã xác định C2_MONITORING_POINTS.
-            5. Đã xác định C2_ACTION_ALERTS.
-            6. Đã tạo C2_FINAL đủ 4 nhóm.
-            7. Đã kiểm C2_CHECK.
-            8. Không tạo dữ liệu ngoài C2_STATE.
-            9. Không tạo state của C khác.
-            10. Không sửa A_STATE.
-            11. Không chạy A.
-            12. Không render O.
-        Sau khi hoàn tất C2_STATE, chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-        Nếu C2 là C cuối cùng trong C_RUN_ORDER thì STEP C kết thúc.
-        C2 không giả định C3 là module kế tiếp, không tạo hoặc gọi C1/C3-C7 và không buộc C khác chạy.
-        Không chuyển sang C_GATE cho đến khi toàn bộ C theo C_RUN_ORDER đã được xử lý.
-        C2 không tự gọi O10.
-        O10 chỉ render từ C2_STATE hợp lệ khi G/O yêu cầu; nếu C2_STATE thiếu hoặc C2_CHECK = NEEDS_FIX, O10 xử lý theo O10 contract và không tự tạo nội dung C2.
+C2_ROLE
+    C2 là module chuẩn hóa cảnh báo lâm sàng, nguy cơ chuyển nặng, dấu hiệu cần theo dõi sát và tình huống cần xử trí kịp thời.
+    C2 xử lý:
+        1. Mức cảnh báo lâm sàng.
+        2. Dấu hiệu nguy hiểm / red flags.
+        3. Nguy cơ chuyển nặng.
+        4. Điểm cần theo dõi sát.
+        5. Tình huống cần đánh giá lại ngay.
+        6. Tình huống cần xử trí kịp thời.
+        7. Tình huống cần báo bác sĩ trực / bác sĩ điều trị.
+        8. Tình huống cần hội chẩn.
+        9. Tình huống cần chuyển tuyến / chuyển viện.
+        10. Tình huống cần theo dõi dấu hiệu sinh tồn sát hơn.
+        11. Tình huống cần đánh giá đáp ứng điều trị.
+        12. Tình huống cần chú ý diễn biến nặng lên.
+    C2 chỉ nêu cảnh báo, nguy cơ, điểm theo dõi và hành động cảnh báo dựa trên dữ kiện đã có trong nguồn hợp lệ.
+    C2 không tạo dữ kiện nguồn mới, không sửa A_STATE, không chạy A, không tạo/sửa C1 hoặc C3-C7, không render O, không viết đơn thuốc, không viết phác đồ điều trị/cấp cứu chi tiết, không thay A12/A13/A15/C3/C4/C5 và không trả lời ngoài bệnh án.
+    C2_STATE là nguồn chính thức cho output cảnh báo lâm sàng, đặc biệt O10 nếu G/O render O10.
+
+C2_ALLOWED_SOURCE
+    C2 chỉ được đọc:
+        1. User input ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C2.
+        2. G_STATE metadata kỹ thuật và C_RUN_ORDER để xác nhận C2 được chạy.
+        3. A_GATE mới nhất.
+        4. Full current A_STATE mới nhất sau A_GATE.
+        5. A_MODULE_REV từ A_GATE / full current A_STATE.
+        6. C2_STATE hiện hành mới nhất nếu đã có, dùng cho UPDATE/REUSE.
+        7. File/module C2.
+    C2 được đọc full current A_STATE A1-A15 theo mục đích:
+        1. A1: lý do vào viện / vấn đề chính.
+        2. A2: tiền sử, bệnh nền, dị ứng, thuốc đang dùng nếu liên quan nguy cơ.
+        3. A3: bệnh sử, triệu chứng chính, diễn biến ban đầu.
+        4. A4: toàn thân, tri giác, sinh tồn, tình trạng chung.
+        5. A5: tuần hoàn, mạch, huyết áp, dấu tim mạch.
+        6. A6: hô hấp, khó thở, SpO2/SpO₂, ran phổi, dấu suy hô hấp.
+        7. A7: tiêu hóa, đau bụng, nôn, tiêu chảy, xuất huyết tiêu hóa.
+        8. A8: thận - tiết niệu, tiểu tiện, đau hông lưng, phù, vô niệu/thiểu niệu.
+        9. A9: thần kinh, ý thức, co giật, yếu liệt, dấu thần kinh khu trú.
+        10. A10: cơ xương khớp, đau/sưng/giới hạn vận động, dấu viêm/nhiễm khuẩn.
+        11. A11: cơ quan khác liên quan.
+        12. A12: chẩn đoán hiện tại để biết bối cảnh nguy cơ; không sửa/chốt lại A12.
+        13. A13: hướng cần làm/hướng xử trí hiện có để tránh lặp/thừa và hiểu bối cảnh; không thay A13.
+        14. A14: thông tin hành chính và cận lâm sàng đã có; chỉ dùng bất thường rõ đã có để cảnh báo, không tạo kết quả mới.
+        15. A15: bối cảnh thuốc/đơn có thể liên quan bệnh cảnh; không kiểm an toàn thuốc thay A15 và không kết luận thuốc an toàn/không an toàn.
+    C2 không đọc/dùng O_OUTPUT, output đã render, output cũ để suy ngược cảnh báo, C1_STATE mặc định, C3-C7_STATE mặc định, hidden memory, dữ liệu ngoài state hợp lệ, thuốc dự kiến để kết luận an toàn thuốc, A13_LABS/A13_IMAGING như kết quả đã có, hoặc dữ kiện xét nghiệm/hình ảnh/thăm dò chưa có.
+    C2 không dùng web/guideline ngoài nếu không thuộc user input hoặc contract C6 hợp lệ.
+    Nếu tương lai cần dependency C2 requires C1/Cy, G phải khai báo rõ và audit riêng; patch này không tự thêm dependency.
+
+C2_ALLOWED_ACTION
+    C2 được làm:
+        1. CREATE full C2_STATE khi C2 được chạy và chưa có C2_STATE hiện hành.
+        2. UPDATE full C2_STATE khi nội dung thật C2 thay đổi do user input ROUND hiện tại hoặc full current A_STATE/dependency hợp lệ.
+        3. REUSE full C2_STATE khi C2 được chạy nhưng nội dung thật không đổi.
+        4. CHECK C2_STATE.
+        5. Chuẩn hóa C2_WARNING_LEVEL, C2_RED_FLAGS, C2_MONITORING_POINTS, C2_ACTION_ALERTS và C2_FINAL.
+        6. Ghi C2_REV và C2_SOURCE_A_REV.
+    C2 không render O/O10, không sửa A_STATE, không chạy A, không tạo state của C khác, không sửa C1/C3-C7, không tự tạo C_MODULE_REV, không tự kích hoạt module khác và không tự sửa G plan.
+    C2 chỉ chạy khi nằm trong G_STATE.C_RUN_ORDER theo C_CORE_SELECTIVE.
+    User request, O10 yêu cầu, A_STATE thay đổi hoặc dữ kiện nguy cơ chỉ là căn cứ để G lập plan; các yếu tố đó không tự làm C2 chạy nếu G chưa đưa C2 vào C_RUN_ORDER.
+    Nếu O10 nằm trong O_RENDER_LIST và O10 requires C2, G phải thêm C2 vào C_RUN_ORDER; C2 chỉ ghi nhận dependency này và không tự sửa G.
+
+C2_ALLOWED_WRITE
+    C2 chỉ được ghi full C2_STATE.
+    C2 không được ghi A_STATE, A1-A15, C1, C3-C7, O_OUTPUT, O10_OUTPUT, S/G hoặc C_MODULE_REV tổng hợp.
+    C2_STATE là full state, không patch/delta.
+
+C2_STATE_SCHEMA
+    C2_STATE:
+        STATE_VERSION = ...
+        C2_REV = ...
+        C2_SOURCE_A_REV = ...
+        C2_WARNING_LEVEL = LOW / MODERATE / HIGH / CRITICAL / NOT_APPLICABLE
+        C2_RED_FLAGS = ...
+        C2_MONITORING_POINTS = ...
+        C2_ACTION_ALERTS = ...
+        C2_FINAL = ...
+        C2_CHECK = PASS / NEEDS_FIX
+        C2_ERROR = ...
+    Không thêm STATUS, UPDATED_AT, C2_FOR_O, C2_ALERTS, C2_WARNING, C2_RENDER, lifecycle field riêng hoặc field mới ngoài schema hiện tại.
+    Không bỏ STATE_VERSION, C2_REV, C2_SOURCE_A_REV, C2_WARNING_LEVEL, C2_RED_FLAGS, C2_MONITORING_POINTS, C2_ACTION_ALERTS, C2_FINAL, C2_CHECK hoặc C2_ERROR.
+    Nếu C2_CHECK = PASS: C2_ERROR = NONE.
+    Nếu C2_CHECK = NEEDS_FIX: C2_ERROR ghi lỗi cụ thể.
+
+C2_LOGIC_RULES
+    C2 chỉ nêu cảnh báo/nguy cơ/điểm theo dõi/hành động cảnh báo dựa trên dữ kiện đã có trong nguồn hợp lệ.
+    C2 không tạo dấu hiệu nặng mới, chỉ số sinh tồn mới, kết quả xét nghiệm/hình ảnh/thăm dò mới, chẩn đoán mới, thuốc mới hoặc điều trị cụ thể ngoài contract.
+    C2 không kết luận thuốc an toàn/không an toàn; không biến thiếu dữ kiện thành bình thường/an toàn; không biến nguy cơ thành chẩn đoán chắc chắn; không cảnh báo quá mức khi dữ kiện nhẹ/không đủ; không bỏ sót cảnh báo rõ khi dữ kiện đã cho thấy nguy hiểm.
+    Nếu thiếu dữ kiện để loại trừ nguy cơ, C2 phải ghi rõ chưa đủ dữ kiện và không ghi phủ định chắc chắn.
+    Nếu chưa có red flags rõ, dùng đúng literal: Chưa ghi nhận dấu hiệu nguy cơ rõ từ dữ kiện hiện có.
+    Không đổi literal trên thành “không có nguy cơ”, “không có red flag”, “hoàn toàn an toàn”, “loại trừ biến chứng” hoặc câu phủ định chắc chắn khác khi chưa đủ dữ kiện.
+    Nếu không áp dụng:
+        C2_WARNING_LEVEL = NOT_APPLICABLE
+        C2_RED_FLAGS = Không áp dụng
+        C2_MONITORING_POINTS = Không áp dụng
+        C2_ACTION_ALERTS = Không áp dụng
+        C2_FINAL ghi Không áp dụng trong các nhóm tương ứng.
+    C2 không xử lý nội dung hỏi thêm/khám thêm/làm thêm/đánh giá lại của C1; cảnh báo thuốc/tác dụng phụ/an toàn thuốc của C3; tổng hợp hội chứng/triệu chứng của C4; chẩn đoán phân biệt của C5; chẩn đoán hiện tại của A12; hướng điều trị thường quy của A13; đơn thuốc/thuốc của A15; bệnh trình; kết quả CLS mới; render output O; dặn dò cuối; phác đồ cấp cứu chi tiết; guideline ngoài record.
+
+C2_WARNING_LEVEL_RULES
+    C2_WARNING_LEVEL chỉ được là LOW / MODERATE / HIGH / CRITICAL / NOT_APPLICABLE; không dùng tiếng Việt tự do, mild/severe, cấp 1/cấp 2 hoặc giá trị khác.
+    LOW dùng khi nguy cơ nhẹ hoặc cần theo dõi thông thường, chưa có dấu hiệu nặng rõ và vẫn cần theo dõi phù hợp bệnh cảnh.
+    MODERATE dùng khi có nguy cơ vừa, cần theo dõi sát hơn, có dấu hiệu hoặc bệnh cảnh có thể chuyển nặng nhưng chưa đủ mức HIGH/CRITICAL.
+    HIGH dùng khi có dấu hiệu nguy cơ rõ, bệnh cảnh nặng hoặc khả năng chuyển nặng cao; cần đánh giá lại sớm, theo dõi sát, cân nhắc báo bác sĩ/hội chẩn tùy bối cảnh.
+    CRITICAL chỉ dùng khi có dữ kiện nguy kịch/cấp cứu/chuyển tuyến khẩn rõ; không dùng khi chỉ có triệu chứng nhẹ hoặc thiếu dữ kiện; không tự nâng CRITICAL nếu không có căn cứ.
+    NOT_APPLICABLE dùng khi C2 không áp dụng theo contract hoặc không có nội dung cảnh báo phù hợp; vẫn phải giữ schema đầy đủ và literal Không áp dụng tương ứng.
+
+C2_FINAL_RULES
+    C2_FINAL bắt buộc có đúng 4 nhóm, đúng tên, đúng thứ tự:
+        1. Mức cảnh báo:
+        2. Dấu hiệu nguy cơ cần lưu ý:
+        3. Điểm cần theo dõi sát:
+        4. Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng:
+    Không bỏ nhóm, đổi tên nhóm, gộp nhóm, đảo thứ tự, để nhóm trống hoặc đổi sang format khác.
+    Nhóm Mức cảnh báo phải khớp C2_WARNING_LEVEL.
+    Nhóm Dấu hiệu nguy cơ cần lưu ý phải khớp C2_RED_FLAGS.
+    Nhóm Điểm cần theo dõi sát phải khớp C2_MONITORING_POINTS.
+    Nhóm Hành động cần cân nhắc nếu xuất hiện dấu hiệu nặng phải khớp C2_ACTION_ALERTS.
+
+C2_SPECIAL_RULES
+    Red flags lấy từ A1/A3 lý do vào viện, triệu chứng, diễn biến; A2 bệnh nền/yếu tố nguy cơ; A4 tri giác/toàn trạng/sinh tồn/sốt/tình trạng nặng; A5 mạch/huyết áp/dấu tuần hoàn; A6 khó thở/SpO2/SpO₂/ran phổi/dấu suy hô hấp; A7 đau bụng/nôn/tiêu chảy/xuất huyết tiêu hóa; A8 tiểu tiện/đau hông lưng/phù/vô niệu/thiểu niệu; A9 ý thức/co giật/yếu liệt/dấu thần kinh khu trú; A10 đau/sưng/giới hạn vận động/dấu viêm nhiễm; A11 cơ quan khác; A12 bối cảnh chẩn đoán; A14 cận lâm sàng đã có nếu bất thường rõ; A15 bối cảnh thuốc/đơn nếu liên quan bệnh cảnh nhưng không kiểm thuốc.
+    Không lấy red flags từ bệnh trình module ngoài scope, output O, C1_FINAL, C3-C7 mặc định, xét nghiệm cần làm trong A13, dữ kiện chưa có hoặc hidden memory.
+    C2_MONITORING_POINTS là điểm cần theo dõi sát để phát hiện chuyển nặng; có thể gồm sinh tồn, tri giác, hô hấp/SpO2, tuần hoàn/huyết áp/mạch, đau/nguy cơ nặng lên, tiêu hóa/xuất huyết/nôn/tiêu chảy, thận-tiết niệu/lượng nước tiểu, thần kinh/co giật/yếu liệt, dấu nhiễm trùng/viêm và đáp ứng điều trị nếu có điều trị.
+    C2_MONITORING_POINTS không được biến thành bệnh trình, dặn dò cuối, hướng điều trị thường quy A13, phác đồ, đơn thuốc hoặc kết quả CLS mới.
+    C2_ACTION_ALERTS là hành động cảnh báo cần cân nhắc nếu xuất hiện dấu hiệu nặng; có thể gồm báo bác sĩ trực/bác sĩ điều trị, đánh giá lại ngay, theo dõi sinh tồn sát hơn, hội chẩn, chuyển tuyến/chuyển viện khi có chỉ định và xử trí kịp thời theo quy trình chuyên môn của cơ sở.
+    C2_ACTION_ALERTS không được viết phác đồ cấp cứu chi tiết, kê thuốc, thay A13_TREATMENT, thay A15, tự chặn thuốc, cho phép O6 xuất đơn hoặc tạo điều trị cụ thể ngoài dữ kiện/contract.
+    A14/CLS boundary: C2 có thể dùng bất thường rõ từ A14 để cảnh báo; không tạo xét nghiệm/hình ảnh/thăm dò mới, không dùng xét nghiệm cần làm trong A13 như kết quả đã có, không diễn giải sâu toàn bộ CLS thay C5/C4, không tự viết chẩn đoán từ CLS và không tạo chẩn đoán mới từ CLS.
+    Boundary C1: C1 là hỏi thêm/khám thêm/làm thêm/đánh giá lại; C2 là cảnh báo lâm sàng/nguy cơ/theo dõi sát. C2 không đọc/sao chép C1_FINAL mặc định, không biến nội dung cần hỏi thêm/khám thêm/làm thêm thành red flags, không biến nội dung C1 thành kết quả đã có và không thay C1 ghi nội dung cần bổ sung.
+    Boundary C3/A15: C2 không kết luận thuốc an toàn/không an toàn, không kết luận không có tương tác thuốc, không kết luận chống chỉ định thuốc, không chặn thuốc, không cho phép O6 xuất đơn, không thay C3 cảnh báo thuốc và không thay A15 điều trị/đơn thuốc.
+    Boundary C4/C5/A12: C2 không tổng hợp hội chứng/triệu chứng thay C4, không tạo chẩn đoán phân biệt thay C5, không chốt/chỉnh sửa chẩn đoán thay A12, không biến chẩn đoán A12 thành cảnh báo quá mức nếu không có căn cứ và không bỏ sót cảnh báo rõ nếu A12/bệnh cảnh cho thấy nguy cơ rõ.
+    Boundary A13: C2 không thay A13 hướng điều trị, không ghi hướng cần làm chính thức thay A13, không viết điều trị thường quy; C2 chỉ ghi hành động cảnh báo khi xuất hiện dấu hiệu nặng hoặc cần theo dõi/xử trí kịp thời.
+    PLAN_9/outside-record không làm C2 chạy; C2 không trả lời ngoài bệnh án, không đọc C6 trong PLAN_9 và không ghi nội dung outside-record vào bệnh án.
+
+C2_CHECK_PASS_IF
+    C2_CHECK = PASS khi:
+        1. C2_STATE đúng schema.
+        2. C2_WARNING_LEVEL thuộc enum hợp lệ và phù hợp dữ kiện.
+        3. C2_RED_FLAGS không bịa dữ kiện và không phủ định chắc chắn khi thiếu dữ kiện.
+        4. C2_MONITORING_POINTS đúng phạm vi.
+        5. C2_ACTION_ALERTS đúng phạm vi, không thay A13/A15/C3.
+        6. C2_FINAL đủ 4 nhóm đúng tên, đúng thứ tự, không trống và khớp các field nguồn.
+        7. Không tạo dữ kiện mới, không biến thiếu dữ kiện thành bình thường/an toàn, không cảnh báo quá mức khi thiếu căn cứ và không bỏ sót cảnh báo rõ.
+        8. Không lẫn C1/C3/C4/C5/A12/A13/A15/O.
+        9. Không dùng nguồn ngoài allowlist.
+        10. C2_REV và C2_SOURCE_A_REV đúng.
+        11. C2_ERROR = NONE.
+
+C2_NEEDS_FIX_IF
+    C2_CHECK = NEEDS_FIX khi có bất kỳ lỗi nào:
+        1. Thiếu nguồn bắt buộc A_GATE PASS/full current A_STATE/A_MODULE_REV khi C2 bị yêu cầu chạy.
+        2. Thiếu field schema.
+        3. C2_WARNING_LEVEL ngoài enum hoặc mâu thuẫn dữ kiện.
+        4. C2_RED_FLAGS bịa dữ kiện hoặc phủ định chắc chắn khi thiếu dữ kiện.
+        5. C2_MONITORING_POINTS sai phạm vi.
+        6. C2_ACTION_ALERTS sai phạm vi hoặc thay A13/A15/C3.
+        7. C2_FINAL thiếu một trong 4 nhóm, đổi tên, gộp, đảo thứ tự hoặc để trống nhóm.
+        8. Sai literal an toàn/no-data hoặc NOT_APPLICABLE.
+        9. Tạo dữ kiện mới, biến thiếu dữ kiện thành bình thường/an toàn, cảnh báo quá mức khi thiếu căn cứ hoặc bỏ sót cảnh báo rõ.
+        10. Lẫn nội dung C1/C3/C4/C5/A12/A13/A15/O.
+        11. Dùng nguồn ngoài allowlist.
+        12. REUSE state cũ nhưng không còn hợp contract hiện hành hoặc không in lại nội dung thật.
+        13. C2_REV/C2_SOURCE_A_REV sai.
+        14. C2_ERROR không rõ khi NEEDS_FIX hoặc C2_ERROR không phải NONE khi PASS.
+
+C2_ERROR_RULE
+    Nếu PASS: C2_ERROR = NONE.
+    Nếu NEEDS_FIX: C2_ERROR ghi rõ lỗi cụ thể.
+    C2_ERROR phải nêu lỗi thuộc nhóm: nguồn đọc; warning level; red flags; monitoring points; action alerts; C2_FINAL; ranh giới A/C/O; schema; revision/source revision.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
+
+C2_REUSE_RULE
+    CREATE áp dụng khi C2 được chạy và chưa có C2_STATE hiện hành: tạo full C2_STATE, C2_REV = 1, C2_SOURCE_A_REV theo A_MODULE_REV đã dùng, C2_FINAL đủ 4 nhóm, C2_CHECK/C2_ERROR hợp lệ.
+    UPDATE áp dụng khi C2 nằm trong C_RUN_ORDER và nội dung thật C2 thay đổi do user input ROUND hiện tại hoặc full current A_STATE/dependency hợp lệ: đọc C2_STATE cũ nếu có, thay phần bị ảnh hưởng, giữ phần không bị ảnh hưởng nếu còn đúng, tăng C2_REV, cập nhật C2_SOURCE_A_REV và vẫn xuất full C2_STATE.
+    REUSE áp dụng khi C2 được chạy nhưng nội dung thật không đổi: dùng lại nội dung thật mới nhất, vẫn in full C2_STATE, giữ C2_REV, cập nhật C2_SOURCE_A_REV nếu A_MODULE_REV đổi nhưng nội dung thật không đổi.
+    Không ghi “giữ nguyên như trước”, “reuse C2”, “theo bản trước” hoặc thay C2_FINAL bằng metadata.
+
+C2_REV_RULE
+    CREATE: C2_REV = 1.
+    UPDATE khi nội dung thật đổi: tăng C2_REV.
+    REUSE hoặc nội dung thật không đổi: giữ C2_REV.
+    A_MODULE_REV đổi nhưng nội dung thật không đổi: giữ C2_REV và cập nhật C2_SOURCE_A_REV.
+    C2_SOURCE_A_REV ghi A_MODULE_REV của full current A_STATE đã dùng.
+    Khi C2 không nằm trong C_RUN_ORDER: không chạy, không cập nhật C2_STATE, không tăng C2_REV và không cập nhật C2_SOURCE_A_REV.
+    C2 không tự tạo C_MODULE_REV.
+
+C2_END
+    C2 hoàn tất khi đã CREATE/UPDATE/REUSE full C2_STATE, C2_FINAL đủ 4 nhóm, C2_CHECK xác định PASS hoặc NEEDS_FIX, PASS thì C2_ERROR = NONE, NEEDS_FIX thì C2_ERROR rõ lỗi.
+    Sau C2, tiếp tục module C kế tiếp theo G_STATE.C_RUN_ORDER; không giả định C3 luôn là module kế tiếp.
+    C2 không gọi C1/C3-C7, không tự gọi/render O10, không chạy O, không sửa A và không sửa G.
 
 <<< END C2
-
-####################################################################################################
 
 C3 — CẢNH BÁO TÁC DỤNG PHỤ / VẤN ĐỀ CẦN THEO DÕI KHI DÙNG THUỐC
 Version: BA S-G-A-C-O v3
