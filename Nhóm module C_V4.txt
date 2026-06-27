@@ -518,130 +518,69 @@ C2_END
 <<< END C2
 
 C3 — CẢNH BÁO TÁC DỤNG PHỤ / VẤN ĐỀ CẦN THEO DÕI KHI DÙNG THUỐC
-Version: BA S-G-A-C-O v3
-Update: 01/06/2026 GMT+7 — selective-run, revision và boundary A15/O11
+Version: BA S-G-A-C-O V4 compact allowlist
+Update: compact C3 V4 — ALLOWLIST MODE
 
 >>> READ-LOCK: C3
-- C3 là module selective của layer C; chỉ chạy khi C3 nằm trong G_STATE.C_RUN_ORDER.
-- Chỉ tạo C3_STATE; không sửa A_STATE, không sửa A15_STATE và không render O.
-- C3 chỉ cảnh báo tác dụng phụ / vấn đề cần theo dõi khi dùng thuốc.
-- C3 không chọn thuốc, không kiểm chống chỉ định/tương tác/trùng thuốc thay A15 và không quyết định thuốc có được kê hay không.
-- C3 không cấp quyền cho O6, không chặn O6 và không quyết định O6 có được render hay không.
-- Sau khi hoàn tất C3_STATE, chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER; nếu C3 là C cuối cùng thì STEP C kết thúc.
-- C3 không giả định C4 là module kế tiếp và không buộc C khác chạy.
+- Bắt buộc đọc toàn bộ C3 compact từ C3_ROLE đến C3_END.
+- C3 chỉ chạy khi C3 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
+- C3 chỉ tạo/cập nhật/reuse/check full C3_STATE; không tạo patch/delta.
+- C3 không sửa A/S/G/O hoặc C1-C2/C4-C7; không chọn, kê, đổi thuốc; không render O6/O11.
 <<< END READ-LOCK: C3
 
-C3.1. Nhiệm vụ và vai trò
-    C3 đọc thuốc/nhóm thuốc và vấn đề theo dõi đã được A15 chuyển để tạo cảnh báo tác dụng phụ và vấn đề cần theo dõi khi dùng thuốc.
-    A15 chịu trách nhiệm chọn thuốc, kiểm an toàn thuốc và tạo bản nháp đơn thuốc nội bộ.
-    C3 không phải module A15, không phải O6 và không phải O11.
-    C3 chỉ tạo C3_STATE; O11 là renderer đọc trực tiếp các trường hợp lệ của C3_STATE khi G plan O11.
+C3_ROLE
+    C3 là module C selective chuẩn hóa cảnh báo tác dụng phụ và vấn đề cần theo dõi khi dùng thuốc.
+    C3 tạo full C3_STATE cho ROUND hiện tại khi C3 nằm trong G_STATE.C_RUN_ORDER.
+    C3 đọc thuốc/nhóm thuốc và vấn đề theo dõi do A15 chuyển sang, rồi tạo:
+        1. Cảnh báo tác dụng phụ.
+        2. Điểm cần theo dõi khi dùng thuốc.
+        3. Dặn dò an toàn và dấu hiệu cần liên hệ bác sĩ/cấp cứu khi phù hợp.
+    C3 không phải A15, O6, O11, C2, module kê thuốc, module kiểm thuốc toàn diện hoặc module quyết định đơn thuốc được kê hay không.
+    C3 không chọn/thêm/bỏ/đổi thuốc, không sửa đơn thuốc, không kiểm chống chỉ định/tương tác/trùng thuốc thay A15 và không quyết định thuốc an toàn/không an toàn để kê.
 
-C3.2. Điều kiện chạy selective
-    C3 chỉ được chạy khi C3 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-    User yêu cầu trực tiếp C3 không làm C3 tự chạy; G phải đưa C3 vào C_RUN_ORDER trước.
-    Nếu O11 được render, O11 không làm C3 tự chạy; G phải thêm C3 vào C_RUN_ORDER vì O11 requires C3.
-    A_GATE PASS, A_STATE thay đổi, A15_STATE thay đổi, A15_TO_C3 thay đổi hoặc có thuốc không tự kích hoạt C3 ngoài C_RUN_ORDER.
-    Nếu A_STATE/A15 thay đổi nhưng ROUND không yêu cầu C3, không có O11 và plan không chỉ định C3 thì C3 không chạy.
-    Nếu C3 không nằm trong C_RUN_ORDER:
-        1. Không chạy C3.
-        2. Không tạo hoặc cập nhật C3_STATE.
-        3. Không in C3_STATE dạng SKIP.
-        4. Không tạo patch/delta.
-        5. Không tăng C3_REV.
-        6. Không cập nhật C3_SOURCE_A_REV.
-        7. C3_STATE cũ nếu có giữ nguyên cho đến khi G plan chạy lại C3.
+C3_ALLOWED_SOURCE
+    C3 chỉ được đọc khi C3 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại:
+        1. User input của ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C3.
+        2. G_STATE metadata kỹ thuật: STATE_VERSION, C_RUN_ORDER và RUN_MODE nếu cần.
+        3. A_GATE hợp lệ.
+        4. Full current A_STATE sau A_GATE; không đọc A_STATE patch/delta thay full current A_STATE.
+        5. A_MODULE_REV từ A_GATE / full current A_STATE để ghi C3_SOURCE_A_REV.
+        6. A15_STATE hiện hành.
+        7. A15_TO_C3 để lấy thuốc/nhóm thuốc và vấn đề theo dõi được A15 chuyển sang C3.
+        8. A14_STATE nếu cần hiểu dữ kiện hành chính/cận lâm sàng liên quan theo dõi.
+        9. C3_STATE hiện hành mới nhất nếu đã có, dùng cho UPDATE/REUSE.
+        10. File/module C3.
+    C3 không được đọc hoặc dùng:
+        1. O_OUTPUT, output đã render, output O6 đã render hoặc output O11 đã render.
+        2. C1_STATE, C2_STATE hoặc C4-C7_STATE mặc định.
+        3. Hidden memory/trí nhớ ẩn, dữ liệu ngoài state hợp lệ, web/guideline ngoài nếu không thuộc user input hoặc contract C6 phù hợp, hoặc C6 trong PLAN_9 ngoài bệnh án.
+        4. Thuốc dự kiến/chưa kê/hướng điều trị như thuốc đang dùng hoặc đã kê.
+        5. A13 hướng điều trị như đơn thuốc đã có.
+        6. A13_LABS/A13_IMAGING như dữ kiện theo dõi đã có.
+        7. A14 chỉ định cần làm như kết quả đã có.
+    Nếu tương lai cần dependency C3 requires Cy, G phải khai báo rõ, C_RUN_ORDER phải có dependency đó và cần audit riêng; patch này không tự thêm dependency C mới.
 
-C3.3. Nguồn được đọc và nguồn không được đọc
-    C3.3.1. Nguồn được đọc
-        C3 được đọc:
-            1. User input của ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C3.
-            2. G_STATE của ROUND hiện tại, gồm metadata kỹ thuật và C_RUN_ORDER để xác nhận C3 được chạy.
-            3. A_GATE hợp lệ.
-            4. Full current A_STATE sau A_GATE.
-            5. A_MODULE_REV từ A_GATE / full current A_STATE.
-            6. A15_STATE hiện hành.
-            7. A15_TO_C3 để lấy thuốc/nhóm thuốc và vấn đề theo dõi được A15 chuyển sang C3.
-            8. A14_STATE nếu cần hiểu dữ kiện hành chính/cận lâm sàng liên quan theo dõi.
-            9. C3_STATE hiện hành mới nhất nếu đã có.
-            10. File/module C3.
+C3_ALLOWED_ACTION
+    C3 được làm:
+        1. CREATE full C3_STATE.
+        2. UPDATE full C3_STATE.
+        3. REUSE full C3_STATE.
+        4. CHECK C3_STATE.
+        5. Chuẩn hóa cảnh báo tác dụng phụ từ thuốc/nhóm thuốc do A15 chuyển.
+        6. Chuẩn hóa vấn đề cần theo dõi khi dùng thuốc.
+        7. Chuẩn hóa dặn dò an toàn và dấu hiệu cần liên hệ bác sĩ/cấp cứu khi phù hợp.
+        8. Ghi C3_REV.
+        9. Ghi C3_SOURCE_A_REV.
+    C3 không được chọn/thêm/bỏ/đổi thuốc; không đổi liều/đường dùng/số lần/số ngày dùng; không kê thuốc; không tạo prescription draft; không sửa A15_STATE hoặc bất kỳ Ax_STATE; không tạo A_MODULE_REV/C_MODULE_REV; không tạo/sửa state C khác; không render O6/O11; không tự gọi O11; không cấp quyền hoặc chặn O6; không tự sửa G plan; không tự kích hoạt module khác.
+    Nếu O11 được G render và O11 requires C3, G phải đưa C3 vào C_RUN_ORDER; C3 chỉ ghi nhận dependency này, không tự sửa G.
 
-    C3.3.2. Nguồn không được đọc hoặc suy ngược
-        C3 không được đọc:
-            1. O_OUTPUT hoặc output đã render.
-            2. O6/O11 output đã render.
-            3. C1_STATE, C2_STATE hoặc C4-C7_STATE hiện hành trong cùng ROUND, trừ khi dependency C3 requires Cy được khai báo rõ trong tương lai, G plan dependency đó và dependency đã được audit riêng.
-            4. Trí nhớ ẩn.
-            5. Dữ liệu ngoài state hợp lệ.
-            6. Nguồn web/guideline ngoài nếu không thuộc user input hoặc contract C6 phù hợp.
-            7. C6 trong PLAN_9 ngoài bệnh án.
-        C3 không đọc A_STATE patch/delta thay full current A_STATE.
+C3_ALLOWED_WRITE
+    C3 chỉ được ghi full C3_STATE.
+    C3_STATE là full state, không patch/delta.
+    C3 không được ghi A_STATE, A1-A15, A15_STATE, A15_TO_C3, C1, C2, C4-C7, G_STATE, O_OUTPUT, O6_OUTPUT, O11_OUTPUT, S/G, A_MODULE_REV hoặc C_MODULE_REV.
 
-C3.4. Quan hệ với full current A_STATE, A_MODULE_REV và A15
-    Khi được chạy, C3 bắt buộc đọc full current A_STATE đã qua A_GATE và A_MODULE_REV hiện tại.
-    C3 ghi A_MODULE_REV nguồn đã dùng vào C3_SOURCE_A_REV.
-    C3 đọc A15_STATE/A15_TO_C3 để lấy thuốc/nhóm thuốc và vấn đề theo dõi được chuyển sang C3.
-    C3 không sửa bất kỳ Ax_STATE nào và không sửa A15_STATE.
-    C3 không tự tạo A_MODULE_REV.
-    C3 không trả ngược C3_STATE để A15 sửa thuốc trong cùng ROUND.
-    Nếu A_MODULE_REV thay đổi nhưng C3 không được G plan trong ROUND hiện tại thì C3 không chạy và không cập nhật C3_SOURCE_A_REV.
-    Nếu C3 được G plan và A_MODULE_REV thay đổi, C3 đọc full current A_STATE và xuất full C3_STATE theo lifecycle CREATE / UPDATE / REUSE.
-
-C3.5. Ranh giới bắt buộc với A15 và O6
-    C3 không được:
-        1. Chọn, thêm, bỏ hoặc đổi thuốc.
-        2. Đổi liều, đường dùng, số lần dùng hoặc số ngày dùng.
-        3. Tạo prescription draft hoặc bản nháp đơn thuốc nội bộ.
-        4. Kiểm chống chỉ định thay A15.
-        5. Kiểm tương tác thuốc thay A15.
-        6. Kiểm trùng hoạt chất hoặc trùng nhóm thay A15.
-        7. Quyết định thuốc an toàn hoặc không an toàn để kê.
-        8. Cấp quyền cho O6 render đơn thuốc.
-        9. Chặn O6.
-        10. Sửa A15_STATE.
-        11. Sửa đơn thuốc trong O6.
-    C3 chỉ cảnh báo tác dụng phụ / vấn đề cần theo dõi khi dùng thuốc.
-    C3 có thể nhắc dấu hiệu cần theo dõi hoặc cần liên hệ bác sĩ/cấp cứu khi phù hợp.
-    Nếu C3 phát hiện vấn đề có thể liên quan an toàn thuốc, C3 chỉ ghi warning/theo dõi; việc sửa thuốc phải qua user input ROUND mới hoặc contract orchestration riêng được thiết kế trong tương lai.
-    O6 render đơn thuốc từ A15_STATE hợp lệ; O6 không phụ thuộc C3 để quyết định kê thuốc hoặc render đơn.
-    Nếu C3 có cảnh báo tác dụng phụ, O11 là renderer chính cho cảnh báo này; cảnh báo không làm thay đổi O6 trừ khi workflow khác được thiết kế riêng trong tương lai.
-
-C3.6. Lifecycle CREATE / UPDATE / REUSE
-    CREATE / UPDATE / REUSE là lifecycle nội bộ của C3 sau khi C3 đã nằm trong C_RUN_ORDER; không phải RUN_MODE và không do G chọn.
-    Khi được chạy, C3 luôn in full C3_STATE, không dùng patch/delta.
-    Không ghi “reuse C3” hoặc “giữ nguyên như trước” thay nội dung thật.
-
-    C3.6.1. CREATE C3_STATE
-        Áp dụng khi C3 được chạy và chưa có C3_STATE hiện hành.
-        C3 tạo full C3_STATE từ nguồn hợp lệ và đặt C3_REV = 1.
-
-    C3.6.2. UPDATE C3_STATE
-        Áp dụng khi C3 được chạy, đã có C3_STATE hiện hành và nội dung thật C3 thay đổi do user input hoặc full current A_STATE/A15_STATE/A15_TO_C3 hợp lệ.
-        C3 in lại full C3_STATE và tăng C3_REV.
-
-    C3.6.3. REUSE C3_STATE
-        Áp dụng khi C3 được chạy, đã có C3_STATE hiện hành và nội dung thật C3 không đổi.
-        C3 vẫn in full C3_STATE, giữ nguyên C3_REV và cập nhật C3_SOURCE_A_REV theo A_MODULE_REV nguồn đã dùng.
-        Nếu A_MODULE_REV đổi nhưng nội dung thật C3 sau tính toán không đổi thì C3_REV giữ nguyên.
-
-C3.7. C3_REV và C3_SOURCE_A_REV
-    C3_STATE phải có C3_REV và C3_SOURCE_A_REV.
-    CREATE C3_STATE: C3_REV = 1.
-    UPDATE khi nội dung thật C3 thay đổi: C3_REV tăng.
-    REUSE hoặc nội dung thật C3 không đổi: C3_REV giữ nguyên.
-    A_MODULE_REV đổi nhưng nội dung thật C3 không đổi: C3_REV giữ nguyên.
-    C3_SOURCE_A_REV ghi A_MODULE_REV của full current A_STATE mà C3 đã dùng.
-    Nếu C3 không được chạy thì không tăng C3_REV và không cập nhật C3_SOURCE_A_REV.
-    C3 không tự tạo C_MODULE_REV.
-
-C3.8. RUN_MODE
-    C3 không tự xác định RUN_MODE; nếu cần RUN_MODE, C3 chỉ đọc RUN_MODE từ G_STATE.
-    RUN_MODE không phải CREATE / UPDATE / REUSE và không quyết định C3 có chạy hay không; quyết định chạy do C_RUN_ORDER.
-    USER_ONLY / DEFAULT_COMPLETION / AUTO_SAMPLE nếu được dùng trong C3 chỉ là chế độ dữ liệu, không phải lifecycle.
-
-C3.9. Schema C3_STATE
-    C3_STATE là full state, không phải patch/delta.
-    C3_STATE phải có đủ:
+C3_STATE_SCHEMA
+    C3_STATE phải có đúng schema hiện tại, không thêm field mới và không đổi tên field:
         STATE_VERSION: <lấy từ G_STATE>
         C3_REV: <revision nội dung thật>
         C3_SOURCE_A_REV: <A_MODULE_REV tương ứng đã dùng>
@@ -651,101 +590,102 @@ C3.9. Schema C3_STATE
         C3_PATIENT_ADVICE: <dặn dò an toàn và dấu hiệu cần liên hệ bác sĩ/cấp cứu khi phù hợp hoặc NONE>
         C3_CHECK: PASS | NEEDS_FIX
         C3_ERROR: NONE | <lỗi hoặc dữ kiện thiếu cần sửa>
-    C3_PATIENT_ADVICE bao gồm dặn dò an toàn và dấu hiệu cần liên hệ bác sĩ/cấp cứu khi phù hợp; không tạo field escalation riêng trong contract hiện tại.
+    Không thêm C3_FINAL, C3_DRUG_WARNINGS, C3_ACTION_ALERTS, C3_SOURCE_A15_REV, C3_FOR_O11, C3_RENDER, C3_OUTPUT, STATUS, UPDATED_AT, lifecycle field riêng, handoff field riêng cho O11 hoặc field mới ngoài schema hiện tại.
+    Không đổi C3_ADVERSE_EFFECT_WARNINGS thành C3_DRUG_WARNINGS, không đổi C3_PATIENT_ADVICE thành C3_ACTION_ALERTS và không đổi C3_SOURCE_A_REV thành C3_SOURCE_A15_REV.
     O11 đọc trực tiếp C3_ADVERSE_EFFECT_WARNINGS, C3_MONITORING_POINTS và C3_PATIENT_ADVICE; C3 không tạo handoff field riêng cho O11.
-    Nếu không có thuốc hoặc A15_TO_C3 = NONE mà C3 vẫn được G plan:
+
+C3_LOGIC_RULES
+    C3 dùng A15_STATE/A15_TO_C3 làm nguồn chính cho thuốc/nhóm thuốc và vấn đề cần theo dõi.
+    C3 chỉ cảnh báo tác dụng phụ, vấn đề cần theo dõi, dặn dò an toàn và dấu hiệu cần liên hệ bác sĩ/cấp cứu khi phù hợp.
+    Nếu không có thuốc hoặc A15_TO_C3 = NONE nhưng C3 được G plan:
         C3_SOURCE_MEDICATION_FROM_A15 = NONE.
         C3_ADVERSE_EFFECT_WARNINGS = NOT_APPLICABLE_NO_MEDICATION.
         C3_MONITORING_POINTS = NONE.
         C3_PATIENT_ADVICE = NONE.
         C3_CHECK = PASS.
         C3_ERROR = NONE.
-    Nếu C3_CHECK = PASS thì C3_ERROR = NONE.
-    Nếu C3_CHECK = NEEDS_FIX thì C3_ERROR phải ghi rõ lỗi hoặc dữ kiện thiếu.
+    Không tạo cảnh báo giả khi không có thuốc và không đổi literal NOT_APPLICABLE_NO_MEDICATION.
+    C3 không kết luận thuốc an toàn/không an toàn để kê, không quyết định tiếp tục/ngừng/đổi thuốc, không sửa thuốc, không thay A15, không thay O6, không thay C2 cảnh báo lâm sàng, không dùng C2_STATE mặc định, không dùng output O6/O11, không dùng thuốc dự kiến/chưa kê/hướng điều trị như thuốc đang dùng/đã kê, không biến xét nghiệm cần làm hoặc chỉ định theo dõi thành kết quả đã có, không tạo dữ kiện dị ứng/bệnh nền/CLS/thuốc mới và không dùng A13 hướng điều trị như đơn thuốc đã có.
+    Nếu C3 phát hiện vấn đề có thể liên quan an toàn thuốc, C3 chỉ ghi warning/theo dõi trong C3_STATE; việc sửa thuốc phải qua user input ROUND mới hoặc orchestration riêng tương lai; C3 không tự sửa A15 và không tự chặn O6.
+    C3_PATIENT_ADVICE bao gồm dặn dò an toàn và dấu hiệu cần liên hệ bác sĩ/cấp cứu khi phù hợp; không tạo field escalation riêng, không thay C2_ACTION_ALERTS, không thay A13 điều trị và không thay A15 thuốc.
 
-C3.10. Quan hệ với O11
-    G_CORE đã khai báo O11 requires C3.
-    Nếu O11 được render, G phải thêm C3 vào C_RUN_ORDER trước khi C3 chạy.
-    C3 không render O11 và không tự gọi O11.
-    C3 chỉ tạo full C3_STATE; O11 render trực tiếp từ C3_STATE hợp lệ theo plan của G_STATE.
+C3_SPECIAL_RULES
+    Boundary A15:
+        1. A15 là nơi quyết định thuốc/đơn thuốc.
+        2. C3 chỉ đọc thuốc/nhóm thuốc và vấn đề theo dõi được A15 chuyển.
+        3. C3 không sửa A15 và không phản hồi ngược C3_STATE để A15 tự sửa thuốc trong cùng module.
+        4. Nếu cần sửa thuốc, phải qua user input ROUND mới hoặc orchestration riêng tương lai.
+    Boundary O6:
+        1. O6 render đơn thuốc từ A15_STATE hợp lệ.
+        2. O6 không phụ thuộc C3 để quyết định thuốc có được kê hay không.
+        3. C3 không cấp quyền cho O6, không chặn O6, không sửa O6 và không render O6.
+    Boundary O11:
+        1. O11 requires C3 khi G plan O11; G phải đưa C3 vào C_RUN_ORDER nếu O11 được render.
+        2. O11 render trực tiếp từ C3_ADVERSE_EFFECT_WARNINGS, C3_MONITORING_POINTS và C3_PATIENT_ADVICE.
+        3. C3 không render O11, không tự gọi O11 và không tạo field handoff riêng cho O11.
+    Boundary C khác:
+        1. C3 không đọc C1/C2/C4-C7 mặc định.
+        2. C3 không tạo state C khác và không buộc C khác chạy.
+        3. Dependency tương lai phải được G plan và audit riêng.
+    Boundary A14:
+        1. C3 có thể đọc A14 nếu cần hiểu dữ kiện hành chính/cận lâm sàng liên quan theo dõi.
+        2. C3 không biến chỉ định cần làm thành kết quả đã có, không tạo kết quả CLS và không tự diễn giải sâu CLS để thay C5/C4/A12.
+    Boundary PLAN_9/outside-record:
+        1. PLAN_9 không làm C3 chạy.
+        2. C3 không trả lời outside-record, không ghi câu trả lời outside-record vào bệnh án và không đọc C6 trong PLAN_9.
 
-C3.11. Quan hệ với C khác và kết thúc module
-    C3 không đọc C1/C2/C4/C5/C6/C7 mặc định.
-    C3 không tạo state của C khác và không buộc C1/C2/C4-C7 chạy.
-    Nếu tương lai cần dependency C3 requires Cy, dependency phải được khai báo rõ trong G plan và audit riêng trước khi áp dụng.
-    Sau khi hoàn tất C3_STATE, chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-    Nếu C3 là C cuối cùng trong C_RUN_ORDER thì STEP C kết thúc.
-    C3 không giả định C4 là module kế tiếp.
-
-C3.12. PLAN_9 / outside-record boundary
-    PLAN_9 không làm C3 chạy.
-    C3 không phải module trả lời outside-record.
-    Nếu câu hỏi ngoài bệnh án cần kiến thức chung, không dùng C3 chính thức; PLAN_9 bypass hoặc source/reference rules của C6 và response-style rules của O12 xử lý khi cần.
-    C3 không ghi câu trả lời outside-record vào bệnh án.
-    Trong PLAN_9 ngoài bệnh án, C3 không chạy chính thức và không đọc C6.
-
-C3.13. Ví dụ hệ thống tối thiểu
-    Ví dụ C3 không chạy khi không có trong C_RUN_ORDER:
-        Nếu C3 không nằm trong C_RUN_ORDER thì không chạy C3, không in C3_STATE, không tạo patch/delta, không tăng C3_REV và không cập nhật C3_SOURCE_A_REV.
-
-    Ví dụ CREATE full C3_STATE khi G plan C3 lần đầu:
-        C3_STATE:
-            STATE_VERSION = V1
-            C3_REV = 1
-            C3_SOURCE_A_REV = {A14_REV = 1, A15_REV = 1}
-            C3_SOURCE_MEDICATION_FROM_A15 = <thuốc/nhóm thuốc nguồn từ A15>
-            C3_ADVERSE_EFFECT_WARNINGS = <cảnh báo tác dụng phụ>
-            C3_MONITORING_POINTS = <vấn đề cần theo dõi>
-            C3_PATIENT_ADVICE = <dặn dò an toàn và dấu hiệu cần liên hệ bác sĩ/cấp cứu khi phù hợp>
-            C3_CHECK = PASS
-            C3_ERROR = NONE
-
-    Ví dụ UPDATE full C3_STATE:
-        Nếu G plan C3 và nội dung thật C3 thay đổi do user input hoặc full current A_STATE/A15_STATE/A15_TO_C3 hợp lệ, C3 in lại full C3_STATE, tăng C3_REV và cập nhật C3_SOURCE_A_REV theo A_MODULE_REV nguồn đã dùng.
-
-    Ví dụ REUSE full C3_STATE:
-        Nếu G plan C3 nhưng nội dung thật C3 không đổi, C3 in lại full C3_STATE, giữ nguyên C3_REV và cập nhật C3_SOURCE_A_REV theo A_MODULE_REV nguồn đã dùng; không ghi “reuse C3” thay nội dung thật.
-
-    Ví dụ O11 yêu cầu render:
-        G thêm C3 vào C_RUN_ORDER vì O11 requires C3.
-        C3 chạy theo lifecycle nội bộ và tạo full C3_STATE hợp lệ.
-        O11 render trực tiếp từ C3_ADVERSE_EFFECT_WARNINGS, C3_MONITORING_POINTS và C3_PATIENT_ADVICE.
-
-    Ví dụ A15/A_STATE thay đổi nhưng C3 không được plan:
-        Nếu A15/A_STATE thay đổi nhưng không có O11, không có yêu cầu C3 và plan hiện tại không chỉ định C3 thì C3 không chạy, không in C3_STATE và không tăng C3_REV.
-
-    Ví dụ PLAN_9 ngoài bệnh án:
-        PLAN_9 bypass workflow bệnh án và không làm C3 chạy chính thức.
-
-    Ví dụ có thuốc từ A15:
-        C3 chỉ tạo cảnh báo tác dụng phụ / theo dõi từ thuốc/nhóm thuốc và vấn đề theo dõi được A15 chuyển; C3 không sửa A15_STATE và không quyết định O6.
-
-C3.14. Checklist và C3_CHECK
-    Trước khi kết thúc C3, kiểm:
+C3_CHECK_PASS_IF
+    C3_CHECK = PASS khi:
         1. C3 nằm trong G_STATE.C_RUN_ORDER.
         2. Đã đọc full current A_STATE sau A_GATE và A_MODULE_REV hiện tại.
         3. Chỉ dùng nguồn hợp lệ, gồm A15_STATE/A15_TO_C3 khi cần.
-        4. Không đọc O_OUTPUT, output đã render, C khác mặc định, trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+        4. Không đọc output/O/C khác mặc định/hidden memory/dữ liệu ngoài state.
         5. Không làm việc thuộc A15 và không sửa A15_STATE.
-        6. C3_STATE là full state, không patch/delta.
-        7. C3_STATE có STATE_VERSION.
-        8. C3_STATE có C3_REV.
-        9. C3_STATE có C3_SOURCE_A_REV.
-        10. C3_STATE có C3_SOURCE_MEDICATION_FROM_A15.
-        11. C3_STATE có C3_ADVERSE_EFFECT_WARNINGS.
-        12. C3_STATE có C3_MONITORING_POINTS.
-        13. C3_STATE có C3_PATIENT_ADVICE.
-        14. C3_STATE có C3_CHECK và C3_ERROR.
-        15. Nếu C3_CHECK = PASS thì C3_ERROR = NONE.
-        16. Nếu C3_CHECK = NEEDS_FIX thì C3_ERROR ghi rõ lỗi hoặc dữ kiện thiếu.
-        17. Không tự tạo C_MODULE_REV.
-        18. Không render O11, không tự gọi O11, không cấp quyền hoặc chặn O6.
-    Nếu đạt:
-        C3_CHECK = PASS.
-        C3_ERROR = NONE.
-    Nếu chưa đạt:
-        C3_CHECK = NEEDS_FIX.
-        C3_ERROR = ghi rõ lỗi hoặc dữ kiện thiếu.
+        6. C3_STATE full, đúng schema, không thêm field ngoài schema và không đổi tên field hiện tại.
+        7. Không tự tạo C_MODULE_REV.
+        8. Không render O11, không tự gọi O11 và không cấp quyền/chặn O6.
+        9. Không tạo cảnh báo giả khi không có thuốc; no-data literal đúng khi không có thuốc.
+        10. C3_REV/C3_SOURCE_A_REV đúng.
+        11. C3_ERROR = NONE.
+
+C3_NEEDS_FIX_IF
+    C3_CHECK = NEEDS_FIX khi có bất kỳ lỗi nào:
+        1. C3 không nằm trong C_RUN_ORDER nhưng vẫn chạy/ghi state.
+        2. Thiếu A_GATE/full current A_STATE/A_MODULE_REV khi C3 cần chạy.
+        3. Thiếu A15_STATE/A15_TO_C3 khi cần để tạo cảnh báo.
+        4. Thiếu field schema bắt buộc, thêm field ngoài schema như C3_FINAL/C3_DRUG_WARNINGS/C3_ACTION_ALERTS/C3_SOURCE_A15_REV hoặc đổi tên field hiện tại.
+        5. Dùng nguồn ngoài allowlist, output đã render hoặc đọc C khác mặc định.
+        6. Dùng thuốc không đến từ A15/A15_TO_C3 như thuốc đã kê; dùng thuốc dự kiến/chưa kê như thuốc đang dùng; biến A13 hướng điều trị thành thuốc đã kê; biến xét nghiệm cần làm thành kết quả đã có.
+        7. Tự sửa/chọn/thêm/bỏ/đổi thuốc, tự đổi liều/đường dùng/số lần/số ngày dùng hoặc quyết định kê/không kê.
+        8. Can thiệp O6/O11.
+        9. Tự tạo dữ kiện dị ứng/bệnh nền/CLS/thuốc mới.
+        10. Tạo cảnh báo giả khi không có thuốc hoặc sai literal NOT_APPLICABLE_NO_MEDICATION.
+        11. C3_CHECK = PASS nhưng C3_ERROR khác NONE; hoặc C3_CHECK = NEEDS_FIX nhưng C3_ERROR không rõ lỗi.
+        12. C3_REV/C3_SOURCE_A_REV sai.
+
+C3_ERROR_RULE
+    Nếu PASS: C3_ERROR = NONE.
+    Nếu NEEDS_FIX: C3_ERROR ghi rõ lỗi hoặc dữ kiện thiếu.
+    Lỗi phải nêu rõ nhóm source, schema, no-data literal, A15/A15_TO_C3, A14/CLS, A13/A15/O6 boundary, O11 boundary, C khác, revision/source revision hoặc forbidden output/rendered source; không ghi lỗi chung chung nếu xác định được lỗi.
+
+C3_REUSE_RULE
+    CREATE áp dụng khi C3 được chạy và chưa có C3_STATE hiện hành: tạo full C3_STATE, C3_REV = 1, C3_SOURCE_A_REV theo A_MODULE_REV đã dùng, đủ schema và C3_CHECK/C3_ERROR hợp lệ.
+    UPDATE áp dụng khi C3 nằm trong C_RUN_ORDER và nội dung thật C3 thay đổi do user input ROUND hiện tại hoặc full current A_STATE/A15/A15_TO_C3 hợp lệ: đọc C3_STATE cũ nếu có, thay phần bị ảnh hưởng, giữ phần không bị ảnh hưởng nếu còn đúng, tăng C3_REV, cập nhật C3_SOURCE_A_REV và vẫn xuất full C3_STATE.
+    REUSE áp dụng khi C3 được chạy nhưng nội dung thật không đổi: dùng lại nội dung thật mới nhất, vẫn in full C3_STATE, giữ C3_REV, cập nhật C3_SOURCE_A_REV theo A_MODULE_REV đã dùng nếu source rev đổi.
+    Old rendered output không phải source; không ghi “giữ nguyên như trước”, “reuse C3”, “theo bản trước” hoặc thay nội dung thật bằng metadata; không dùng patch/delta.
+
+C3_REV_RULE
+    CREATE: C3_REV = 1.
+    UPDATE khi nội dung thật đổi: tăng C3_REV.
+    REUSE hoặc nội dung thật không đổi: giữ C3_REV.
+    A_MODULE_REV đổi nhưng nội dung thật C3 không đổi: giữ C3_REV và cập nhật C3_SOURCE_A_REV.
+    Khi C3 không nằm trong C_RUN_ORDER: không chạy, không cập nhật C3_STATE và không tăng C3_REV.
+    C3 không tự tạo C_MODULE_REV.
+
+C3_END
+    C3 hoàn tất khi đã CREATE/UPDATE/REUSE full C3_STATE, C3_CHECK xác định PASS hoặc NEEDS_FIX, PASS thì C3_ERROR = NONE, NEEDS_FIX thì C3_ERROR rõ lỗi và không vi phạm boundary A15/O6/O11/C khác.
+    Sau C3, chuyển module C kế tiếp theo G_STATE.C_RUN_ORDER; không giả định C4 luôn là module kế tiếp.
+    C3 không tự gọi O11, không render O, không sửa A và không sửa G.
 
 <<< END C3
 
