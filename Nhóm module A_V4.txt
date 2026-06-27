@@ -3331,877 +3331,189 @@ A12.20. Kết thúc module
 ####################################################################################################
 
 A13 — HƯỚNG CẦN LÀM
-Version: BA S-G-A-C-O v3
+Version: BA S-G-A-C-O v4 allowlist compact
 Update 09:00 04/06/2026 GMT+7
 
 >>> READ-LOCK: A13
-- Bắt buộc đọc tuần tự toàn bộ A13 từ A13.1 đến A13.19.
-- Không được bỏ qua mục nào.
-- Chỉ tạo A13_STATE.
-- Không tạo state của A khác.
-- Không chạy C.
-- Không render O.
-- Không tự dừng STEP A.
-- Không chuyển sớm sang A_GATE.
-- Sau khi hoàn tất A13_STATE, chuyển sang A15 theo A_RUN_ORDER.
+- Bắt buộc đọc toàn bộ A13 compact trước khi tạo/cập nhật/dùng lại A13_STATE.
+- A13 vận hành theo ALLOWLIST MODE: chỉ dùng source/action/write được khai báo dưới đây.
+- Sau khi hoàn tất A13_STATE, chuyển sang A14 theo A_RUN_ORDER; không bỏ qua A14 để nhảy sang A15.
 <<< END READ-LOCK: A13
 
-A13.1. Nhiệm vụ của A13
-    A13.1.1. Vai trò chính của A13
-        A13 là module chuẩn hóa phần hướng cần làm trong bệnh án.
-        A13 tạo A13_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-        A13_STATE là nguồn chính thức cho C/O khi cần dữ liệu hướng cần làm.
-        A13 tách rõ ba nội dung:
-            1. Xét nghiệm cần làm.
-            2. Chẩn đoán hình ảnh / thăm dò cần làm.
-            3. Hướng điều trị tổng quát.
-        A13 không phải module kết quả cận lâm sàng.
-        A13 không phải module kê đơn thuốc chi tiết.
-        A13 không phải module bệnh trình.
-        A13 không phải module chẩn đoán.
-        O chỉ đọc A13_STATE, không tự viết thêm xét nghiệm, chẩn đoán hình ảnh, thăm dò hoặc điều trị.
-        UPDATED_AT là metadata cập nhật state, không phải dữ liệu bệnh án và O không render UPDATED_AT.
-
-    A13.1.2. Nội dung A13 tạo ra
-        A13_STATE bắt buộc có:
-            1. STATE_VERSION.
-            2. A13_REV.
-            3. UPDATED_AT.
-            4. A13_LABS.
-            5. A13_IMAGING.
-            6. A13_TREATMENT.
-            7. A13_CHECK.
-            8. A13_ERROR.
-        STATE_VERSION, A13_REV, A13_CHECK và A13_ERROR là metadata kỹ thuật đang được hệ thống dùng.
-        UPDATED_AT khác A13_REV; UPDATED_AT ghi thời điểm cập nhật state theo định dạng HH:MM dd/mm/yyyy.
-
-    A13.1.3. Nguyên tắc trách nhiệm
-        A13 chỉ chịu trách nhiệm với hướng cần làm.
-        A13_LABS chỉ chứa danh sách xét nghiệm cần làm hoặc câu sạch không có xét nghiệm cần làm.
-        A13_IMAGING chỉ chứa danh sách chẩn đoán hình ảnh / thăm dò cần làm hoặc câu sạch không có chẩn đoán hình ảnh cần làm.
-        A13_TREATMENT chỉ chứa danh sách hướng điều trị tổng quát cần làm hoặc câu sạch không có hướng điều trị cần làm.
-        Chất lượng nội dung A13_LABS, A13_IMAGING và A13_TREATMENT phải được khóa trong A13.
-        A13 không viết bệnh sử thay A3.
-        A13 không viết khám lâm sàng thay A4-A11.
-        A13 không viết dữ kiện hành chính hoặc kết quả cận lâm sàng thay A14.
-        A13 không viết chẩn đoán thay A12.
-        A13 không viết bệnh trình hoặc tình trạng ra viện thay C7.
-        A13 không viết thuốc hoặc đơn thuốc cụ thể, liều, đường dùng, số ngày hoặc số lần dùng thay A15.
-
-A13.2. Nguồn được đọc
-    A13.2.1. Nguồn hợp lệ
-        A13 được đọc:
-            1. User input của ROUND hiện tại.
-            2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật ROUND_ID, STATE_VERSION và RUN_MODE.
-            3. A13_STATE hiện hành mới nhất nếu đã có.
-            4. File/module A13.
-            5. A1_STATE để đối chiếu lý do vào viện với hướng cần làm.
-            6. A2_STATE để đối chiếu tiền sử, bệnh nền, dị ứng hoặc yếu tố nguy cơ.
-            7. A3_STATE để đối chiếu bệnh sử / triệu chứng hiện tại.
-            8. A4_STATE để đối chiếu toàn thân.
-            9. A5_STATE để đối chiếu tuần hoàn.
-            10. A6_STATE để đối chiếu hô hấp.
-            11. A7_STATE để đối chiếu tiêu hóa.
-            12. A8_STATE để đối chiếu thận - tiết niệu.
-            13. A9_STATE để đối chiếu thần kinh.
-            14. A10_STATE để đối chiếu cơ xương khớp.
-            15. A11_STATE để đối chiếu cơ quan khác.
-            16. A14_STATE để phân biệt kết quả đã có với xét nghiệm/thăm dò cần làm.
-            17. A12_STATE để đối chiếu chẩn đoán hiện tại với hướng cần làm.
-        A1-A12_STATE là dependency hợp lệ vì đã có trước A13 trong A_RUN_ORDER. A14_STATE của ROUND hiện tại chạy sau A13 nên không phải dependency trước A13; A14 hiện hành chỉ được dùng nếu đã có từ CURRENT_STATE hợp lệ của ROUND trước hoặc user input trực tiếp.
-        Dependency chỉ dùng để định hướng xử trí trong phạm vi A13 và tránh mâu thuẫn.
-        Dependency không được dùng để tạo dữ kiện bệnh sử, khám lâm sàng, cận lâm sàng hoặc chẩn đoán mới.
-
-    A13.2.2. Nguồn không dùng
-        A13 không đọc A15 của ROUND hiện tại để viết ngược A13.
-        A13 không dùng A15_STATE cũ từ ROUND trước để tạo A13 trong ROUND hiện tại.
-        A13 không đọc C_STATE.
-        A13 không đọc O_OUTPUT.
-        A13 không đọc output đã render.
-        A13 không dùng output hoặc rendered output để quyết định thiếu hay chưa thiếu hướng xử trí.
-        A13 không dùng trí nhớ ẩn.
-        A13 không dùng dữ liệu ngoài state hợp lệ.
-        A13 không dùng thuốc cụ thể để tạo A13_TREATMENT chi tiết.
-        A13 không dùng kết quả cận lâm sàng đã có để ghi như việc cần làm.
-        A13 không dùng chẩn đoán phân biệt của C5 để tự tạo hướng cần làm.
-
-A13.3. Dependency nội bộ
-    A13.3.1. Mục đích đọc dependency
-        A1_STATE dùng để đối chiếu lý do vào viện với hướng xử trí phù hợp.
-        A2_STATE dùng để đối chiếu tiền sử, bệnh nền, dị ứng hoặc yếu tố nguy cơ.
-        A3_STATE dùng để đối chiếu bệnh sử và triệu chứng hiện tại có giá trị lâm sàng.
-        A4-A11_STATE dùng để đối chiếu khám lâm sàng theo hệ cơ quan.
-        A14_STATE dùng để phân biệt kết quả cận lâm sàng đã có với xét nghiệm/thăm dò cần làm.
-        A12_STATE dùng để định hướng xét nghiệm, chẩn đoán hình ảnh/thăm dò và điều trị tổng quát phù hợp chẩn đoán.
-
-    A13.3.2. Giới hạn dependency
-        Dependency không được dùng để tạo chẩn đoán trong A13.
-        Dependency không được dùng để kê thuốc cụ thể.
-        Dependency không được dùng để ghi kết quả cận lâm sàng vào A13.
-        Dependency không được dùng để viết bệnh trình.
-        Dependency không được dùng để tạo dặn dò/tái khám thay module hoặc tầng phụ trách nội dung đó.
-
-A13.4. Quy tắc CREATE / UPDATE / REUSE và A13_REV
-    A13.4.1. Trạng thái xử lý nội bộ
-        CREATE / UPDATE / REUSE là trạng thái xử lý nội bộ của A13.
-        RUN_MODE không phải CREATE / UPDATE / REUSE.
-        RUN_MODE là chế độ tạo dữ liệu lấy từ G_STATE.
-        A13 không tự xác định RUN_MODE; A13 chỉ đọc RUN_MODE từ G_STATE.
-
-    A13.4.2. CREATE A13_STATE
-        CREATE khi chưa có A13_STATE hiện hành.
-        A13 tạo full A13_STATE mới từ user input và dependency hợp lệ A1-A12; A14 hiện hành chỉ được tham chiếu nếu đã có hợp lệ từ CURRENT_STATE hoặc user input trực tiếp; nguồn được dùng phải tuân thủ đúng từng nhánh USER_ONLY, DEFAULT_COMPLETION hoặc AUTO_SAMPLE tại A13.5.
-        Khi CREATE: A13_REV = 1.
-        A13 phải xác định STATE_VERSION, A13_REV, UPDATED_AT, A13_LABS, A13_IMAGING, A13_TREATMENT, A13_CHECK và A13_ERROR.
-
-    A13.4.3. UPDATE A13_STATE
-        UPDATE khi user input của ROUND hiện tại hoặc dependency hợp lệ A1-A12 và A14 hiện hành nếu đã có hợp lệ làm nội dung thật của A13_LABS, A13_IMAGING hoặc A13_TREATMENT thay đổi.
-        Dữ liệu ảnh hưởng A13 gồm xét nghiệm cần làm, chẩn đoán hình ảnh/thăm dò cần làm, nội soi/thủ thuật thăm dò cần làm, hướng điều trị tổng quát và thay đổi A12/A1-A11/A14 làm thay đổi hướng cần làm trong phạm vi RUN_MODE hợp lệ.
-        Khi UPDATE:
-            - A13 đọc A13_STATE hiện hành mới nhất.
-            - A13 thay phần bị ảnh hưởng bằng dữ liệu mới.
-            - A13 giữ phần không bị ảnh hưởng bằng nội dung hiện hành mới nhất.
-            - A13_REV tăng 1 so với A13_REV hiện hành.
-            - UPDATED_AT ghi thời điểm cập nhật mới.
-            - A13_STATE sau cập nhật là full state và mang STATE_VERSION của ROUND hiện tại.
-            - A13_LABS, A13_IMAGING và A13_TREATMENT phải đồng bộ với nhau.
-
-    A13.4.4. REUSE A13_STATE
-        REUSE khi đã có A13_STATE hiện hành và input/dependency không ảnh hưởng A13 hoặc nội dung thật của A13 không thay đổi.
-        A13 REUSE full A13_STATE và giữ nguyên A13_REV.
-        A13_STATE dùng lại vẫn phải mang STATE_VERSION của ROUND hiện tại khi in trong full current A_STATE.
-        UPDATED_AT giữ thời điểm cập nhật nội dung thật gần nhất, trừ khi hệ thống cần ghi thời điểm tái xác nhận state.
-        Không được ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không được chỉ ghi “reuse A13” thay cho full A13_STATE.
-
-A13.5. Quy tắc xử lý theo RUN_MODE
-    A13.5.1. USER_ONLY
-        USER_ONLY là chế độ thủ công lấy từ G_STATE.
-        A13 chỉ chuẩn hóa hoặc lưu hướng xử trí/kế hoạch do user cung cấp trực tiếp, hoặc REUSE A13_STATE cũ khi không có thay đổi thật.
-        A13 không tự thêm xét nghiệm.
-        A13 không tự thêm chẩn đoán hình ảnh/thăm dò.
-        A13 không tự thêm hướng điều trị.
-        A13 không tự tạo hướng xử trí mới từ chẩn đoán, triệu chứng, khám hoặc cận lâm sàng khi user không cung cấp.
-        Trường hợp chưa có A13_STATE cũ để REUSE và user không cung cấp hướng xử trí:
-            - A13_LABS = Không có xét nghiệm cần làm.
-            - A13_IMAGING = Không có chẩn đoán hình ảnh cần làm.
-            - A13_TREATMENT = Không có hướng điều trị cần làm.
-            - A13_CHECK = NEEDS_FIX.
-            - A13_ERROR = Thiếu hướng xử trí do user chưa cung cấp trong USER_ONLY.
-        A13 không đọc O_OUTPUT hoặc output đã render để quyết định thiếu hay chưa thiếu hướng xử trí.
-
-    A13.5.2. DEFAULT_COMPLETION
-        DEFAULT_COMPLETION là chế độ bán thủ công lấy từ G_STATE.
-        Trong DEFAULT_COMPLETION, A13 hoàn thiện hướng xử trí trong phạm vi A13 dựa trên user input và dependency hợp lệ A1-A12 và A14 hiện hành nếu đã có hợp lệ, không tạo dữ kiện mới và không mâu thuẫn dữ kiện đã có.
-        User đã cung cấp một phần hướng cần làm thì A13 giữ phần user cung cấp và bổ sung phần còn thiếu trong phạm vi A13.
-        A12 có chẩn đoán rõ thì A13 tạo xét nghiệm/thăm dò/điều trị tổng quát phù hợp chẩn đoán đó.
-        Chỉ có triệu chứng và chưa có chẩn đoán chắc thì A13 tạo hướng đánh giá ban đầu phù hợp bệnh cảnh, không tạo chẩn đoán.
-        User phủ định hoặc giới hạn hướng cần làm thì A13 giữ đúng giới hạn đó.
-        A13 không kê thuốc hoặc đơn thuốc cụ thể, liều, đường dùng, số ngày hoặc số lần dùng thay A15.
-        Không tạo hướng điều trị quá mức khi dữ kiện không đủ.
-        Không tạo danh sách xét nghiệm/thăm dò quá dài.
-
-    A13.5.3. AUTO_SAMPLE
-        AUTO_SAMPLE chỉ dùng cho ca mẫu khi user yêu cầu ca mẫu.
-        A13 được tạo hướng xử trí mẫu phù hợp dữ kiện mẫu.
-        Hướng xử trí mẫu phải nhất quán với A1-A12 và A14.
-        A13 được tạo đủ ba phần khi bệnh cảnh mẫu cần xét nghiệm, chẩn đoán hình ảnh/thăm dò và hướng điều trị tổng quát.
-        Bệnh cảnh mẫu đơn giản không có xét nghiệm/thăm dò thì dùng câu no-content corrected cho A13_LABS hoặc A13_IMAGING.
-        Không dùng AUTO_SAMPLE cho ca bệnh thật.
-        A13 không đọc A15 hoặc output để viết ngược A13.
-
-A13.6. Phạm vi hướng cần làm
-    A13.6.1. Thành phần thuộc A13
-        A13 xử lý xét nghiệm cần làm, chẩn đoán hình ảnh cần làm, thăm dò chức năng cần làm, nội soi/thủ thuật thăm dò cần làm, hướng điều trị tổng quát, biện pháp không dùng thuốc thuộc điều trị tổng quát, hội chẩn/chuyển tuyến ở mức tổng quát và đánh giá ban đầu trong phạm vi RUN_MODE hợp lệ.
-
-    A13.6.2. Thành phần không thuộc A13
-        A13 không xử lý chẩn đoán hiện tại thuộc A12, chẩn đoán phân biệt thuộc C5/O13, kết quả cận lâm sàng đã có thuộc A14, bệnh trình/diễn biến thuộc C7, thuốc cụ thể/kê đơn chi tiết thuộc A15, theo dõi tác dụng phụ/an toàn thuốc thuộc C3/O11, dặn dò/tái khám thuộc tầng phụ trách, lý do vào viện, tiền sử, bệnh sử, khám lâm sàng, biện luận điều trị dài, liều, đường dùng, số ngày dùng thuốc, đơn thuốc hoặc kết luận bệnh án.
-
-    A13.6.3. Phân ranh với A12, A14 và A15
-        A12 là chẩn đoán hiện tại; A13 không tạo, sửa, đổi, thêm hoặc xóa chẩn đoán.
-        A14 là cận lâm sàng đã có; A13 chỉ ghi việc cần làm và không ghi lại kết quả đã có.
-        A15 là thuốc cụ thể và kiểm an toàn thuốc; A13_TREATMENT chỉ là hướng điều trị tổng quát.
-
-A13.7. Hướng cần làm không phải kết quả đã có
-    A13.7.1. Nguyên tắc
-        A13 chỉ ghi việc cần làm, không ghi kết quả đã có.
-        User cung cấp kết quả cận lâm sàng thì kết quả đó thuộc A14 hoặc phần cận lâm sàng của O tương ứng, không đưa vào A13 như hướng cần làm.
-        User ghi chỉ định làm thêm thì phần cần làm thêm thuộc A13.
-        A14 có kết quả cũ và user yêu cầu kiểm tra lại thì A13 ghi phần cần làm lại.
-        A14 có kết quả đã đủ và không có yêu cầu làm thêm thì A13 không lặp lại xét nghiệm/thăm dò đó như chỉ định mới.
-
-    A13.7.2. Lỗi cần tránh
-        Không ghi trong A13_LABS hoặc A13_IMAGING các dạng kết quả:
-            - công thức máu tăng bạch cầu.
-            - CRP tăng.
-            - X-quang thoái hóa.
-            - MRI thoát vị đĩa đệm.
-            - điện tim bình thường.
-            - siêu âm tim hở van.
-            - nội soi viêm dạ dày.
-        Không biến “cần làm siêu âm tim” thành “siêu âm tim có tổn thương”.
-        Không biến “cần làm xét nghiệm” thành “xét nghiệm đã làm”.
-        Không biến “cần điều trị giảm đau” thành “đã dùng thuốc giảm đau”.
-        Không biến A13_TREATMENT thành bệnh trình điều trị nội trú.
-
-A13.8. Quy tắc phân biệt A13 với A15
-    A13.8.1. A13_TREATMENT là hướng điều trị tổng quát
-        A13_TREATMENT chỉ ghi hướng điều trị chung.
-        Không ghi tên thuốc cụ thể.
-        Không ghi liều.
-        Không ghi đường dùng.
-        Không ghi số ngày.
-        Không ghi số lần dùng thuốc.
-        Không ghi số lượng viên/ống/gói.
-        Không tạo đơn thuốc.
-        Không kiểm tra tương tác thuốc.
-        Không ghi chống chỉ định thuốc chi tiết.
-        A13_TREATMENT có thể ghi các nhóm xử trí tổng quát như Điều trị triệu chứng, bù dịch điện giải, kháng sinh, giảm đau, chống viêm, Giảm tiết, băng se niêm mạc, Điều trị triệu chứng tiền đình, Kiểm soát huyết áp, Kiểm soát đường máu, Kiểm soát đường máu và huyết áp, an thần, sinh tố; phương pháp không dùng thuốc chỉ ghi theo danh sách cho phép khi phù hợp.
-
-    A13.8.2. A15 là thuốc / kê đơn / kiểm an toàn
-        A15 xử lý thuốc cụ thể, nhóm thuốc, kê đơn, chống chỉ định, tương tác và điều kiện an toàn.
-        User cung cấp thuốc cụ thể thì phần thuốc chi tiết thuộc A15.
-        A13 chỉ giữ hướng điều trị tổng quát tương ứng trong phạm vi A13.
-
-A13.9. Quy tắc tạo A13_LABS
-    A13.9.1. Vai trò của A13_LABS
-        A13_LABS là danh sách xét nghiệm cần làm hoặc câu no-content corrected.
-        A13_LABS không chứa kết quả xét nghiệm đã có.
-        A13_LABS không chứa chẩn đoán hình ảnh.
-        A13_LABS không chứa thăm dò hình ảnh.
-        A13_LABS không chứa điều trị.
-        A13_LABS không chứa thuốc.
-        A13_LABS không chứa chẩn đoán.
-
-    A13.9.2. Output clean của A13_LABS
-        A13_LABS không dùng tiền tố xác nhận dương tính hoặc phủ định kiểu nhãn nội bộ.
-        A13_LABS không dùng sentinel kỹ thuật.
-        Trường hợp không có xét nghiệm cần làm:
-            - A13_LABS = Không có xét nghiệm cần làm.
-        Trường hợp có xét nghiệm cần làm:
-            - A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
-        A13_LABS là text render-ready; nếu có xét nghiệm cần làm, giá trị phải bắt đầu bằng chữ hoa và không phụ thuộc O để sửa chính tả.
-        O render bằng nhãn “Xét nghiệm”; A13 không tự ghi nhãn “Xét nghiệm” vào giá trị biến.
-
-    A13.9.3. Xét nghiệm nền và xét nghiệm đặc hiệu
-        Xét nghiệm nền bắt buộc khi có xét nghiệm cần làm và luôn đứng đầu A13_LABS theo đúng thứ tự:
-            1. Công thức máu.
-            2. tổng phân tích nước tiểu.
-            3. sinh hóa máu.
-        Không thay thế ba xét nghiệm nền bằng xét nghiệm đặc hiệu.
-        Không đưa xét nghiệm đặc hiệu lên trước ba xét nghiệm nền.
-        Không liệt kê lan man toàn bộ chi tiết sinh hóa máu thường quy khi đã ghi “sinh hóa máu”.
-        Xét nghiệm đặc hiệu theo bệnh cảnh chỉ thêm sau ba xét nghiệm nền:
-            1. CRP, máu lắng, ASLO trong thấp khớp cấp hoặc viêm khớp sau nhiễm khuẩn.
-            2. RF, anti-CCP trong viêm khớp cần phân biệt viêm khớp dạng thấp.
-            3. acid uric trong gút hoặc viêm khớp cần phân biệt gút.
-            4. HbA1c trong đái tháo đường khi cần đánh giá kiểm soát đường máu.
-            5. ceton máu, ceton niệu, khí máu trong tăng đường máu nặng hoặc nhiễm toan ceton.
-            6. điện giải đồ trong rối loạn điện giải, nghi ngờ mất nước hoặc tiêu chảy; ure, creatinin trong đánh giá thận hoặc trước dùng thuốc.
-            7. AST, ALT, bilirubin trong bệnh cảnh gan mật.
-            8. amylase, lipase trong bệnh cảnh tụy.
-            9. TSH, FT4, T3 trong bệnh cảnh tuyến giáp.
-            10. tổng phân tích nước tiểu, cấy nước tiểu trong tiết niệu nhiễm khuẩn.
-            11. men tim, troponin trong đau ngực hoặc nghi tim mạch cấp.
-        Xét nghiệm phải phù hợp chẩn đoán và bệnh cảnh.
-        Ví dụ đúng:
-            - A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, HbA1c.
-            - A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, CRP, acid uric.
-            - A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, điện giải đồ.
-        Ví dụ sai:
-            - A13_LABS = HbA1c, công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
-            - A13_LABS = CRP, máu lắng.
-            - A13_LABS = sinh hóa máu, HbA1c.
-            - A13_LABS = công thức máu, tổng phân tích nước tiểu, sinh hóa máu. [sai vì viết thường đầu giá trị]
-
-    A13.9.4. Giới hạn A13_LABS
-        Không tự tạo kết quả xét nghiệm.
-        Không tự tạo trị số xét nghiệm.
-        Không ghi “chờ kết quả xét nghiệm”.
-        Không ghi “xét nghiệm nếu cần”.
-        Không ghi “cân nhắc xét nghiệm”.
-        Không dùng câu điều kiện trong giá trị A13_LABS.
-        Không ghi diễn giải lý do làm xét nghiệm trong A13_LABS.
-        Không ghi thuốc hoặc chẩn đoán vào A13_LABS.
-
-A13.10. Quy tắc tạo A13_IMAGING
-    A13.10.1. Vai trò của A13_IMAGING
-        A13_IMAGING là danh sách chẩn đoán hình ảnh / thăm dò cần làm hoặc câu no-content corrected.
-        A13_IMAGING không chứa kết quả hình ảnh đã có.
-        A13_IMAGING không chứa xét nghiệm máu/nước tiểu.
-        A13_IMAGING không chứa điều trị.
-        A13_IMAGING không chứa thuốc.
-        A13_IMAGING không chứa chẩn đoán.
-
-    A13.10.2. Output clean của A13_IMAGING
-        A13_IMAGING không dùng tiền tố xác nhận dương tính hoặc phủ định kiểu nhãn nội bộ.
-        A13_IMAGING không dùng sentinel kỹ thuật.
-        Trường hợp không có chẩn đoán hình ảnh / thăm dò cần làm:
-            - A13_IMAGING = Không có chẩn đoán hình ảnh cần làm.
-        Trường hợp có chẩn đoán hình ảnh / thăm dò cần làm:
-            - A13_IMAGING = Điện tim, X-quang ngực, siêu âm tim.
-        A13_IMAGING không tự chứa nhãn “Chẩn đoán hình ảnh / thăm dò”.
-        O render nhãn đúng là “Chẩn đoán hình ảnh”.
-        A13 không ghi nhãn khác thay cho “Chẩn đoán hình ảnh” khi dữ liệu được O render.
-
-    A13.10.3. Nội dung có thể có trong A13_IMAGING
-        A13_IMAGING có thể gồm X-quang, siêu âm, CT, MRI, nội soi, điện tim, siêu âm tim, điện não, điện cơ, thăm dò chức năng hô hấp, Holter điện tim, Doppler mạch và thăm dò chuyên khoa phù hợp bệnh cảnh.
-        Chọn thăm dò liên quan trực tiếp bệnh cảnh.
-        Không thêm CT/MRI, nội soi hoặc thăm dò chuyên sâu khi hướng đánh giá ban đầu đã đủ.
-        A13_IMAGING phải phù hợp A12 và bệnh cảnh từ A1-A11/A14.
-
-    A13.10.4. Giới hạn A13_IMAGING
-        Không biến chẩn đoán hình ảnh cần làm thành kết quả đã có.
-        Không tự tạo mô tả kết quả chẩn đoán hình ảnh.
-        Không ghi “X-quang thoái hóa”, “MRI thoát vị đĩa đệm”, “điện tim bình thường”, “siêu âm tim hở van”, “nội soi viêm dạ dày” như kết quả trong A13.
-        Không dùng câu điều kiện trong giá trị A13_IMAGING.
-        Không lẫn xét nghiệm máu/nước tiểu vào A13_IMAGING.
-        Không ghi thuốc, điều trị hoặc chẩn đoán vào A13_IMAGING.
-        Không ghi diễn giải lý do làm thăm dò trong A13_IMAGING.
-
-A13.11. Quy tắc tạo A13_TREATMENT
-    A13.11.1. Vai trò của A13_TREATMENT
-        A13_TREATMENT là hướng điều trị tổng quát.
-        A13_TREATMENT không phải đơn thuốc.
-        A13_TREATMENT không phải kê đơn chi tiết.
-        A13_TREATMENT không phải bệnh trình.
-        A13_TREATMENT không phải phần theo dõi an toàn thuốc.
-        A13_TREATMENT không phải phần dặn dò/tái khám.
-
-    A13.11.2. Output clean của A13_TREATMENT
-        A13_TREATMENT chỉ chứa danh sách hướng điều trị tổng quát cần làm hoặc câu no-content corrected.
-        A13_TREATMENT là text render-ready cho O.
-        A13_TREATMENT phải bắt đầu bằng chữ hoa.
-        Nếu A13_TREATMENT có nội dung điều trị thực tế, chữ cái đầu tiên của giá trị phải viết hoa.
-        Nếu A13_TREATMENT là câu no-content corrected thì vẫn phải bắt đầu bằng chữ hoa: “Không có hướng điều trị cần làm.”
-        A13_CHECK = NEEDS_FIX nếu A13_TREATMENT bắt đầu bằng chữ thường.
-        A13_TREATMENT không dùng tiền tố xác nhận dương tính hoặc phủ định kiểu nhãn nội bộ.
-        A13_TREATMENT không dùng dạng phủ định rồi xác nhận trong cùng biến.
-        A13_TREATMENT không dùng sentinel kỹ thuật.
-        Trường hợp thật sự không có hướng điều trị cần làm:
-            - A13_TREATMENT = Không có hướng điều trị cần làm.
-        Trong đa số ca bệnh án, A13_TREATMENT phải có hướng xử trí phù hợp bệnh cảnh.
-        A13_TREATMENT là một dòng duy nhất.
-        A13_TREATMENT không tách nhiều dòng.
-        A13_TREATMENT không chia phương pháp chính/phương pháp phụ.
-        Các hướng điều trị ngăn cách bằng dấu phẩy.
-        Không ghi thuốc cụ thể, liều, đường dùng, số ngày, số lần dùng hoặc số lượng thuốc.
-        Không thay A15/C3 trong chọn thuốc và kiểm an toàn thuốc.
-
-    A13.11.3. Nội dung và thứ tự A13_TREATMENT
-        Nếu có điều trị bằng thuốc hoặc xử trí dược lý, phần này phải ghi trước phương pháp không dùng thuốc.
-        Thứ tự trong phần điều trị bằng thuốc: nhóm điều trị chính theo bệnh, nhóm điều trị triệu chứng chính, nhóm hỗ trợ, an thần, sinh tố.
-        Nhóm điều trị bằng thuốc hoặc xử trí chính đặt trước.
-        Hướng điều trị triệu chứng chính đặt trước các biện pháp hỗ trợ.
-        Bệnh cảnh đau hoặc viêm khớp dùng “giảm đau, chống viêm” ở phần đầu dòng điều trị.
-        Bệnh cảnh dạ dày - thực quản K21/K29 hoặc tương đương bắt buộc có “giảm tiết, băng se niêm mạc”.
-        Bệnh cảnh tiền đình H81 hoặc tương đương bắt buộc có “điều trị triệu chứng tiền đình” hoặc hướng tương đương.
-        Cụm “an thần, sinh tố” đặt sau các hướng điều trị thuốc / hỗ trợ thuốc.
-        Không đặt nội dung khác giữa “an thần” và “sinh tố”.
-        Nếu có phần điều trị bằng thuốc, cuối phần điều trị bằng thuốc luôn có “an thần, sinh tố”.
-        Không ghi “an thần, sinh tố” đứng trước điều trị chính.
-        Không bỏ “an thần, sinh tố” nếu đã có phần điều trị bằng thuốc.
-        Dùng dấu phẩy chuẩn “an thần, sinh tố”, không viết “an thần,sinh tố”.
-        Biện pháp không dùng thuốc đặt cuối dòng, sau “an thần, sinh tố”.
-        Chỉ ghi phương pháp không dùng thuốc khi phù hợp bệnh cảnh.
-        Phương pháp không dùng thuốc hiện cho phép gồm: đeo đai cố định khớp gối, đeo đai cố định khớp vai, đeo đai cố định khớp đau nếu xác định rõ khớp cần cố định, cố định cột sống thắt lưng, cố định cột sống cổ nếu bệnh cảnh cổ vai gáy/cột sống cổ phù hợp.
-        Không tự thêm các cụm chung chung như nghỉ ngơi, chế độ ăn phù hợp, sinh hoạt phù hợp, vận động phù hợp, tránh yếu tố dị ứng hoặc phục hồi chức năng, trừ khi user input hoặc module đã chốt riêng cho bệnh cảnh đó và không trái rule này.
-        Nếu có cả điều trị bằng thuốc và phương pháp không dùng thuốc, ghi điều trị bằng thuốc trước; sau “an thần, sinh tố” mới ghi phương pháp không dùng thuốc.
-        Dòng điều trị có thể kết thúc bằng “an thần, sinh tố” khi không có biện pháp không dùng thuốc.
-
-    A13.11.4. Cụm bắt buộc theo bệnh cảnh
-        K21/K29, bệnh trào ngược dạ dày - thực quản, viêm dạ dày hoặc A3 có nóng rát thượng vị, ợ hơi, ợ chua rõ: A13_TREATMENT bắt buộc có “Giảm tiết, băng se niêm mạc”.
-        Không dùng cụm thay thế sai cho xử trí dạ dày.
-        Không dùng cụm thay thế sai cho niêm mạc để thay cụm chuẩn.
-        Bệnh cảnh cơ xương khớp đau / viêm: A13_TREATMENT có “Giảm đau, chống viêm” phù hợp bệnh cảnh; nếu có đau cột sống/co cứng cơ thì có thể thêm “giãn cơ”; không ghi câu điều kiện như “dùng giảm đau nếu cần”; K21/K29 đi kèm vẫn phải có “Giảm tiết, băng se niêm mạc”.
-        Hội chứng thắt lưng hông / đau cột sống: A13_TREATMENT có “Giảm đau, giãn cơ, chống viêm” khi phù hợp và biện pháp không dùng thuốc được phép nếu phù hợp.
-        Rối loạn chức năng tiền đình: A13_TREATMENT có “Điều trị triệu chứng tiền đình”.
-        Đái tháo đường: A13_TREATMENT có “Kiểm soát đường máu”; không ghi “theo dõi đường máu” hoặc “theo dõi đường huyết”.
-        Tăng huyết áp: A13_TREATMENT có “Kiểm soát huyết áp”; không ghi “theo dõi huyết áp”.
-        Có cả đái tháo đường và tăng huyết áp: A13_TREATMENT có “Kiểm soát đường máu và huyết áp”, không ghi tách rời kiểu theo dõi đường máu, theo dõi huyết áp.
-        Nhiễm khuẩn rõ: A13_TREATMENT có “kháng sinh” phù hợp bệnh cảnh ở mức tổng quát, không ghi tên thuốc cụ thể.
-
-    A13.11.5. Giới hạn A13_TREATMENT
-        Không kê đơn thuốc cụ thể.
-        Không ghi liều.
-        Không ghi đường dùng.
-        Không ghi số ngày.
-        Không ghi số lần dùng thuốc.
-        Không ghi số lượng thuốc.
-        Không dùng câu điều kiện trong giá trị A13_TREATMENT.
-        Không tạo chẩn đoán.
-        Không viết bệnh trình.
-        Không ghi theo dõi/tái khám/dặn dò.
-        Không ghi kiểm tra tương tác thuốc.
-        Không ghi chống chỉ định thuốc chi tiết.
-        Không ghi an toàn thuốc chi tiết; phần này thuộc C3/O11 khi cần.
-
-A13.12. Cấm câu điều kiện trong giá trị output
-    A13.12.1. Cụm cấm trong giá trị A13_LABS/A13_IMAGING/A13_TREATMENT
-        Giá trị A13_LABS, A13_IMAGING và A13_TREATMENT không được dùng câu điều kiện.
-        Các cụm cấm trong giá trị output gồm: nếu, khi, tùy, cân nhắc, có thể, nếu cần, khi cần, khi có kết quả, sau khi có kết quả, theo đáp ứng, theo diễn biến, tùy kết quả, tùy tình trạng, theo điều kiện, theo chỉ định sau, đánh giá thêm rồi quyết định, dùng giảm đau nếu cần, theo dõi huyết áp, theo dõi đường máu, theo dõi đường huyết.
-        A13 là hướng quyết định tại thời điểm tạo bệnh án, không phải câu nhắc điều kiện.
-        A13 phải chuyển thành quyết định rõ hoặc dùng câu no-content corrected.
-
-    A13.12.2. Chuyển câu điều kiện thành quyết định rõ
-        A13 phải chọn một trong hai hướng: ghi nội dung cần làm cụ thể hoặc ghi câu no-content corrected.
-        Ví dụ quyết định rõ cho xét nghiệm: A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, RF, anti-CCP.
-        Ví dụ quyết định rõ cho hình ảnh: A13_IMAGING = Siêu âm khớp đau.
-        Ví dụ no-content corrected cho điều trị: A13_TREATMENT = Không có hướng điều trị cần làm.
-
-A13.13. Quy tắc đồng bộ với A12 và A1-A11
-    A13.13.1. Đồng bộ với A12 chẩn đoán hiện tại
-        A13 phải phù hợp A12_STATE.A12_FINAL và A12_DIAGNOSIS_LIST.
-        Chẩn đoán trong A12 phải có hướng xét nghiệm, chẩn đoán hình ảnh và điều trị phù hợp bệnh cảnh.
-        Không tạo hướng điều trị cho chẩn đoán không có trong A12 hoặc bệnh cảnh không có căn cứ.
-        A12 ghi “Chưa đủ dữ kiện xác định chẩn đoán” thì A13 vẫn có thể tạo hướng xét nghiệm, hình ảnh và xử trí triệu chứng theo bệnh cảnh khi lệnh yêu cầu làm bệnh án; A13 không được tạo chẩn đoán mới.
-
-    A13.13.2. Đồng bộ với A1-A11
-        A13 phải đồng bộ với A1_STATE.A1_REASON để lý do vào viện chính có hướng xử trí phù hợp.
-        A13 phải đồng bộ với A3_STATE.A3_FINAL để triệu chứng kèm quan trọng được phản ánh trong hướng cần làm khi có giá trị lâm sàng.
-        A13 phải đồng bộ với A4-A11_STATE để dấu khám bất thường có hướng xét nghiệm, chẩn đoán hình ảnh hoặc điều trị phù hợp.
-        A12 có K21/K29 hoặc A3/A7 gợi ý bệnh dạ dày - thực quản thì A13_TREATMENT phải có “Giảm tiết, băng se niêm mạc”.
-        A12 có H81 hoặc A3/A9 gợi ý rối loạn tiền đình thì A13_TREATMENT phải có “Điều trị triệu chứng tiền đình”.
-        A10_HAS_DATA = YES với đau / viêm khớp thì A13_TREATMENT phải có “Giảm đau, chống viêm” phù hợp.
-        User input trực tiếp về hướng cần làm có ưu tiên cao; user giới hạn hoặc loại bỏ một nội dung thì A13 giữ đúng giới hạn đó.
-
-A13.14. Nhóm bệnh cảnh thường gặp
-    A13.14.1. Bệnh cơ xương khớp đau khớp / viêm khớp
-        A13_LABS nền: Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, CRP, máu lắng.
-        Bổ sung RF, anti-CCP, acid uric theo bệnh cảnh khớp viêm, viêm khớp dạng thấp hoặc gút.
-        A13_IMAGING nền: Điện tim, X-quang ngực, X-quang khớp đau, siêu âm khớp.
-        A13_TREATMENT nền: Giảm đau, chống viêm, an thần, sinh tố; phương pháp không dùng thuốc được phép đặt cuối dòng khi phù hợp.
-        Khi đưa vào output cụ thể, A13 chọn nội dung cụ thể theo bệnh cảnh và không dùng câu điều kiện.
-
-    A13.14.2. Theo dõi thấp khớp cấp
-        A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, CRP, máu lắng, ASLO.
-        A13_IMAGING = Điện tim, X-quang ngực, siêu âm tim.
-        Bệnh cảnh có khớp đau thì bổ sung X-quang khớp đau, siêu âm khớp đau.
-        A13_TREATMENT nền: Giảm đau, chống viêm, kháng sinh phù hợp bệnh cảnh liên cầu, an thần, sinh tố.
-        Không ghi khẳng định điều trị thấp khớp cấp xác định khi A12 chỉ là “Theo dõi thấp khớp cấp”.
-
-    A13.14.3. Hội chứng thắt lưng hông / đau cột sống thắt lưng
-        A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
-        A13_IMAGING = Điện tim, X-quang ngực, X-quang cột sống thắt lưng, MRI cột sống thắt lưng.
-        A13_TREATMENT nền: Giảm đau, giãn cơ, chống viêm, an thần, sinh tố, cố định cột sống thắt lưng khi phù hợp.
-        Đau/viêm phù hợp thì thêm chống viêm ở phần đầu dòng.
-
-    A13.14.4. Bệnh trào ngược dạ dày - thực quản / viêm dạ dày
-        A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
-        A13_IMAGING = Điện tim, X-quang ngực, nội soi dạ dày - tá tràng, siêu âm ổ bụng.
-        A13_TREATMENT = Giảm tiết, băng se niêm mạc, an thần, sinh tố.
-
-    A13.14.5. Rối loạn chức năng tiền đình
-        A13_LABS nền: Công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
-        Bổ sung glucose máu trong bệnh cảnh cần đánh giá đường máu.
-        A13_IMAGING nền: Điện tim, X-quang ngực.
-        Bệnh cảnh thần kinh trung ương hoặc dấu hiệu nguy cơ có CT sọ não hoặc MRI sọ não.
-        A13_TREATMENT = Điều trị triệu chứng tiền đình, an thần, sinh tố.
-
-    A13.14.6. Đái tháo đường
-        A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, HbA1c.
-        A13_IMAGING nền: Điện tim, X-quang ngực.
-        Bệnh cảnh phù hợp có siêu âm ổ bụng hoặc siêu âm thận tiết niệu.
-        A13_TREATMENT = Kiểm soát đường máu, an thần, sinh tố.
-
-    A13.14.7. Tăng huyết áp
-        A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
-        A13_IMAGING = Điện tim, X-quang ngực, siêu âm tim.
-        A13_TREATMENT = Kiểm soát huyết áp, điều chỉnh yếu tố nguy cơ, an thần, sinh tố.
-
-    A13.14.8. Gút / tăng acid uric máu
-        A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, acid uric.
-        A13_IMAGING = Điện tim, X-quang ngực, X-quang khớp đau, siêu âm khớp.
-        A13_TREATMENT = Giảm đau, chống viêm, an thần, sinh tố, đeo đai cố định khớp đau nếu xác định rõ khớp cần cố định.
-
-A13.15. Quy tắc trình bày A13_STATE
-    A13.15.1. Schema chuẩn
-        A13_STATE:
-            STATE_VERSION = ...
-            A13_REV = ...
-            UPDATED_AT = HH:MM dd/mm/yyyy
-            A13_LABS = ...
-            A13_IMAGING = ...
-            A13_TREATMENT = ...
-            A13_CHECK = PASS / NEEDS_FIX
-            A13_ERROR = ...
-
-    A13.15.2. Nguyên tắc schema
-        A13_STATE là full state, không phải patch hoặc delta.
-        A13_STATE không cần in trạng thái CREATE / UPDATE / REUSE.
-        A13_STATE không cần STATUS.
-        A13_STATE phải có UPDATED_AT.
-        UPDATED_AT là metadata quản lý thời điểm cập nhật state, không phải dữ liệu bệnh án và O không render UPDATED_AT.
-        A13_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        A13_LABS là xét nghiệm cần làm hoặc câu sạch không có xét nghiệm cần làm.
-        A13_IMAGING là chẩn đoán hình ảnh/thăm dò cần làm hoặc câu sạch không có chẩn đoán hình ảnh cần làm.
-        A13_TREATMENT là hướng điều trị tổng quát hoặc câu sạch không có hướng điều trị cần làm.
-        A13_CHECK là kết quả tự kiểm của A13.
-        A13_ERROR chỉ dùng để ghi lỗi khi A13_CHECK = NEEDS_FIX; khi đạt ghi “Không có lỗi.”
-
-    A13.15.3. Khi không có nội dung
-        Không có xét nghiệm cần làm:
-            - A13_LABS = Không có xét nghiệm cần làm.
-        Không có chẩn đoán hình ảnh/thăm dò cần làm:
-            - A13_IMAGING = Không có chẩn đoán hình ảnh cần làm.
-        Thật sự không có hướng điều trị cần làm:
-            - A13_TREATMENT = Không có hướng điều trị cần làm.
-        Không dùng sentinel kỹ thuật trong A13_LABS, A13_IMAGING hoặc A13_TREATMENT.
-        Không dùng câu phủ định dài khác thay cho câu no-content corrected.
-        Việc render nhãn thuộc tầng O, không do A13 quyết định.
-        A13 không điều khiển O render.
-
-    A13.15.4. Định dạng nội dung
-        Nhiều mục xét nghiệm viết cách nhau bằng dấu phẩy.
-        Nhiều mục thăm dò viết cách nhau bằng dấu phẩy.
-        Nhiều hướng điều trị viết cách nhau bằng dấu phẩy trên một dòng duy nhất.
-        Không đánh số trong A13_LABS/A13_IMAGING/A13_TREATMENT.
-        Không viết biện luận trong giá trị biến.
-        Không ghi nhãn “Xét nghiệm”, “Chẩn đoán hình ảnh” hoặc “Điều trị” vào giá trị biến.
-
-A13.16. Ví dụ cụ thể
-    A13.16.1. Ví dụ CREATE khi user cung cấp hướng cần làm đầy đủ
-        Input:
-            Chẩn đoán: Viêm phổi.
-            Cần làm công thức máu, CRP, X-quang ngực.
-            Điều trị kháng sinh, hạ sốt, long đờm.
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, CRP.
-            A13_IMAGING = X-quang ngực.
-            A13_TREATMENT = Kháng sinh, hạ sốt, long đờm, an thần, sinh tố.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.2. Ví dụ bệnh cảnh dạ dày - thực quản
-        Input:
-            A12_FINAL = Bệnh trào ngược dạ dày - thực quản.
-            RUN_MODE = DEFAULT_COMPLETION lấy từ G_STATE.
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
-            A13_IMAGING = Điện tim, X-quang ngực, nội soi dạ dày - tá tràng, siêu âm ổ bụng.
-            A13_TREATMENT = Giảm tiết, băng se niêm mạc, an thần, sinh tố.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.3. Ví dụ USER_ONLY không có hướng cần làm
-        Input:
-            Chưa có A13_STATE cũ.
-            RUN_MODE = USER_ONLY lấy từ G_STATE.
-            User không cung cấp hướng cần làm.
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Không có xét nghiệm cần làm.
-            A13_IMAGING = Không có chẩn đoán hình ảnh cần làm.
-            A13_TREATMENT = Không có hướng điều trị cần làm.
-            A13_CHECK = NEEDS_FIX
-            A13_ERROR = Thiếu hướng xử trí do user chưa cung cấp trong USER_ONLY.
-
-    A13.16.4. Ví dụ không đưa kết quả đã có vào hướng cần làm
-        Input:
-            A14_STATE: X-quang ngực đã có kết quả bình thường.
-            User không yêu cầu làm lại X-quang.
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Không có xét nghiệm cần làm.
-            A13_IMAGING = Không có chẩn đoán hình ảnh cần làm.
-            A13_TREATMENT = Không có hướng điều trị cần làm.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.5. Ví dụ có kết quả đã có nhưng cần làm thêm
-        Input:
-            A14_STATE: Công thức máu đã có bạch cầu tăng.
-            User yêu cầu làm thêm CRP và cấy máu.
-            RUN_MODE = DEFAULT_COMPLETION lấy từ G_STATE.
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, CRP, cấy máu.
-            A13_IMAGING = Không có chẩn đoán hình ảnh cần làm.
-            A13_TREATMENT = Không có hướng điều trị cần làm.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.6. Ví dụ đau ngực cần đánh giá ban đầu
-        Input:
-            A1_REASON = Đau ngực.
-            A12_FINAL = Chưa đủ dữ kiện xác định chẩn đoán.
-            RUN_MODE = DEFAULT_COMPLETION lấy từ G_STATE.
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, men tim, troponin.
-            A13_IMAGING = Điện tim, X-quang ngực.
-            A13_TREATMENT = Xử trí triệu chứng đau ngực, đánh giá nguy cơ tim mạch, an thần, sinh tố.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.7. Ví dụ thấp khớp cấp / K21 / H81
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, CRP, máu lắng, ASLO, RF, anti-CCP, acid uric.
-            A13_IMAGING = Điện tim, X-quang ngực, siêu âm tim, X-quang khớp đau, siêu âm khớp đau.
-            A13_TREATMENT = Giảm đau, chống viêm, Điều trị triệu chứng tiền đình, Giảm tiết, băng se niêm mạc, an thần, sinh tố.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.8. Ví dụ hội chứng thắt lưng hông / K21
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
-            A13_IMAGING = Điện tim, X-quang ngực, X-quang cột sống thắt lưng, MRI cột sống thắt lưng.
-            A13_TREATMENT = Giảm đau, giãn cơ, chống viêm, Giảm tiết, băng se niêm mạc, an thần, sinh tố, cố định cột sống thắt lưng.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.9. Ví dụ đái tháo đường
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, HbA1c.
-            A13_IMAGING = Điện tim, X-quang ngực.
-            A13_TREATMENT = Kiểm soát đường máu, an thần, sinh tố.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.10. Ví dụ tiền đình
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, HbA1c.
-            A13_IMAGING = Điện tim, X-quang ngực.
-            A13_TREATMENT = Điều trị triệu chứng tiền đình, cải thiện tuần hoàn não, an thần, sinh tố.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-    A13.16.11. Ví dụ gút
-        A13_STATE:
-            STATE_VERSION = V1
-            A13_REV = 1
-            UPDATED_AT = 09:00 04/06/2026
-            A13_LABS = Công thức máu, tổng phân tích nước tiểu, sinh hóa máu, acid uric.
-            A13_IMAGING = Điện tim, X-quang ngực, X-quang khớp đau, siêu âm khớp.
-            A13_TREATMENT = Giảm đau, chống viêm, an thần, sinh tố, đeo đai cố định khớp đau nếu xác định rõ khớp cần cố định.
-            A13_CHECK = PASS
-            A13_ERROR = Không có lỗi.
-
-A13.17. Lỗi không được mắc
-    A13.17.1. Lỗi sai phạm vi A13
-        Không tạo chẩn đoán trong A13.
-        Không viết bệnh sử trong A13.
-        Không viết khám lâm sàng trong A13.
-        Không viết kết quả cận lâm sàng đã có trong A13.
-        Không viết bệnh trình trong A13.
-        Không viết dặn dò/tái khám thay tầng phụ trách.
-        Không viết tiền sử.
-        Không viết lý do vào viện.
-        Không viết biện luận chẩn đoán.
-        Không viết chẩn đoán phân biệt.
-
-    A13.17.2. Lỗi với xét nghiệm/thăm dò
-        Không đưa kết quả đã có vào A13_LABS hoặc A13_IMAGING.
-        Không tạo danh sách xét nghiệm quá dài.
-        Không tạo thăm dò không liên quan.
-        Không lẫn xét nghiệm với chẩn đoán hình ảnh/thăm dò.
-        Không lẫn chẩn đoán hình ảnh/thăm dò với xét nghiệm.
-        Không ghi kết quả như một chỉ định cần làm.
-
-    A13.17.3. Lỗi với điều trị
-        Không kê đơn thuốc cụ thể.
-        Không ghi tên thuốc cụ thể.
-        Không ghi liều.
-        Không ghi đường dùng.
-        Không ghi số ngày.
-        Không ghi số lần dùng thuốc.
-        Không ghi số lượng thuốc.
-        Không dùng A13_TREATMENT như đơn thuốc.
-        Không chia phương pháp chính/phụ.
-        Không ghi theo dõi an toàn thuốc trong A13.
-        Không ghi tương tác thuốc trong A13.
-        Không ghi chống chỉ định thuốc chi tiết trong A13.
-
-    A13.17.4. Lỗi trình bày
-        Không dùng tiền tố xác nhận dương tính hoặc phủ định kiểu nhãn nội bộ trong A13_LABS, A13_IMAGING hoặc A13_TREATMENT.
-        Không dùng sentinel kỹ thuật trong A13_LABS, A13_IMAGING hoặc A13_TREATMENT.
-        Không để A13_LABS, A13_IMAGING, A13_TREATMENT mâu thuẫn với nhau.
-        Không để A13_TREATMENT chứa chẩn đoán.
-        Không để A13_LABS chứa điều trị.
-        Không để A13_IMAGING chứa điều trị.
-        Không để A13_STATE thiếu trường bắt buộc.
-        Không viết A13_LABS/A13_IMAGING/A13_TREATMENT quá dài, lan man.
-
-    A13.17.5. Lỗi vận hành state
-        Không tạo state của A khác.
-        Không dùng patch/delta làm A13_STATE chính thức.
-        Không ghi “giữ nguyên như trước” thay cho nội dung thật.
-        Không đưa metadata không cần thiết vào A13_STATE.
-        Không render O trong A13.
-        Không chạy C trong A13.
-        Không suy ngược A13 từ O_OUTPUT hoặc output đã render.
-        Không dùng output để quyết định thiếu hay chưa thiếu hướng xử trí.
-        Không điều khiển O render.
-        Không đọc A15_STATE của ROUND hiện tại.
-        Không dùng A15_STATE cũ từ ROUND trước để tạo A13 trong ROUND hiện tại.
-        Không đọc C_STATE.
-        Không đọc O_OUTPUT.
-        Không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
-
-A13.18. A13_CHECK
-    A13.18.1. Kiểm A13_STATE
-        Kiểm:
-            1. A13_STATE có STATE_VERSION.
-            2. A13_STATE có A13_REV đúng theo CREATE / UPDATE / REUSE.
-            3. A13_STATE có UPDATED_AT đúng định dạng HH:MM dd/mm/yyyy.
-            4. A13_STATE có A13_LABS.
-            5. A13_STATE có A13_IMAGING.
-            6. A13_STATE có A13_TREATMENT.
-            7. A13_STATE có A13_CHECK.
-            8. A13_STATE có A13_ERROR.
-            9. A13_STATE là full state, không phải patch hoặc delta.
-            10. A13 không phụ thuộc output để quyết định thiếu hay chưa thiếu hướng xử trí.
-            11. A13 không điều khiển O render.
-            12. A13_STATE sẵn sàng đưa vào full current A_STATE.
-
-    A13.18.2. Kiểm A13_LABS
-        Kiểm:
-            1. A13_LABS chỉ chứa xét nghiệm cần làm hoặc câu “Không có xét nghiệm cần làm.”
-            2. A13_LABS không chứa kết quả xét nghiệm.
-            3. A13_LABS không chứa chẩn đoán hình ảnh hoặc thăm dò chức năng.
-            4. A13_LABS không chứa điều trị, thuốc hoặc chẩn đoán.
-            5. A13_LABS không quá dài, không lan man.
-            6. A13_LABS không dùng tiền tố xác nhận dương tính hoặc phủ định kiểu nhãn nội bộ.
-            7. A13_LABS không dùng sentinel kỹ thuật.
-            8. A13_LABS không dùng cụm điều kiện bị cấm trong giá trị output.
-            9. No-content labs đúng “Không có xét nghiệm cần làm.”
-            10. Khi có xét nghiệm cần làm, A13_LABS bắt đầu bằng “Công thức máu, tổng phân tích nước tiểu, sinh hóa máu”.
-            11. Các xét nghiệm/chỉ số đặc hiệu nếu có đứng sau ba xét nghiệm nền.
-            12. A13_LABS không đưa xét nghiệm đặc hiệu lên trước xét nghiệm nền.
-            13. A13_LABS phù hợp A12 và bệnh cảnh dựa trên user input và dependency hợp lệ A1-A12 và A14 hiện hành nếu đã có hợp lệ.
-            14. A13_LABS không mâu thuẫn user input.
-
-    A13.18.3. Kiểm A13_IMAGING
-        Kiểm:
-            1. A13_IMAGING chỉ chứa chẩn đoán hình ảnh/thăm dò cần làm hoặc câu “Không có chẩn đoán hình ảnh cần làm.”
-            2. A13_IMAGING không chứa kết quả hình ảnh/thăm dò đã có.
-            3. A13_IMAGING không chứa xét nghiệm máu/nước tiểu.
-            4. A13_IMAGING không chứa điều trị, thuốc hoặc chẩn đoán.
-            5. A13_IMAGING không quá dài, không lan man.
-            6. A13_IMAGING không dùng tiền tố xác nhận dương tính hoặc phủ định kiểu nhãn nội bộ.
-            7. A13_IMAGING không dùng sentinel kỹ thuật.
-            8. A13_IMAGING không dùng cụm điều kiện bị cấm trong giá trị output.
-            9. No-content imaging đúng “Không có chẩn đoán hình ảnh cần làm.”
-            10. A13_IMAGING phù hợp A12 và bệnh cảnh dựa trên user input và dependency hợp lệ A1-A12 và A14 hiện hành nếu đã có hợp lệ.
-            11. A13_IMAGING không mâu thuẫn user input.
-            12. A13_IMAGING không lặp lại thăm dò đã có kết quả trong A14 khi không có yêu cầu làm lại.
-
-    A13.18.4. Kiểm A13_TREATMENT
-        Kiểm:
-            1. A13_TREATMENT là hướng điều trị tổng quát hoặc câu “Không có hướng điều trị cần làm.”
-            2. A13_TREATMENT không kê đơn thuốc cụ thể.
-            3. A13_TREATMENT không có liều, đường dùng, số ngày, số lần dùng thuốc hoặc số lượng thuốc.
-            4. A13_TREATMENT không chứa chẩn đoán.
-            5. A13_TREATMENT không chứa bệnh trình.
-            6. A13_TREATMENT không chứa theo dõi/tái khám/dặn dò.
-            7. A13_TREATMENT không dùng tiền tố xác nhận dương tính hoặc phủ định kiểu nhãn nội bộ.
-            8. A13_TREATMENT không dùng dạng phủ định rồi xác nhận trong cùng biến.
-            9. A13_TREATMENT không dùng sentinel kỹ thuật.
-            10. A13_TREATMENT là một dòng duy nhất.
-            11. A13_TREATMENT bắt đầu bằng chữ hoa và không bắt đầu bằng chữ thường.
-            12. Không có nội dung giữa “an thần” và “sinh tố”.
-            13. Nếu có phần điều trị bằng thuốc thì cuối phần điều trị bằng thuốc có “an thần, sinh tố”.
-            14. Không ghi “an thần, sinh tố” đứng trước điều trị chính và không viết sai dấu phẩy thành “an thần,sinh tố”.
-            15. Biện pháp không dùng thuốc không đứng đầu dòng khi có xử trí chính.
-            16. Biện pháp không dùng thuốc đặt cuối dòng sau “an thần, sinh tố”.
-            17. A13_TREATMENT không tự thêm phương pháp không dùng thuốc ngoài danh sách cho phép.
-            18. A13_TREATMENT không dùng cụm điều kiện bị cấm trong giá trị output.
-            19. A13_TREATMENT không chứa “theo dõi huyết áp”, “theo dõi đường máu” hoặc “theo dõi đường huyết”.
-            20. A13_TREATMENT không dùng “nghỉ ngơi”, “chế độ ăn phù hợp” hoặc “phục hồi chức năng” như điều trị mặc định trái rule mới.
-            21. A13_TREATMENT không dùng cụm thay thế sai cho xử trí dạ dày hoặc niêm mạc.
-            22. Có “Giảm tiết, băng se niêm mạc” trong bệnh cảnh K21/K29/dạ dày - thực quản.
-            23. Có “Điều trị triệu chứng tiền đình” trong bệnh cảnh H81/tiền đình.
-            24. Có “Giảm đau, chống viêm” trong bệnh cảnh đau/viêm khớp phù hợp.
-            25. Nếu có đái tháo đường thì có “Kiểm soát đường máu”.
-            26. Nếu có tăng huyết áp thì có “Kiểm soát huyết áp”.
-            27. Nếu có cả đái tháo đường và tăng huyết áp thì có “Kiểm soát đường máu và huyết áp”.
-            28. A13_TREATMENT phù hợp A12 và bệnh cảnh dựa trên user input và dependency hợp lệ A1-A12 và A14 hiện hành nếu đã có hợp lệ.
-            29. A13_TREATMENT không mâu thuẫn user input.
-
-    A13.18.5. Kiểm dependency và boundary
-        Kiểm:
-            1. A13 phù hợp chẩn đoán hiện tại trong A12_STATE.
-            2. A13 không tạo hướng điều trị cho chẩn đoán không có trong A12 hoặc bệnh cảnh không có căn cứ.
-            3. A13 không biến kết quả A14 đã có thành cần làm.
-            4. A13 không viết lại dữ kiện lâm sàng từ A1-A11.
-            5. A13 không đọc A15_STATE của ROUND hiện tại.
-            6. A13 không dùng A15_STATE cũ từ ROUND trước để tạo A13 trong ROUND hiện tại.
-            7. A13 không đọc C_STATE.
-            8. A13 không đọc O_OUTPUT hoặc output đã render.
-            9. A13 không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
-            10. A13 không tạo dữ kiện mâu thuẫn với user input.
-            11. A13 không dùng thuốc cụ thể để tạo đơn thuốc.
-            12. A13 không dùng chẩn đoán phân biệt C5 để thay thế hướng cần làm.
-
-A13.19. Kết quả A13_CHECK và kết thúc module
-    A13.19.1. Khi đạt
-        Khi đạt:
-            A13_CHECK = PASS.
-            A13_ERROR = Không có lỗi.
-        Điều kiện đạt:
-            1. A13_STATE đủ UPDATED_AT, A13_LABS, A13_IMAGING và A13_TREATMENT.
-            2. A13_LABS đúng phạm vi và output clean.
-            3. A13_IMAGING đúng phạm vi và output clean.
-            4. A13_TREATMENT đúng phạm vi, đúng thứ tự, output clean và bắt đầu bằng chữ hoa.
-            5. A13_LABS có ba xét nghiệm nền đầu dòng khi có xét nghiệm cần làm; xét nghiệm đặc hiệu đứng sau xét nghiệm nền.
-            6. A13_TREATMENT không chứa cụm cấm “theo dõi huyết áp”, “theo dõi đường máu” hoặc “theo dõi đường huyết”.
-            7. A13_TREATMENT không thiếu “an thần, sinh tố” ở cuối phần điều trị bằng thuốc.
-            8. A13_TREATMENT không dùng phương pháp không dùng thuốc ngoài danh sách cho phép hoặc dùng “nghỉ ngơi”, “chế độ ăn phù hợp”, “phục hồi chức năng” như điều trị mặc định trái rule mới.
-            9. Không có kết quả cận lâm sàng bị đưa nhầm vào A13.
-            10. Không có thuốc cụ thể/liều/đường dùng/số ngày trong A13.
-            11. Không có mâu thuẫn với user input.
-            12. Không có mâu thuẫn rõ với A12/A14/A1-A11.
-
-    A13.19.2. Khi chưa đạt
-        Khi chưa đạt:
-            A13_CHECK = NEEDS_FIX.
-            A13_ERROR = ghi rõ lỗi.
-        A13_ERROR phải nêu rõ lỗi nằm ở A13_LABS, A13_IMAGING, A13_TREATMENT, UPDATED_AT, Dependency hoặc Schema.
-        Không ghi lỗi chung chung khi xác định được lỗi cụ thể.
-        Lỗi do thiếu dữ kiện trong USER_ONLY phải ghi rõ dữ kiện cần bổ sung.
-        Lỗi do lẫn kết quả cận lâm sàng phải ghi rõ phần đó thuộc A14.
-        Lỗi do lẫn thuốc cụ thể phải ghi rõ phần đó thuộc A15.
-
-    A13.19.3. Điều kiện hoàn tất A13
-        A13 hoàn tất khi:
-            1. Đã CREATE, UPDATE hoặc REUSE full A13_STATE.
-            2. Đã kiểm A13_CHECK.
-            3. Không tạo dữ liệu ngoài A13_STATE.
-            4. Không tạo state của A khác.
-            5. Không chạy C hoặc O.
-            6. Không render output.
-            7. Không tự dừng STEP A.
-            8. Không chuyển sớm sang A_GATE.
-
-    A13.19.4. Chuyển module tiếp theo
-        Sau khi hoàn tất A13_STATE, chuyển sang A15 theo A_RUN_ORDER.
-        Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
+A13_ROLE
+    A13 chuẩn hóa phần hướng cần làm trong bệnh án.
+    A13 tạo / cập nhật / dùng lại full A13_STATE để đưa vào full current A_STATE của ROUND hiện tại.
+    A13_STATE là nguồn chính thức cho C/O khi cần dữ liệu hướng cần làm theo mapping của chính C/O.
+    A13 tách ba nội dung:
+        1. A13_LABS: xét nghiệm cần làm.
+        2. A13_IMAGING: chẩn đoán hình ảnh / thăm dò cần làm.
+        3. A13_TREATMENT: hướng điều trị tổng quát.
+    A13 không phải module chẩn đoán, kết quả cận lâm sàng, thuốc / đơn thuốc, bệnh trình, tình trạng ra viện, C module hoặc O renderer.
+    A13 không ghi bệnh sử, khám thực thể, kết quả cận lâm sàng đã có, chẩn đoán mới, bệnh trình, tình trạng ra viện, thuốc cụ thể hoặc đơn thuốc.
+    Nếu hướng cần làm sai, lẫn kết quả đã có, lẫn thuốc cụ thể hoặc lẫn chẩn đoán, phải sửa tại A13; nếu chẩn đoán sai sửa tại A12, kết quả cận lâm sàng sai sửa tại A14, thuốc/đơn thuốc sai sửa tại A15.
+
+A13_ALLOWED_SOURCE
+    A13 chỉ được đọc:
+        1. User input của ROUND hiện tại.
+        2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
+        3. Latest/current A13_STATE nếu đã có, chỉ để UPDATE hoặc REUSE.
+        4. File/module A13.
+        5. A1_STATE để đối chiếu lý do vào viện với hướng cần làm.
+        6. A2_STATE để đối chiếu tiền sử, bệnh nền, dị ứng hoặc yếu tố nguy cơ.
+        7. A3_STATE để đối chiếu bệnh sử / triệu chứng hiện tại.
+        8. A4_STATE đến A11_STATE để đối chiếu khám lâm sàng theo hệ cơ quan.
+        9. A12_STATE để đối chiếu chẩn đoán hiện tại với hướng cần làm; không sửa A12 và không tạo chẩn đoán mới.
+        10. A14_STATE chỉ để phân biệt kết quả đã có với xét nghiệm/thăm dò cần làm, và chỉ khi A14 hiện hành hợp lệ từ CURRENT_STATE trước hoặc user input trực tiếp.
+    A14 của ROUND hiện tại chạy sau A13 nên không được coi là dependency trước A13.
+    A13 không được đọc/dùng A15_STATE của ROUND hiện tại, A15_STATE cũ từ ROUND trước để tạo A13, C_STATE, O_OUTPUT, output đã render, trí nhớ ẩn, dữ liệu ngoài state hợp lệ, thuốc cụ thể để tạo A13_TREATMENT chi tiết, kết quả cận lâm sàng đã có như việc cần làm, chẩn đoán phân biệt C5 để tự tạo hướng cần làm hoặc A13 patch/delta thay full current state.
+
+A13_ALLOWED_ACTION
+    A13 chỉ được làm:
+        1. CREATE full A13_STATE.
+        2. UPDATE full A13_STATE.
+        3. REUSE full A13_STATE.
+        4. CHECK A13_STATE.
+        5. Quản lý A13_REV của chính A13.
+        6. Chuẩn hóa xét nghiệm cần làm.
+        7. Chuẩn hóa chẩn đoán hình ảnh / thăm dò cần làm.
+        8. Chuẩn hóa hướng điều trị tổng quát.
+        9. Áp dụng RUN_MODE USER_ONLY, DEFAULT_COMPLETION hoặc AUTO_SAMPLE lấy từ G_STATE.
+    A13 không được sửa A12 chẩn đoán, sửa A14 kết quả cận lâm sàng, sửa A15 thuốc/đơn thuốc, tạo thuốc cụ thể, kê đơn, tạo kết quả xét nghiệm/hình ảnh, chạy C, render O, sửa O, tạo C_STATE, tạo O_OUTPUT, tự chuyển A_GATE hoặc bỏ qua A14 để nhảy sang A15 nếu thứ tự hiện hành yêu cầu A14.
+
+A13_ALLOWED_WRITE
+    A13 chỉ ghi full current A13_STATE.
+    A13 không ghi A1-A12, A14-A15, A_GATE, A_STATE_OUTPUT_SCHEMA, C_STATE, O_OUTPUT, S/G hoặc A_MODULE_REV toàn cục.
+    A13_STATE là full state, không phải patch/delta.
+
+A13_STATE_SCHEMA
+    A13_STATE:
+        STATE_VERSION = ...
+        A13_REV = ...
+        UPDATED_AT = HH:MM dd/mm/yyyy
+        A13_LABS = ...
+        A13_IMAGING = ...
+        A13_TREATMENT = ...
+        A13_CHECK = PASS / NEEDS_FIX
+        A13_ERROR = ...
+    STATE_VERSION lấy từ G_STATE của ROUND hiện tại.
+    A13_REV là revision nội dung thật của A13_LABS, A13_IMAGING và A13_TREATMENT.
+    UPDATED_AT là metadata kỹ thuật theo định dạng HH:MM dd/mm/yyyy; O không render UPDATED_AT.
+    A13_CHECK là kết quả tự kiểm của A13.
+    Nếu A13_CHECK = PASS thì A13_ERROR = Không có lỗi.
+    Nếu A13_CHECK = NEEDS_FIX thì A13_ERROR ghi rõ lỗi cụ thể.
+    Không thêm STATUS, A13_FOR_O3, A13_FINAL, A13_RENDER, A13_OUTPUT, A13_SOURCE_A_REV, A13_FOR_C3 hoặc field mới ngoài schema hiện tại.
+    Không đổi tên A13_LABS, A13_IMAGING, A13_TREATMENT, A13_CHECK hoặc A13_ERROR.
+    No-content literals bắt buộc:
+        1. A13_LABS = Không có xét nghiệm cần làm.
+        2. A13_IMAGING = Không có chẩn đoán hình ảnh cần làm.
+        3. A13_TREATMENT = Không có hướng điều trị cần làm.
+    Không dùng sentinel kỹ thuật hoặc no-data text khác như NONE, Không áp dụng, Không có, SKIP, NULL, N/A.
+
+A13_LOGIC_RULES
+    Need-to-do vs existing results:
+        1. A13 chỉ ghi chỉ định làm thêm / cần làm / hướng xử trí; không ghi kết quả đã có.
+        2. Kết quả cận lâm sàng đã có thuộc A14 hoặc output cận lâm sàng tương ứng, không đưa vào A13.
+        3. Nếu A14 đã có kết quả cũ và user yêu cầu kiểm tra lại, A13 ghi việc cần làm lại.
+        4. Nếu A14 đã đủ và user không yêu cầu làm thêm, A13 không lặp lại như chỉ định mới.
+        5. A13 không biến kết quả xét nghiệm/hình ảnh thành chỉ định, không tạo trị số xét nghiệm, mô tả hình ảnh, kết luận cận lâm sàng hoặc chẩn đoán mới.
+        6. A13 không lấy thuốc dự kiến/thường dùng thành đơn thuốc cụ thể, không dùng A15 để viết ngược A13, không dùng C5 để thay hướng cần làm và không dùng output O cũ làm nguồn.
+    RUN_MODE:
+        1. USER_ONLY: chỉ chuẩn hóa/lưu hướng user cung cấp hoặc REUSE nếu có A13_STATE cũ hợp lệ và không có thay đổi; nếu chưa có A13 cũ và user không cung cấp hướng cần làm thì dùng no-content literals; nếu yêu cầu phải có hướng xử trí nhưng thiếu dữ kiện tối thiểu thì A13_CHECK = NEEDS_FIX và A13_ERROR nêu thiếu hướng xử trí.
+        2. DEFAULT_COMPLETION: được hoàn thiện trong phạm vi A13 dựa user input và dependency hợp lệ; giữ phần user cung cấp; bổ sung phần thiếu nếu không mâu thuẫn; không quá mức; không kê thuốc.
+        3. AUTO_SAMPLE: chỉ dùng cho ca mẫu; tạo hướng xử trí mẫu nhất quán A1-A12/A14; không dùng cho ca bệnh thật đã có dữ liệu thật.
+    A13_LABS:
+        1. A13_LABS là xét nghiệm cần làm, không chứa kết quả xét nghiệm, trị số, mô tả kết quả, chẩn đoán hình ảnh, điều trị, thuốc, chẩn đoán, câu điều kiện hoặc diễn giải cận lâm sàng đã có.
+        2. Nếu có xét nghiệm cần làm, A13_LABS phải bắt đầu đúng bằng: Công thức máu, tổng phân tích nước tiểu, sinh hóa máu.
+        3. Sau bộ xét nghiệm nền mới thêm xét nghiệm đặc hiệu nếu cần; không thay thế bộ xét nghiệm nền bằng xét nghiệm đặc hiệu và không đưa xét nghiệm đặc hiệu lên trước.
+        4. Xét nghiệm đặc hiệu chỉ thêm khi phù hợp bệnh cảnh, ví dụ CRP/máu lắng/ASLO trong thấp khớp cấp hoặc viêm sau nhiễm khuẩn; RF/anti-CCP khi cần phân biệt viêm khớp dạng thấp; acid uric trong gút; HbA1c trong đái tháo đường; ceton máu/ceton niệu/khí máu khi tăng đường máu nặng hoặc nhiễm toan ceton; điện giải đồ/ure/creatinin, men gan, amylase/lipase, hormon giáp, cấy nước tiểu, men tim/troponin theo bệnh cảnh phù hợp.
+    A13_IMAGING:
+        1. A13_IMAGING là chẩn đoán hình ảnh / thăm dò cần làm.
+        2. A13_IMAGING chỉ chứa chẩn đoán hình ảnh hoặc thăm dò cần làm và chọn thăm dò liên quan trực tiếp bệnh cảnh.
+        3. A13_IMAGING không chứa kết quả hình ảnh, mô tả kết quả, xét nghiệm máu/nước tiểu, điều trị, thuốc, chẩn đoán hoặc việc biến kết quả đã có thành việc cần làm.
+        4. Nội dung có thể gồm X-quang, siêu âm, CT, MRI, nội soi, điện tim, siêu âm tim, điện não, điện cơ, thăm dò chức năng hô hấp, Holter điện tim, Doppler mạch hoặc thăm dò chuyên khoa phù hợp; không thêm thăm dò chuyên sâu khi hướng đánh giá ban đầu đã đủ.
+    A13_TREATMENT:
+        1. A13_TREATMENT là hướng điều trị tổng quát, một dòng, bắt đầu bằng chữ hoa, các hướng ngăn cách bằng dấu phẩy.
+        2. A13_TREATMENT không phải đơn thuốc, không phải danh sách thuốc cụ thể, không ghi liều, đường dùng, số lần dùng, số ngày dùng, số lượng, tương tác thuốc, chống chỉ định thuốc, an toàn thuốc chi tiết và không thay A15/C3.
+        3. Nếu có phần điều trị bằng thuốc tổng quát thì cuối phần điều trị bằng thuốc phải có “an thần, sinh tố”; không đặt nội dung giữa “an thần” và “sinh tố”; không viết sai thành “an thần,sinh tố”.
+        4. Điều trị chính theo bệnh và triệu chứng chính đặt trước hỗ trợ; biện pháp không dùng thuốc đặt cuối sau “an thần, sinh tố”.
+        5. Biện pháp không dùng thuốc chỉ dùng khi phù hợp và chỉ trong danh sách cho phép: đeo đai cố định khớp gối, đeo đai cố định khớp vai, đeo đai cố định khớp đau nếu xác định rõ khớp cần cố định, cố định cột sống thắt lưng, cố định cột sống cổ nếu bệnh cảnh cổ vai gáy/cột sống cổ phù hợp.
+        6. Không tự thêm nghỉ ngơi, chế độ ăn phù hợp, sinh hoạt phù hợp, vận động phù hợp, tránh yếu tố dị ứng hoặc phục hồi chức năng như điều trị mặc định trái rule này.
+    Đồng bộ A12/A1-A11:
+        1. A13 dùng A12 chẩn đoán hiện tại làm bối cảnh hướng cần làm nhưng không sửa, thêm, xóa, đổi chẩn đoán và không biến A13 thành biện luận chẩn đoán.
+        2. Nếu A12 chưa đủ chẩn đoán, A13 vẫn có thể tạo hướng đánh giá/xử trí triệu chứng theo bệnh cảnh khi lệnh yêu cầu, nhưng không tự tạo chẩn đoán mới.
+        3. A13 dùng A1-A11 để đối chiếu lý do vào viện, tiền sử/bệnh nền/dị ứng/yếu tố nguy cơ, bệnh sử/triệu chứng hiện tại và khám theo hệ cơ quan, nhưng không viết lại các nội dung đó vào A13.
+
+A13_SPECIAL_RULES
+    Boundary A12:
+        A12 là chẩn đoán hiện tại. A13 không tạo, sửa, đổi, thêm hoặc xóa chẩn đoán và không thay A12.
+    Boundary A14:
+        A14 là kết quả cận lâm sàng đã có. A13 chỉ ghi xét nghiệm/thăm dò cần làm; không ghi kết quả đã có, không biến chỉ định cần làm thành kết quả đã có và không biến kết quả đã có thành chỉ định mới nếu user không yêu cầu làm lại.
+    Boundary A15:
+        A15 là thuốc cụ thể / đơn thuốc / an toàn thuốc. A13_TREATMENT chỉ là hướng điều trị tổng quát; A13 không ghi tên thuốc cụ thể, liều, đường dùng, số lần, số ngày, số lượng, tương tác/chống chỉ định/an toàn thuốc chi tiết; A13 không thay A15 và không dùng A15 để viết ngược A13.
+    Boundary C/O:
+        A13 không đọc C_STATE, không đọc O_OUTPUT, không render O, không chạy C. O1/O3 có thể đọc field A13 theo mapping của chính O, nhưng A13 không tạo field riêng cho O, không thêm A13_FOR_O3; O3 đọc trực tiếp A13_TREATMENT; C3 không được dùng A13_TREATMENT như thuốc đã kê.
+    Cụm điều trị bắt buộc theo bệnh cảnh:
+        1. K21/K29, bệnh dạ dày - thực quản, viêm dạ dày hoặc A3/A7 có nóng rát thượng vị, ợ hơi, ợ chua rõ: A13_TREATMENT phải có “Giảm tiết, băng se niêm mạc”.
+        2. Tiền đình/H81 hoặc A3/A9 gợi ý rối loạn tiền đình: A13_TREATMENT phải có “Điều trị triệu chứng tiền đình”.
+        3. Cơ xương khớp đau/viêm: A13_TREATMENT phải có “Giảm đau, chống viêm”; nếu đau cột sống/co cứng cơ phù hợp có thể thêm “giãn cơ”.
+        4. Đái tháo đường: A13_TREATMENT phải có “Kiểm soát đường máu”.
+        5. Tăng huyết áp: A13_TREATMENT phải có “Kiểm soát huyết áp”.
+        6. Có cả đái tháo đường và tăng huyết áp: A13_TREATMENT phải có “Kiểm soát đường máu và huyết áp”.
+        7. Nhiễm khuẩn rõ: A13_TREATMENT có “kháng sinh” ở mức tổng quát, không ghi tên thuốc cụ thể.
+    Cấm câu điều kiện / cụm mơ hồ trong giá trị A13_LABS, A13_IMAGING hoặc A13_TREATMENT:
+        Không dùng các cụm như nếu, khi, tùy, cân nhắc, có thể, nếu cần, khi cần, tùy tình trạng, khi có chỉ định, theo chỉ định, khi có kết quả, sau khi có kết quả, theo đáp ứng, theo diễn biến, tùy kết quả, theo điều kiện, đánh giá thêm rồi quyết định, dùng giảm đau nếu cần, theo dõi huyết áp, theo dõi đường máu, theo dõi đường huyết hoặc cụm tương đương làm output không quyết định rõ. A13 phải quyết định rõ trong phạm vi contract hoặc dùng no-content literal / NEEDS_FIX.
+
+A13_CHECK_PASS_IF
+    A13_CHECK = PASS khi đồng thời đạt:
+        1. A13_STATE đủ field schema, STATE_VERSION hợp lệ, A13_REV đúng, UPDATED_AT đúng định dạng HH:MM dd/mm/yyyy.
+        2. A13_LABS đúng phạm vi xét nghiệm cần làm, có bộ xét nghiệm nền đầu dòng khi có xét nghiệm cần làm, không chứa kết quả/trị số/mô tả/chẩn đoán hình ảnh/điều trị/thuốc/chẩn đoán/câu điều kiện.
+        3. A13_IMAGING đúng phạm vi hình ảnh/thăm dò cần làm, không lẫn xét nghiệm, kết quả, điều trị, thuốc, chẩn đoán hoặc mô tả kết quả.
+        4. A13_TREATMENT đúng phạm vi hướng điều trị tổng quát, một dòng, bắt đầu bằng chữ hoa, có cụm bắt buộc theo bệnh cảnh khi đủ căn cứ, không chứa thuốc cụ thể/liều/đường dùng/số lần/số ngày/số lượng/tương tác/chống chỉ định/an toàn thuốc chi tiết.
+        5. No-content literals đúng khi không có nội dung và không dùng sentinel kỹ thuật.
+        6. Không chứa kết quả cận lâm sàng đã có, không tạo chẩn đoán mới, không sửa A12/A14/A15.
+        7. Không dùng A15, C_STATE, O_OUTPUT, rendered output, hidden memory, C5 hoặc nguồn ngoài allowlist.
+        8. Không chứa câu điều kiện/cụm cấm và không mâu thuẫn user input hoặc dependency hợp lệ.
+        9. A13_STATE là full state, không patch/delta.
+        10. A13_ERROR = Không có lỗi.
+
+A13_NEEDS_FIX_IF
+    A13_CHECK = NEEDS_FIX nếu có ít nhất một lỗi:
+        1. Thiếu field schema, UPDATED_AT sai format, A13_REV sai hoặc A13_STATE không phải full state.
+        2. A13_LABS, A13_IMAGING hoặc A13_TREATMENT sai phạm vi; no-content literal sai; dùng sentinel kỹ thuật.
+        3. A13_LABS thiếu bộ xét nghiệm nền khi có xét nghiệm cần làm.
+        4. A13_IMAGING lẫn xét nghiệm, kết quả, điều trị, thuốc, chẩn đoán hoặc mô tả kết quả.
+        5. A13_TREATMENT lẫn thuốc cụ thể, đơn thuốc, liều, đường dùng, số lần, số ngày, số lượng hoặc an toàn thuốc chi tiết.
+        6. A13_TREATMENT thiếu cụm bắt buộc theo bệnh cảnh khi đủ căn cứ.
+        7. Dùng kết quả cận lâm sàng đã có như việc cần làm hoặc dùng A14 sai boundary.
+        8. Dùng A15 làm nguồn, ghi thuốc cụ thể, tạo/sửa chẩn đoán A12, đọc C_STATE/O_OUTPUT/rendered output/hidden memory hoặc dùng C5 thay thế hướng cần làm.
+        9. Có câu điều kiện/cụm mơ hồ bị cấm hoặc mâu thuẫn user input/dependency.
+        10. A13_ERROR không rõ khi NEEDS_FIX hoặc sai literal khi PASS.
+        11. A13_END ghi chuyển A15 trong khi A_STATE_OUTPUT_SCHEMA hiện hành cho thấy A13 đứng trước A14 và A14 trước A15.
+
+A13_ERROR_RULE
+    Nếu A13_CHECK = PASS: A13_ERROR = Không có lỗi.
+    Nếu A13_CHECK = NEEDS_FIX: A13_ERROR phải ghi rõ lỗi cụ thể và dữ liệu cần bổ sung/phần cần sửa.
+    Lỗi phải chỉ rõ nhóm liên quan nếu xác định được: A13_LABS, A13_IMAGING, A13_TREATMENT, UPDATED_AT, Dependency, Schema, A12 boundary, A14 boundary, A15 boundary hoặc C/O/hidden source.
+    Lỗi lẫn cận lâm sàng phải chỉ về A14; lỗi lẫn thuốc cụ thể phải chỉ về A15.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
+
+A13_REUSE_RULE
+    REUSE khi đã có A13_STATE hiện hành và input/dependency hợp lệ không ảnh hưởng A13 hoặc nội dung thật A13_LABS, A13_IMAGING và A13_TREATMENT không đổi.
+    Khi REUSE vẫn in full A13_STATE với STATE_VERSION của ROUND hiện tại và giữ A13_REV.
+    UPDATED_AT giữ thời điểm cập nhật nội dung thật gần nhất, trừ khi hệ thống cần ghi thời điểm tái xác nhận state.
+    Không ghi “giữ nguyên như trước”, “reuse A13”, “theo bản trước”, không thay nội dung thật bằng metadata và không dùng patch/delta.
+
+A13_REV_RULE
+    CREATE khi chưa có A13_STATE hiện hành: A13_REV = 1.
+    UPDATE khi user input hoặc dependency hợp lệ làm nội dung thật A13_LABS, A13_IMAGING hoặc A13_TREATMENT thay đổi: A13_REV tăng 1 so với A13_REV hiện hành và UPDATED_AT cập nhật mới.
+    REUSE hoặc chỉ metadata/STATE_VERSION thay đổi mà nội dung thật không đổi: giữ A13_REV.
+    Không tăng REV chỉ vì metadata.
+    A13_REV là metadata kỹ thuật cho A_MODULE_REV; A13 không tự tạo toàn bộ A_MODULE_REV.
+
+A13_END
+    A13 hoàn tất khi đã CREATE / UPDATE / REUSE full current A13_STATE, đã xác định A13_CHECK = PASS hoặc NEEDS_FIX, A13_ERROR đúng, không ghi ngoài A13_ALLOWED_WRITE, không chạy C/O, không render O và không tự dừng STEP A khi chưa đến A_GATE.
+    Sau khi hoàn tất A13_STATE, chuyển sang A14 theo A_RUN_ORDER hiện hành.
+    Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
 
 <<< END A13
 ```text id="a14_detail"
