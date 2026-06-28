@@ -692,250 +692,68 @@ C3_END
 
 ####################################################################################################
 
-C4 — TỔNG HỢP HỘI CHỨNG / TRIỆU CHỨNG / CẬN LÂM SÀNG RỜI RENDER-READY CHO O2
-Version: BA S-G-A-C-O v3
-Update: 14/06/2026 — pipeline C4_ITEMS → C4_FOR_O2 với 3 TYPE hợp lệ
+C4.1. Nhiệm vụ của C4
+Version: BA S-G-A-C-O V4 compact allowlist
+Update: compact C4 V4 — ALLOWLIST MODE, giữ C4_ITEMS và C4_FOR_O2 render-ready
 
 >>> READ-LOCK: C4
-- Bắt buộc đọc tuần tự toàn bộ C4 từ C4.1 đến C4.24 trước khi chạy, audit, patch hoặc review C4.
-- C4 là module selective; C4 chỉ chạy khi C4 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-- C4 chỉ tạo C4_ITEMS với 3 TYPE hợp lệ: Hội chứng, Triệu chứng, Cận lâm sàng.
-- Chỉ tạo C4_STATE đầy đủ; không tạo state của C khác, không sửa A_STATE và không chạy A.
-- Không render O, không tự gọi O2, không quyết định O2 có render hay không và không tạo tiêu đề/câu mở đầu của O2.
-- G_CORE khai báo O2 requires C4; nếu O2 được render, G phải thêm C4 vào C_RUN_ORDER trước khi O2 render.
-- C4 tạo C4_ITEMS trước, sau đó render C4_FOR_O2 từ C4_ITEMS; C4_FOR_O2 không được viết tự do trực tiếp từ cảm tính.
-- C4_FOR_O2 là phần thân render-ready để O2 đặt ngay sau câu mở đầu.
-- C4 tổng hợp Hội chứng, Triệu chứng và Cận lâm sàng rời đã có từ full current A_STATE đã qua A_GATE.
-- Nguồn canonical kết quả cận lâm sàng đã có của C4 là A14_STATE trong full current A_STATE.
-- C4 không đọc C1_STATE, C2_STATE, C3_STATE, C5_STATE, C6_STATE hoặc C7_STATE mặc định.
-- C4 không tự bịa dữ kiện, không tự tạo kết quả cận lâm sàng và không biến xét nghiệm / chẩn đoán hình ảnh / thăm dò cần làm trong A13 thành kết quả đã có.
-- C4 không bê nguyên chẩn đoán A12 thay cho hội chứng; không dùng hội chứng mơ hồ.
-- Sau C4, chuyển sang C module kế tiếp theo đúng G_STATE.C_RUN_ORDER của ROUND hiện tại; nếu C4 là C cuối cùng thì STEP C kết thúc và chuyển sang C_GATE.
-- C4 không giả định C5 là module kế tiếp và không buộc C khác chạy.
+- Bắt buộc đọc toàn bộ C4 compact từ C4_ROLE đến C4_END.
+- C4 là module C selective; chỉ chạy khi C4 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
+- C4 chỉ tạo/cập nhật/reuse/check full C4_STATE; không tạo patch/delta.
+- C4 tạo C4_ITEMS trước rồi render C4_FOR_O2 từ C4_ITEMS; C4_FOR_O2 không được viết tự do trực tiếp.
+- C4_FOR_O2 là body render-ready để O2 copy nguyên văn; C4 không render O2, không tạo tiêu đề/câu mở đầu O2.
+- C4 không sửa A/S/G/O hoặc C1-C3/C5-C7.
 <<< END READ-LOCK: C4
 
-C4.1. Nhiệm vụ của C4
-    C4.1.1. Vai trò chính của C4
-        C4 là module tổng hợp Hội chứng, Triệu chứng và Cận lâm sàng rời đã có để phục vụ O2.
-        C4 tạo C4_STATE đầy đủ để đưa vào current selective C_STATE của ROUND hiện tại.
-        C4 tạo C4_ITEMS trước, sau đó render C4_FOR_O2 từ C4_ITEMS.
-        C4_FOR_O2 không được viết tự do trực tiếp từ cảm tính hoặc từ đoạn văn tự do.
-        O2 chỉ đọc C4_FOR_O2, không tự chọn lại hội chứng, không tự render lại từ C4_ITEMS và không tự sắp xếp lại nội dung.
-        C4 không render O2 và không tạo tiêu đề/câu mở đầu của O2.
+C4_ROLE
+    C4 là module C selective dùng để tổng hợp Hội chứng, Triệu chứng và Cận lâm sàng rời đã có để phục vụ O2.
+    Khi C4 nằm trong G_STATE.C_RUN_ORDER, C4 tạo full C4_STATE để đưa vào current selective C_STATE của ROUND hiện tại.
+    C4 phải tạo C4_ITEMS trước, sau đó render C4_FOR_O2 từ C4_ITEMS.
+    C4_FOR_O2 không được viết tự do trực tiếp từ cảm tính, đoạn văn tự do, output cũ hoặc rendered output.
+    O2 chỉ đọc/copy C4_FOR_O2; O2 không tự chọn lại hội chứng, không render lại từ C4_ITEMS và không tự sắp xếp lại nội dung.
+    C4 không render O2, không tạo tiêu đề/câu mở đầu O2, không tạo O_OUTPUT và không render output cuối.
+    C4 không tạo chẩn đoán, hướng điều trị, bệnh trình, thuốc/đơn thuốc, cảnh báo hoặc chẩn đoán phân biệt.
 
-    C4.1.2. Nội dung C4 tạo ra
-        C4 tạo:
-            1. STATE_VERSION.
-            2. C4_REV.
-            3. C4_SOURCE_A_REV.
-            4. C4_ITEMS.
-            5. C4_FOR_O2.
-            6. C4_CHECK.
-            7. C4_ERROR nếu C4_CHECK = NEEDS_FIX.
+C4_ALLOWED_SOURCE
+    C4 chỉ được đọc nguồn khi C4 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
+    Nguồn được đọc:
+        1. G_STATE metadata kỹ thuật và C_RUN_ORDER, chỉ để xác nhận C4 được chạy.
+        2. A_GATE hợp lệ.
+        3. Full current A_STATE sau A_GATE.
+        4. A_MODULE_REV từ A_GATE / full current A_STATE.
+        5. A14_STATE trong full current A_STATE cho kết quả cận lâm sàng đã có.
+        6. Current/latest C4_STATE nếu đã có, chỉ để CREATE / UPDATE / REUSE.
+        7. File/module C4.
+    C4 đọc full current A_STATE, không đọc A_STATE patch/delta.
+    A14_STATE là nguồn canonical cho kết quả xét nghiệm, chẩn đoán hình ảnh, nội soi, điện tim và thăm dò đã có.
+    A12_STATE có thể nằm trong full current A_STATE nhưng không được bê chẩn đoán thay hội chứng và không bê ICD/bệnh nền/tiền sử thành C4 nếu không có biểu hiện hiện tại.
+    A13_STATE có thể nằm trong full current A_STATE nhưng không được dùng chỉ định cần làm như kết quả đã có; không dùng A13_LABS, A13_IMAGING hoặc A13_TREATMENT làm kết quả đã có.
+    A15_STATE không phải nguồn riêng của C4; không dùng thuốc/đơn thuốc để tạo C4.
+    Nguồn cấm: O_OUTPUT, output đã render, C_STATE khác mặc định, C1_STATE/danh sách “cần làm” của C1 làm kết quả đã có, C2 cảnh báo lâm sàng để biến thành hội chứng, C3 làm cận lâm sàng, C5_STATE/chẩn đoán phân biệt để biến thành hội chứng/triệu chứng, hidden memory/trí nhớ ẩn, dữ liệu ngoài state hợp lệ, web/guideline/source ngoài và A_STATE patch/delta.
 
-    C4.1.3. Nguyên tắc trách nhiệm
-        C4 chỉ tổng hợp dữ kiện đã có thành C4_ITEMS gồm Hội chứng, Triệu chứng và Cận lâm sàng rời.
-        C4 render C4_FOR_O2 từ C4_ITEMS, không render trực tiếp từ cảm tính hoặc từ đoạn văn tự do.
-        C4 không tạo dữ kiện nguồn mới, không sửa A_STATE, không sửa C_STATE khác và không render output cuối.
-        C4 không tạo chẩn đoán, hướng điều trị, bệnh trình, đơn thuốc, cảnh báo hoặc danh sách chẩn đoán phân biệt.
-        Nếu dữ kiện chưa đủ hội chứng nhưng có triệu chứng thật cần đưa vào O2 thì tạo C4_ITEM TYPE = Triệu chứng.
-        Nếu là kết quả cận lâm sàng rời không thuộc hội chứng thì tạo C4_ITEM TYPE = Cận lâm sàng.
+C4_ALLOWED_ACTION
+    C4 được CREATE / UPDATE / REUSE / CHECK full C4_STATE.
+    Khi chạy, C4 thực hiện pipeline bắt buộc:
+        1. Đọc full current A_STATE sau A_GATE và A_MODULE_REV hiện hành.
+        2. So khớp dữ kiện thật với C4_SYNDROME_DICTIONARY.
+        3. Chọn TYPE hợp lệ: Hội chứng / Triệu chứng / Cận lâm sàng.
+        4. Tạo C4_ITEMS theo schema chuẩn.
+        5. Render C4_FOR_O2 từ C4_ITEMS theo format render-ready.
+        6. Kiểm C4_CHECK cho schema, source boundary, dictionary semantic validation, duplicate cận lâm sàng, render format, TYPE_GROUP_ORDER và REV/source REV.
+        7. Ghi C4_REV và C4_SOURCE_A_REV theo C4_REV_RULE.
+    C4 không được tạo chẩn đoán, sửa A12, tạo hướng điều trị, tạo thuốc/đơn thuốc, kiểm thuốc, tạo bệnh trình, tạo cảnh báo, tạo chẩn đoán phân biệt, sửa A_STATE, sửa state C khác, tạo C5_STATE, render O2/O, sửa G plan, tự chạy module khác hoặc tự gọi O2.
 
-C4.2. Khi nào chạy C4
-    C4.2.1. Điều kiện tiên quyết duy nhất
-        Điều kiện tiên quyết duy nhất để chạy C4 là: C4 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-        G_STATE chỉ xác định C4 có nằm trong C_RUN_ORDER hay không.
-        CREATE / UPDATE / REUSE là lifecycle nội bộ của C4 sau khi C4 được chạy; không do G chọn.
+C4_ALLOWED_WRITE
+    C4 chỉ được ghi full C4_STATE.
+    C4_STATE chỉ gồm các field trong C4_STATE_SCHEMA; không tự mở rộng schema và không dùng patch/delta.
+    C4 không được ghi A_STATE, A1-A15, C1-C3, C5-C7, G_STATE, O_OUTPUT, O2, S/G, C_GATE trực tiếp hoặc C_MODULE_REV trực tiếp nếu contract chung không cho phép.
+    C4 không tạo C4_FOR_O3, C4_FOR_O7, C4_PROBLEM_LIST, C4_FINAL, C4_OUTPUT, C4_RENDER, C5_STATE hoặc field mới ngoài schema hiện tại.
 
-    C4.2.2. User yêu cầu trực tiếp C4 hoặc yêu cầu O2
-        User yêu cầu trực tiếp C4 không làm C4 tự chạy; G phải đưa C4 vào C_RUN_ORDER trước.
-        O2 requires C4 theo dependency output-level trong G_CORE.
-        Nếu user yêu cầu O2 hoặc tóm tắt bệnh án, G phải thêm C4 vào C_RUN_ORDER trước khi O2 render.
-        O2 được render không làm C4 tự chạy ngoài C_RUN_ORDER.
-        Nếu C4_CHECK = NEEDS_FIX hoặc C4_STATE sai schema, O2 xử lý BLOCKED / NEEDS_FIX theo contract O2; C4 không tự render bù.
-
-    C4.2.3. Khi A_STATE thay đổi
-        A_GATE PASS, A_STATE thay đổi, A_MODULE_REV thay đổi, dữ kiện còn thiếu hoặc nội dung C4 có thể thay đổi không tự kích hoạt C4 ngoài C_RUN_ORDER.
-        Nếu C4 được G plan và A_MODULE_REV thay đổi, C4 đọc full current A_STATE sau A_GATE và xuất full C4_STATE theo lifecycle nội bộ.
-        Nếu A_STATE đổi nhưng ROUND không yêu cầu C4, không có O2 và plan hiện tại không chỉ định C4 thì C4 không chạy.
-
-    C4.2.4. Khi C4 không nằm trong C_RUN_ORDER
-        Nếu C4 không nằm trong C_RUN_ORDER:
-            - Không chạy C4.
-            - Không tạo hoặc cập nhật C4_STATE.
-            - Không in C4_STATE dạng SKIP.
-            - Không tạo patch/delta.
-            - Không tăng C4_REV.
-            - Không cập nhật C4_SOURCE_A_REV.
-        C4_STATE cũ nếu có giữ nguyên cho đến khi PLAN yêu cầu chạy lại C4.
-
-C4.3. Nguồn được đọc
-    C4.3.1. Nguồn hợp lệ
-        Khi C4 nằm trong C_RUN_ORDER, C4 được đọc:
-            1. G_STATE metadata kỹ thuật và C_RUN_ORDER để xác nhận C4 được chạy.
-            2. A_GATE hợp lệ.
-            3. Full current A_STATE sau A_GATE.
-            4. A_MODULE_REV từ A_GATE / full current A_STATE.
-            5. A14_STATE trong full current A_STATE cho kết quả cận lâm sàng đã có.
-            6. C4_STATE hiện hành mới nhất nếu đã có, chỉ để xử lý CREATE / UPDATE / REUSE.
-            7. File/module C4.
-
-    C4.3.2. Quy tắc đọc A_STATE
-        C4 đọc full current A_STATE, không đọc patch/delta.
-        A14_STATE là nguồn canonical cho kết quả xét nghiệm, chẩn đoán hình ảnh, nội soi, điện tim và thăm dò đã có.
-        A12_STATE không được bê chẩn đoán thay hội chứng.
-        A13_STATE không được dùng chỉ định cần làm như kết quả đã có.
-
-    C4.3.3. Nguồn không dùng
-        Ngoài các nguồn hợp lệ đã liệt kê, C4 không được đọc hoặc suy luận từ bất kỳ nguồn nào khác.
-        C4 không đọc output O để suy ngược.
-        C4 không đọc C khác mặc định.
-        C4 không dùng A13 chỉ định cần làm làm kết quả đã có.
-
-C4.4. Quan hệ với A_STATE và dependency
-    C4 đọc full current A_STATE đã qua A_GATE và A_MODULE_REV nguồn.
-    C4 ghi A_MODULE_REV đã dùng vào C4_SOURCE_A_REV.
-    Nếu A_MODULE_REV thay đổi và C4 được chạy, C4 phải tạo lại full C4_STATE hoặc cập nhật full C4_STATE theo dữ kiện hiện hành.
-    C4 không dùng C4_STATE cũ nếu C4_SOURCE_A_REV không khớp A_MODULE_REV hiện hành, trừ khi G plan chỉ yêu cầu audit trạng thái cũ mà không chạy C4.
-    C4 không tự mở A, không tự chạy A_GATE và không tự sửa A_STATE.
-
-C4.5. Quy tắc CREATE / UPDATE / REUSE C4_STATE
-    CREATE khi chưa có C4_STATE hợp lệ trong ROUND hoặc C4_SOURCE_A_REV trống.
-    UPDATE khi C4_STATE đã có nhưng A_MODULE_REV nguồn thay đổi, dữ kiện tổng hợp thay đổi, C4_ITEMS cần thay đổi hoặc C4_FOR_O2 cần render lại từ C4_ITEMS.
-    REUSE chỉ khi C4_STATE hiện hành hợp lệ, C4_SOURCE_A_REV khớp A_MODULE_REV hiện hành, C4_ITEMS hợp lệ theo schema mới, C4_FOR_O2 hợp lệ theo format mới, C4_FOR_O2 đã được revalidate trong ROUND hiện tại, C4_FOR_O2 khớp C4_ITEMS và C4_CHECK = PASS.
-    Nếu C4_STATE cũ chỉ có C4_FOR_O2 mà chưa có C4_ITEMS thì không được REUSE theo contract mới; phải UPDATE hoặc C4_CHECK = NEEDS_FIX với C4_ERROR ghi rõ thiếu C4_ITEMS schema mới.
-    Không được REUSE C4_STATE chỉ vì C4_CHECK = PASS hoặc C4_SOURCE_A_REV khớp A_MODULE_REV; C4_CHECK cũ từ trước patch không được dùng làm bằng chứng hợp lệ nếu thiếu C4_ITEMS hoặc C4_FOR_O2 không khớp C4_ITEMS.
-    Trước mọi REUSE C4_STATE, bắt buộc revalidate C4_ITEMS và C4_FOR_O2 theo schema hiện hành.
-    ERR-C4-STALE-PASS nếu C4_CHECK = PASS nhưng C4_ITEMS/C4_FOR_O2 không đạt contract hiện hành; ERR-C4-FOR-O2-PARAGRAPH nếu C4_FOR_O2 là đoạn văn tự do; ERR-C4-REUSE-WITHOUT-REVALIDATION nếu C4_STATE cũ được REUSE mà không chạy validation hiện hành; ERR-C4-MISSING-ITEMS nếu C4_STATE thiếu C4_ITEMS theo schema mới; ERR-C4-FORBIDDEN-TYPE nếu C4_ITEMS có TYPE không thuộc Hội chứng / Triệu chứng / Cận lâm sàng; ERR-C4-NAME-FALLBACK nếu C4_FOR_O2 render NAME thay dữ kiện.
-    Khi CREATE hoặc UPDATE, C4_STATE phải là full state, không dùng patch/delta.
-    Khi REUSE, không ghi “giữ nguyên như trước” thay nội dung thật.
-
-C4.6. C4_REV, C4_SOURCE_A_REV và RUN_MODE
-    C4_REV tăng khi C4_STATE được tạo mới hoặc cập nhật nội dung thật của C4_ITEMS/C4_FOR_O2.
-    C4_SOURCE_A_REV luôn ghi A_MODULE_REV của full current A_STATE đã dùng.
-    C4 không tự sửa RUN_MODE, không tạo RUN_MODE mới và không điều phối RUN_MODE.
-    C4 chỉ đọc metadata run để biết có được chạy hay không theo G_STATE.C_RUN_ORDER.
-
-C4.7. C4 internal pipeline
-    C4 chạy theo pipeline nội bộ bắt buộc:
-        1. Đọc full current A_STATE sau A_GATE.
-        2. So khớp dữ kiện hiện có với C4_SYNDROME_DICTIONARY.
-        3. Chọn TYPE hợp lệ: Hội chứng, Triệu chứng hoặc Cận lâm sàng.
-        4. Tạo C4_ITEMS.
-        5. Render C4_FOR_O2 từ C4_ITEMS.
-        6. C4_CHECK kiểm schema C4_ITEMS, format C4_FOR_O2, C4_FOR_O2 có khớp C4_ITEMS không, không thêm/bỏ/bịa dữ kiện và không dùng dữ liệu ngoài A_STATE hợp lệ.
-    Dictionary là tài liệu lâm sàng để AI tra cứu, so sánh dữ kiện đang có trong A_STATE rồi chọn hội chứng phù hợp.
-    Dictionary không phải nơi chỉ định AI đọc field kỹ thuật hoặc nguồn dạng kỹ thuật.
-    O2 chỉ đọc C4_FOR_O2, không tự chọn lại hội chứng, không tự render lại từ C4_ITEMS và không tự sắp xếp lại nội dung.
-
-C4.8. Phạm vi C4
-    Trong phạm vi:
-        1. Xác định hội chứng đủ điều kiện từ dữ kiện thật.
-        2. Nếu chưa đủ hội chứng nhưng có triệu chứng thật cần đưa vào O2 thì tạo TYPE = Triệu chứng.
-        3. Tạo C4_ITEMS theo schema chuẩn.
-        4. Gộp lâm sàng theo cơ quan hoặc vị trí thành một dòng ngắn gọn khi có thể.
-        5. Gộp xét nghiệm liên quan hội chứng vào tối đa 1 dòng xét nghiệm trong hội chứng.
-        6. Gộp chẩn đoán hình ảnh/thăm dò liên quan hội chứng vào tối đa 1 dòng trong hội chứng.
-        7. Đưa xét nghiệm/chẩn đoán hình ảnh/thăm dò không ghép trực tiếp hội chứng thành item TYPE = Cận lâm sàng khi có dữ kiện thật.
-        8. Render C4_FOR_O2 từ C4_ITEMS.
-        9. Kiểm C4_CHECK và C4_ERROR.
-    Ngoài phạm vi:
-        1. Render O2 hoặc bất kỳ O nào.
-        2. Tạo tiêu đề hoặc câu mở đầu của O2.
-        3. Tạo chẩn đoán, điều trị, thuốc, đơn thuốc, bệnh trình, tổng kết ra viện hoặc hội chẩn.
-        4. Tạo dữ kiện lâm sàng mới.
-        5. Biến chỉ định cần làm trong A13 thành kết quả đã có.
-
-C4.9. Nguyên tắc chung của tổng hợp
-    C4 chỉ gọi là hội chứng khi NAME exact-match một trong 6 hội chứng chuẩn trong C4_SYNDROME_DICTIONARY và có dữ kiện thật trong A_STATE đủ thuộc phạm vi hội chứng đó.
-    C4 ưu tiên hội chứng liên quan lý do vào viện, diễn biến chính, khám hiện tại và kết quả cận lâm sàng liên quan đã có.
-    C4 không dùng “nghi”, “theo dõi”, “hướng tới”, “phù hợp”, “chưa loại trừ” hoặc “có khả năng” trước tên hội chứng.
-    C4 không bê nguyên chẩn đoán A12 thay hội chứng.
-    Nếu dữ kiện đủ tiêu chí một trong 6 hội chứng chuẩn trong C4_SYNDROME_DICTIONARY thì TYPE = Hội chứng và NAME = đúng tên canonical exact-match; không được tự chỉnh sửa/tùy biến tên hội chứng.
-    Nếu có triệu chứng thật nhưng không đủ điều kiện vào bất kỳ hội chứng nào trong 6 hội chứng chuẩn thì TYPE = Triệu chứng.
-    Nếu là kết quả cận lâm sàng rời thì TYPE = Cận lâm sàng.
-    TYPE_GROUP_ORDER bắt buộc khi sắp xếp C4_ITEMS và render C4_FOR_O2:
-        1. TYPE = Hội chứng → GROUP_ORDER = 1.
-        2. TYPE = Triệu chứng → GROUP_ORDER = 2.
-        3. TYPE = Cận lâm sàng → GROUP_ORDER = 3.
-    C4 sắp xếp C4_ITEMS theo ORDER cuối cùng sau khi đã group theo TYPE:
-        1. Trước hết là toàn bộ TYPE = Hội chứng, sắp xếp nội bộ theo mức nổi bật liên quan lý do vào viện, triệu chứng chính hoặc nguy cơ xử trí.
-        2. Sau khi hết Hội chứng mới đến toàn bộ TYPE = Triệu chứng còn lại có dữ kiện thật.
-        3. Cuối cùng mới đến toàn bộ TYPE = Cận lâm sàng rời đã có nhưng không ghép trực tiếp vào hội chứng nào.
-    ORDER trong C4_ITEMS là thứ tự render cuối cùng trong C4_FOR_O2 sau khi đã group theo TYPE. Nếu input ban đầu có triệu chứng trước nhưng sau đó phát hiện đủ tiêu chí hội chứng khác, C4 phải reorder lại; C4 không được giữ thứ tự input nếu làm sai nhóm TYPE. C4_FOR_O2 lấy thứ tự theo TYPE_GROUP_ORDER trước, rồi ORDER nội bộ trong từng nhóm.
-
-C4.10. Quy tắc xác định hội chứng đủ điều kiện
-    Một hội chứng đủ điều kiện khi có:
-        1. Tên hội chứng exact-match một trong 6 hội chứng chuẩn trong C4_SYNDROME_DICTIONARY.
-        2. Dữ kiện cơ năng, thực thể hoặc cận lâm sàng hỗ trợ đủ để không phải suy đoán.
-        3. Không chỉ là chẩn đoán A12, không chỉ là chỉ định A13 và không chỉ là cảnh báo C2/C3.
-    Không đủ điều kiện nếu:
-        1. Chỉ có một triệu chứng đơn độc không đủ hội chứng.
-        2. Chỉ có kết quả cận lâm sàng đơn lẻ không liên hệ lâm sàng rõ.
-        3. Chỉ có chẩn đoán đã ghi nhưng thiếu dữ kiện hỗ trợ trong A_STATE.
-        4. Cần thêm dữ kiện mới mới có thể kết luận hội chứng.
-    Nếu không đủ điều kiện vào bất kỳ hội chứng nào trong 6 hội chứng chuẩn, chỉ tạo C4_ITEM TYPE = Triệu chứng khi có dữ kiện thật và hữu ích cho O2.
-
-C4.11. C4_SYNDROME_DICTIONARY
-    C4.11.0. Danh sách hội chứng chuẩn và khóa NAME
-        C4 chỉ được tạo TYPE = Hội chứng khi NAME exact-match một trong 6 tên canonical sau:
-            1. Hội chứng cổ vai cánh tay
-            2. Hội chứng viêm khớp
-            3. Hội chứng thắt lưng hông
-            4. Hội chứng tiền đình
-            5. Hội chứng viêm dạ dày tá tràng
-            6. Hội chứng tăng glucose máu
-        Không được viết biến thể, tên gần đúng, tên theo vị trí/tổn thương tự do hoặc thêm hội chứng ngoài danh sách.
-        Không được dùng lại tên hội chứng cũ nếu không thuộc 6 tên canonical trên.
-        Tên bị cấm gồm: Hội chứng dạ dày - thực quản, Hội chứng cơ xương khớp, Hội chứng đau khớp gối, Hội chứng thoái hóa khớp gối, Hội chứng đau cột sống thắt lưng, Hội chứng thần kinh, Hội chứng hô hấp, Hội chứng nhiễm trùng / viêm, Hội chứng chuyển hóa / huyết áp / huyết học, Hội chứng tăng đường huyết, Hội chứng rối loạn tiền đình, Hội chứng cổ vai gáy.
-        Nếu dữ kiện thuộc một hội chứng trong danh sách chuẩn mới thì bắt buộc TYPE = Hội chứng và NAME = đúng tên canonical; không hạ xuống TYPE = Triệu chứng.
-        Nếu triệu chứng thật không đủ điều kiện vào bất kỳ hội chứng nào trong 6 hội chứng chuẩn thì TYPE = Triệu chứng.
-        Nếu là kết quả cận lâm sàng đã có từ A14_STATE và không ghép trực tiếp vào hội chứng nào thì TYPE = Cận lâm sàng.
-
-    C4.11.1. Hội chứng cổ vai cánh tay
-        Dữ kiện lâm sàng: Đau vùng cổ, đau vùng cột sống cổ, đau vùng cổ vai, đau lan vai/cánh tay nếu có, vận động cột sống cổ đau hoặc hạn chế, co cứng cơ cạnh sống cổ nếu có, tê bì/đau lan tay nếu có dữ kiện thật.
-        Cận lâm sàng hỗ trợ: X-quang cột sống cổ, MRI cột sống cổ, CT cột sống cổ nếu có trong A14_STATE.
-        Quy tắc chọn: Khi có đau vùng cổ/cột sống cổ/cổ vai hoặc vận động cột sống cổ đau/hạn chế, chọn TYPE = Hội chứng, NAME = Hội chứng cổ vai cánh tay.
-        Quy tắc cận lâm sàng: Nếu có X-quang/MRI/CT cột sống cổ trong A14_STATE, gộp vào CẬN_LÂM_SÀNG của hội chứng này.
-
-    C4.11.2. Hội chứng viêm khớp
-        Dữ kiện lâm sàng: Đau khớp, đau khớp gối, đau khớp khi vận động, hạn chế vận động khớp, sưng/nóng/đỏ/đau các khớp nếu có, lạo xạo khớp nếu có, tràn dịch khớp/cứng khớp nếu có.
-        Cận lâm sàng hỗ trợ: X-quang các khớp, siêu âm các khớp, MRI khớp, marker viêm CRP nếu có trong A14_STATE.
-        Quy tắc chọn: Chỉ cần có triệu chứng khớp rõ như đau khớp gối khi vận động cũng quy về TYPE = Hội chứng, NAME = Hội chứng viêm khớp.
-        Quy tắc loại trừ / ranh giới: Không được hạ đau khớp gối khi vận động xuống TYPE = Triệu chứng nếu đó là triệu chứng khớp rõ; không được đổi NAME thành Hội chứng đau khớp gối, Hội chứng thoái hóa khớp gối hoặc Hội chứng cơ xương khớp.
-        Quy tắc cận lâm sàng: Nếu có X-quang/siêu âm/MRI khớp hoặc CRP trong A14_STATE, gộp vào CẬN_LÂM_SÀNG của hội chứng này.
-
-    C4.11.3. Hội chứng thắt lưng hông
-        Dữ kiện lâm sàng: Đau vùng cột sống thắt lưng, đau thắt lưng, đau lan mông/lan chân nếu có, đau kiểu rễ nếu có, tê bì chân nếu đi kèm đau thắt lưng hông, vận động cột sống thắt lưng đau hoặc hạn chế.
-        Cận lâm sàng hỗ trợ: X-quang cột sống thắt lưng, siêu âm nếu có dữ kiện liên quan, MRI cột sống thắt lưng, CT cột sống thắt lưng nếu có trong A14_STATE.
-        Quy tắc chọn: Khi có đau vùng cột sống thắt lưng/đau thắt lưng hoặc vận động cột sống thắt lưng đau/hạn chế, chọn TYPE = Hội chứng, NAME = Hội chứng thắt lưng hông.
-        Quy tắc cận lâm sàng: Nếu có X-quang/MRI/CT cột sống thắt lưng trong A14_STATE, gộp vào CẬN_LÂM_SÀNG của hội chứng này.
-
-    C4.11.4. Hội chứng tiền đình
-        Dữ kiện lâm sàng: Hoa mắt chóng mặt, chóng mặt, đi lại khó khăn, mất thăng bằng nếu có, nghiệm pháp Romberg (+) nếu có.
-        Cận lâm sàng hỗ trợ: Không bắt buộc nếu dữ kiện lâm sàng đủ rõ; chỉ đưa cận lâm sàng khi A14_STATE có kết quả thật liên quan.
-        Quy tắc chọn: Khi có hoa mắt chóng mặt hoặc chóng mặt kèm đi lại khó khăn/mất thăng bằng/Romberg (+), chọn TYPE = Hội chứng, NAME = Hội chứng tiền đình.
-        Quy tắc loại trừ / ranh giới: Nếu chỉ có hoa mắt chóng mặt đơn độc, vẫn được quy về Hội chứng tiền đình theo dictionary mới nếu dữ kiện đang là triệu chứng hiện tại rõ; không được đổi NAME thành Hội chứng rối loạn tiền đình hoặc Hội chứng thần kinh.
-
-    C4.11.5. Hội chứng viêm dạ dày tá tràng
-        Dữ kiện lâm sàng: Ợ hơi, ợ chua, nóng rát vùng thượng vị, đau thượng vị nếu có, ấn tức vùng thượng vị, dấu hiệu Mendel (+) nếu có, buồn nôn/nôn/đầy bụng/khó tiêu nếu liên quan dữ kiện thật.
-        Cận lâm sàng hỗ trợ: Nội soi dạ dày - tá tràng nếu có, test H. pylori nếu có, kết quả liên quan khác trong A14_STATE nếu có.
-        Quy tắc chọn: Khi có ợ hơi/ợ chua/nóng rát vùng thượng vị/ấn tức vùng thượng vị/dấu hiệu Mendel (+), chọn TYPE = Hội chứng, NAME = Hội chứng viêm dạ dày tá tràng.
-        Quy tắc loại trừ / ranh giới: Không được dùng NAME = Hội chứng dạ dày - thực quản; không hạ thành Triệu chứng tiêu hóa hoặc Triệu chứng trào ngược nếu dữ kiện thuộc nhóm này.
-
-    C4.11.6. Hội chứng tăng glucose máu
-        Dữ kiện lâm sàng: Khát nhiều, uống nhiều, tiểu nhiều, mệt mỏi liên quan tăng đường máu, sụt cân nếu có, nhìn mờ nếu có, tê bì/dị cảm nếu dữ kiện hiện tại có thật và liên quan.
-        Cận lâm sàng hỗ trợ: Glucose máu tăng, đường máu tăng, tăng glucose máu, tăng đường máu, HbA1c tăng, đường máu tại nhà dao động cao rõ, glucose/HbA1c numeric cao rõ hoặc A14_STATE đánh dấu bất thường/tăng.
-        Trigger textual bắt buộc: glucose máu tăng; đường máu tăng; HbA1c tăng; tăng glucose máu; tăng đường máu.
-        Trigger numeric/current-data bắt buộc: đường máu tại nhà dao động cao rõ như 15-20 mmol/L; glucose máu có giá trị cao rõ như 18,4 mmol/L; HbA1c có giá trị cao rõ như 9,7%; mọi glucose/HbA1c numeric cao rõ hoặc được A14_STATE đánh dấu bất thường/tăng.
-        Quy tắc chọn: Khi có triệu chứng tăng glucose máu hoặc xét nghiệm glucose máu/đường máu tại nhà/HbA1c tăng hoặc cao rõ trong dữ kiện hiện tại hợp lệ từ A_STATE/A14_STATE, chọn TYPE = Hội chứng, NAME = Hội chứng tăng glucose máu.
-        Quy tắc cận lâm sàng: Đưa đúng dữ kiện xét nghiệm glucose máu/đường máu tại nhà/HbA1c đã có vào CẬN_LÂM_SÀNG của hội chứng; không để các dữ kiện này thành TYPE = Cận lâm sàng rời nếu đủ trigger Hội chứng tăng glucose máu.
-        Quy tắc không tự tạo: Chỉ dùng giá trị đã có trong A14_STATE hoặc state hợp lệ; không tự suy diễn thêm xét nghiệm, trị số hoặc bất thường không có trong nguồn.
-        Quy tắc loại trừ / ranh giới: Không được đổi NAME thành Hội chứng tăng đường huyết; không đưa đái tháo đường typ 2 chỉ từ tiền sử/chẩn đoán nền vào C4 nếu không có triệu chứng hiện tại hoặc xét nghiệm glucose/HbA1c liên quan.
-
-C4.12. Schema C4_ITEMS
-    C4_ITEMS là cấu trúc nội dung chuẩn, không phải output cuối.
-    C4_ITEMS có dạng:
+C4_STATE_SCHEMA
+    C4_STATE:
+        STATE_VERSION = ...
+        C4_REV = ...
+        C4_SOURCE_A_REV = ...
         C4_ITEMS:
             C4_ITEM_N:
                 TYPE = Hội chứng / Triệu chứng / Cận lâm sàng
@@ -945,572 +763,137 @@ C4.12. Schema C4_ITEMS
                 CẬN_LÂM_SÀNG: ... / NONE
                 ITEM_CHECK = PASS / NEEDS_FIX
                 ITEM_ERROR = NONE / ...
-    Quy tắc C4_ITEMS:
-        1. Chỉ tạo C4_ITEM khi có dữ kiện thật.
-        2. LÂM_SÀNG gộp cơ năng và thực thể theo cơ quan/vị trí.
-        3. Ưu tiên một dòng ngắn gọn cho mỗi cơ quan/vị trí.
-        4. Không tách cơ năng/thực thể thành field riêng.
-        5. Không dùng schema cũ TRIỆU_CHỨNG_CƠ_NĂNG hoặc TRIỆU_CHỨNG_THỰC_THỂ.
-        6. Nếu không có lâm sàng thì ghi LÂM_SÀNG: NONE.
-        7. Nếu không có cận lâm sàng thì ghi CẬN_LÂM_SÀNG: NONE.
-        8. Nếu cả LÂM_SÀNG và CẬN_LÂM_SÀNG đều NONE thì item không được PASS.
-        9. Không ghi placeholder kiểu “chưa có”, “không có”, “nếu có”.
-        10. Không dùng chẩn đoán A12, tiền sử hoặc ICD nền thay hội chứng hiện tại.
-        11. Nếu dữ kiện đủ tiêu chí một trong 6 hội chứng chuẩn trong C4_SYNDROME_DICTIONARY thì bắt buộc TYPE = Hội chứng và NAME = đúng tên canonical exact-match.
-        12. Nếu có triệu chứng thật cần đưa vào O2 nhưng không đủ điều kiện vào bất kỳ hội chứng nào trong 6 hội chứng chuẩn thì tạo TYPE = Triệu chứng.
-        13. TYPE = Cận lâm sàng chỉ dùng cho kết quả đã có từ A14_STATE không ghép trực tiếp vào hội chứng nào.
-        14. Mỗi C4_ITEM phải có TYPE, NAME, ORDER, LÂM_SÀNG, CẬN_LÂM_SÀNG, ITEM_CHECK và ITEM_ERROR.
-        15. LÂM_SÀNG và CẬN_LÂM_SÀNG bắt buộc dùng dấu hai chấm đúng field “LÂM_SÀNG:” và “CẬN_LÂM_SÀNG:”; nếu runtime dùng dấu bằng cho hai field này thì C4_CHECK = NEEDS_FIX với ERR-C4-FIELD-SYNTAX.
-        16. Không dùng dạng list “ID = C4_ITEM_01”; bắt buộc dùng block “C4_ITEM_N:”.
-        17. ORDER xác định thứ tự render cuối cùng trong C4_FOR_O2 sau khi đã group theo TYPE_GROUP_ORDER.
-        18. ORDER phải phản ánh thứ tự group bắt buộc: toàn bộ Hội chứng trước toàn bộ Triệu chứng, toàn bộ Triệu chứng trước toàn bộ Cận lâm sàng rời; không giữ thứ tự input nếu làm sai nhóm TYPE.
-        19. C4_ITEMS có thể thêm GROUP_ORDER nếu cần, nhưng nếu không ghi GROUP_ORDER thì vẫn phải kiểm theo TYPE_GROUP_ORDER: Hội chứng = 1, Triệu chứng = 2, Cận lâm sàng = 3.
-        20. ITEM_CHECK = PASS chỉ khi item có dữ kiện thật hoặc NONE đúng chỗ, đúng NAME/TYPE canonical, không vượt nguồn hợp lệ và đã qua semantic classification validation.
-        21. ITEM_CHECK không được PASS chỉ vì item đủ field/schema; nếu TYPE/NAME/LÂM_SÀNG/CẬN_LÂM_SÀNG vi phạm C4_SYNDROME_DICTIONARY hoặc rule cận lâm sàng đã ghép hội chứng thì ITEM_CHECK = NEEDS_FIX.
-        22. Trước khi một C4_ITEM TYPE = Triệu chứng được ITEM_CHECK = PASS, bắt buộc so NAME và LÂM_SÀNG của item đó với toàn bộ trigger của 6 hội chứng chuẩn trong C4_SYNDROME_DICTIONARY.
-        23. TYPE = Triệu chứng chỉ được PASS sau khi đã xác nhận âm tính với toàn bộ trigger của 6 hội chứng chuẩn; nếu NAME hoặc LÂM_SÀNG khớp trigger của bất kỳ hội chứng chuẩn nào thì item TYPE = Triệu chứng không được PASS.
-        24. Khi TYPE = Triệu chứng khớp trigger hội chứng chuẩn, phải chuyển item thành TYPE = Hội chứng với NAME canonical đúng nếu đang tạo C4_STATE; nếu không tự sửa trong runtime hiện tại thì ITEM_CHECK = NEEDS_FIX và ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM.
-        25. Trước khi một C4_ITEM TYPE = Cận lâm sàng được ITEM_CHECK = PASS, bắt buộc so NAME và CẬN_LÂM_SÀNG của item đó với toàn bộ trigger của 6 hội chứng chuẩn trong C4_SYNDROME_DICTIONARY.
-        26. TYPE = Cận lâm sàng chỉ được PASS sau khi đã xác nhận âm tính với toàn bộ trigger hội chứng chuẩn hoặc đã chứng minh đây là kết quả rời không ghép trực tiếp hội chứng nào; nếu NAME hoặc CẬN_LÂM_SÀNG khớp trigger của bất kỳ hội chứng chuẩn nào thì item TYPE = Cận lâm sàng không được PASS.
-        27. Khi TYPE = Cận lâm sàng khớp trigger hội chứng chuẩn, phải chuyển/gộp item thành TYPE = Hội chứng với NAME canonical đúng nếu đang tạo C4_STATE; nếu không tự sửa trong runtime hiện tại thì ITEM_CHECK = NEEDS_FIX và ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS.
-        28. ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS áp dụng khi cận lâm sàng đáng lẽ phải tạo/gộp hội chứng nhưng bị để cô lập thành TYPE = Cận lâm sàng; ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME vẫn dùng khi cùng nội dung cận lâm sàng đã nằm trong CẬN_LÂM_SÀNG của TYPE = Hội chứng nhưng bị tạo lặp thành item rời.
-        29. Rule scan TYPE = Cận lâm sàng áp dụng cho mọi hội chứng chuẩn: MRI/CT/X-quang cột sống cổ liên quan Hội chứng cổ vai cánh tay; X-quang/siêu âm/MRI khớp hoặc CRP liên quan Hội chứng viêm khớp; MRI/X-quang cột sống thắt lưng liên quan Hội chứng thắt lưng hông; glucose máu/đường máu tại nhà/HbA1c tăng hoặc cao rõ liên quan Hội chứng tăng glucose máu.
-        30. Nếu TYPE = Cận lâm sàng chứa glucose máu tăng, đường máu tăng, tăng glucose máu, tăng đường máu, HbA1c tăng, đường máu tại nhà dao động cao rõ, glucose máu numeric cao rõ hoặc HbA1c numeric cao rõ thì bắt buộc là TYPE = Hội chứng, NAME = Hội chứng tăng glucose máu; nếu không, ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS.
-        31. Trigger bắt buộc chặn downgrade sang TYPE = Triệu chứng hoặc TYPE = Cận lâm sàng rời:
-            a. Hội chứng cổ vai cánh tay: đau vùng cổ; đau cột sống cổ; đau vùng cổ vai; đau vùng cổ vai cánh tay; đau lan vai/cánh tay; vận động cột sống cổ đau; vận động cúi/ngửa/quay cột sống cổ giảm hoặc đau; co cứng cơ cạnh sống cổ. Nếu xuất hiện các trigger này trong TYPE = Triệu chứng thì invalid, phải là TYPE = Hội chứng, NAME = Hội chứng cổ vai cánh tay; nếu không, ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM.
-            b. Hội chứng viêm khớp: đau khớp; đau khớp gối; đau khớp gối hai bên; đau khớp khi vận động; đau tăng khi vận động tại khớp; vận động khớp đau tăng; hạn chế vận động khớp; lạo xạo khớp; lạo xạo xương; sưng khớp/nóng khớp/đỏ khớp/đau khớp; tràn dịch khớp/cứng khớp. Nếu xuất hiện các trigger này trong TYPE = Triệu chứng thì invalid, phải là TYPE = Hội chứng, NAME = Hội chứng viêm khớp; nếu không, ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM. “Đau khớp gối hai bên, đau tăng khi vận động, vận động khớp gối đau tăng, lạo xạo xương (+)” là Hội chứng viêm khớp, không được là Triệu chứng.
-            c. Hội chứng thắt lưng hông: đau vùng cột sống thắt lưng; đau thắt lưng; đau lưng lan mông; đau lan chân; đau kiểu rễ; vận động cột sống thắt lưng đau hoặc hạn chế; tê bì chân đi kèm đau thắt lưng hông. Nếu xuất hiện các trigger này trong TYPE = Triệu chứng thì invalid, phải là TYPE = Hội chứng, NAME = Hội chứng thắt lưng hông; nếu không, ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM.
-            d. Hội chứng tiền đình: hoa mắt chóng mặt; chóng mặt; đi lại khó khăn do chóng mặt; mất thăng bằng; Romberg (+); nghiệm pháp Romberg (+). Nếu xuất hiện các trigger này trong TYPE = Triệu chứng thì invalid, phải là TYPE = Hội chứng, NAME = Hội chứng tiền đình; nếu không, ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM. Hoa mắt chóng mặt hiện tại rõ không được ITEM_CHECK = PASS dưới TYPE = Triệu chứng.
-            e. Hội chứng viêm dạ dày tá tràng: ợ hơi; ợ chua; nóng rát vùng thượng vị; đau thượng vị; ấn tức vùng thượng vị; dấu hiệu Mendel (+); Mendel (+). Nếu xuất hiện các trigger này trong TYPE = Triệu chứng thì invalid, phải là TYPE = Hội chứng, NAME = Hội chứng viêm dạ dày tá tràng; nếu không, ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM. NAME = Triệu chứng tiêu hóa trên không được PASS nếu LÂM_SÀNG có ợ hơi/ợ chua/nóng rát thượng vị/ấn tức thượng vị/Mendel (+).
-            f. Hội chứng tăng glucose máu: glucose máu tăng; đường máu tăng; HbA1c tăng; tăng glucose máu; tăng đường máu; đường máu tại nhà dao động cao rõ; glucose máu numeric cao rõ; HbA1c numeric cao rõ; A14_STATE đánh dấu glucose/HbA1c bất thường/tăng; khát nhiều; uống nhiều; tiểu nhiều; mệt mỏi liên quan tăng đường máu; sụt cân liên quan tăng glucose; nhìn mờ liên quan tăng glucose. Nếu xuất hiện các trigger này trong TYPE = Triệu chứng thì invalid, phải là TYPE = Hội chứng, NAME = Hội chứng tăng glucose máu; nếu không, ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM. Nếu xuất hiện các trigger cận lâm sàng glucose/HbA1c/đường máu cao rõ trong TYPE = Cận lâm sàng thì invalid, phải là TYPE = Hội chứng, NAME = Hội chứng tăng glucose máu; nếu không, ITEM_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS.
-        32. TYPE = Cận lâm sàng chỉ được ITEM_CHECK = PASS nếu CẬN_LÂM_SÀNG của item đó không trùng và không đã được gộp vào bất kỳ CẬN_LÂM_SÀNG nào của TYPE = Hội chứng.
-        33. Nếu cùng một kết quả A14_STATE hoặc cùng nội dung cận lâm sàng đã nằm trong CẬN_LÂM_SÀNG của một hội chứng, không được tạo item TYPE = Cận lâm sàng rời; nếu vẫn tạo item rời thì ITEM_CHECK = NEEDS_FIX và ITEM_ERROR = ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME.
-        34. Nếu bất kỳ ITEM_CHECK = NEEDS_FIX thì C4_CHECK bắt buộc = NEEDS_FIX; C4_CHECK không được PASS khi còn ITEM_ERROR semantic classification hoặc duplicate cận lâm sàng.
+        C4_FOR_O2:
+            - ...
+        C4_CHECK = PASS / NEEDS_FIX
+        C4_ERROR = NONE / ...
+    C4_ITEMS là cấu trúc nội dung chuẩn, không phải output cuối.
+    Mỗi C4_ITEM phải có TYPE, NAME, ORDER, LÂM_SÀNG, CẬN_LÂM_SÀNG, ITEM_CHECK và ITEM_ERROR.
+    LÂM_SÀNG và CẬN_LÂM_SÀNG bắt buộc dùng dấu hai chấm đúng field “LÂM_SÀNG:” và “CẬN_LÂM_SÀNG:”; không dùng dấu bằng cho hai field này.
+    Nếu không có lâm sàng thì ghi LÂM_SÀNG: NONE; nếu không có cận lâm sàng thì ghi CẬN_LÂM_SÀNG: NONE.
+    Item có cả LÂM_SÀNG và CẬN_LÂM_SÀNG đều NONE không được PASS và phải bỏ hoặc NEEDS_FIX.
+    Không dùng schema cũ TRIỆU_CHỨNG_CƠ_NĂNG / TRIỆU_CHỨNG_THỰC_THỂ và không dùng dạng list “ID = C4_ITEM_01”; bắt buộc dùng block C4_ITEM_N.
+    Nếu C4_CHECK = PASS thì C4_ERROR = NONE; nếu C4_CHECK = NEEDS_FIX thì C4_ERROR phải ghi rõ lỗi.
 
-C4.13. Quy tắc render C4_FOR_O2 từ C4_ITEMS
-    C4_FOR_O2 bắt buộc được render từ C4_ITEMS, không được tự viết tự do.
-    C4_FOR_O2 phải là danh sách render-ready; mỗi item top-level bắt đầu bằng “-”.
-    C4_FOR_O2 bắt buộc render theo TYPE_GROUP_ORDER: toàn bộ TYPE = Hội chứng trước, sau đó toàn bộ TYPE = Triệu chứng, cuối cùng toàn bộ TYPE = Cận lâm sàng rời. Không được có Triệu chứng nằm giữa các Hội chứng; không được có Cận lâm sàng rời trước hoặc giữa Hội chứng/Triệu chứng; không được có Hội chứng xuất hiện sau Triệu chứng hoặc sau Cận lâm sàng rời; không được có Triệu chứng xuất hiện sau Cận lâm sàng rời.
-    Thứ tự C4_FOR_O2 phải khớp C4_ITEMS theo khóa sắp xếp: (1) TYPE_GROUP_ORDER: Hội chứng = 1, Triệu chứng = 2, Cận lâm sàng = 3; (2) ORDER nội bộ trong từng nhóm.
-    Với TYPE = Hội chứng, format duy nhất:
-        - [NAME]:
-          + [LÂM_SÀNG nếu khác NONE]
-          + [CẬN_LÂM_SÀNG nếu khác NONE]
-        Quy tắc:
-            1. Dòng cha bắt buộc là “- [NAME]:”.
-            2. Dòng con chỉ là dữ kiện, thụt đúng 2 khoảng trắng trước dấu “+”.
-            3. Không thêm nhãn “Lâm sàng:” hoặc “Cận lâm sàng:”.
-            4. Nếu LÂM_SÀNG: NONE thì không render dòng lâm sàng.
-            5. Nếu CẬN_LÂM_SÀNG: NONE thì không render dòng cận lâm sàng.
-            6. Nếu cả LÂM_SÀNG và CẬN_LÂM_SÀNG đều NONE thì item phải ITEM_CHECK = NEEDS_FIX hoặc bị bỏ khỏi C4_ITEMS.
-    Với TYPE = Triệu chứng, format duy nhất:
-        - [LÂM_SÀNG]
-        Quy tắc:
-            1. Render trực tiếp một dòng top-level từ LÂM_SÀNG.
-            2. Không render NAME, không render dấu hai chấm sau NAME, không tạo block cha-con.
-            3. Không tạo dòng top-level bắt đầu bằng “- Triệu chứng”.
-            4. Nếu LÂM_SÀNG: NONE thì item phải ITEM_CHECK = NEEDS_FIX hoặc bị bỏ khỏi C4_ITEMS.
-            5. Không fallback sang NAME.
-    Với TYPE = Cận lâm sàng, format duy nhất:
-        - [CẬN_LÂM_SÀNG]
-        Quy tắc:
-            1. Render trực tiếp một dòng top-level từ CẬN_LÂM_SÀNG.
-            2. Không render NAME như dòng cha và không tạo block cha-con.
-            3. Không thêm nhãn “Cận lâm sàng:”.
-            4. Nếu CẬN_LÂM_SÀNG: NONE thì item phải ITEM_CHECK = NEEDS_FIX hoặc bị bỏ khỏi C4_ITEMS.
-            5. Không render NAME nếu CẬN_LÂM_SÀNG: NONE.
-    Không render fallback từ NAME:
-        1. Nếu TYPE = Triệu chứng mà LÂM_SÀNG: NONE thì ITEM_CHECK = NEEDS_FIX hoặc bỏ item.
-        2. Nếu TYPE = Cận lâm sàng mà CẬN_LÂM_SÀNG: NONE thì ITEM_CHECK = NEEDS_FIX hoặc bỏ item.
-        3. Nếu TYPE = Hội chứng mà LÂM_SÀNG: NONE và CẬN_LÂM_SÀNG: NONE thì ITEM_CHECK = NEEDS_FIX hoặc bỏ item.
-        4. Không được render NAME thay dữ kiện.
-    Cấm trong C4_FOR_O2:
-        1. “Lâm sàng:” dưới mọi dạng nhãn.
-        2. “Cận lâm sàng:” dưới mọi dạng nhãn.
-        3. NONE.
-        4. Dòng “- Hoa mắt chóng mặt:” khi item là TYPE = Triệu chứng.
-        5. Dòng top-level bắt đầu bằng “- Triệu chứng”.
-        6. Tên triệu chứng trước dấu hai chấm đối với mọi TYPE = Triệu chứng.
-        7. Các phủ định không cần thiết như “không có dấu hiệu thần kinh khu trú”, “chưa ghi nhận dấu hiệu thần kinh khu trú”, “chưa ghi nhận...” hoặc “không có...”, trừ khi là dữ kiện bắt buộc của hội chứng trong dictionary và user yêu cầu giữ.
-    Quy tắc bắt buộc:
-        1. Dòng top-level luôn bắt đầu bằng “-”.
-        2. Dòng con trong block hội chứng luôn thụt đúng 2 khoảng trắng trước dấu “+”.
-        3. Không có tiêu đề O2 hoặc câu mở đầu O2.
-        4. Không có đoạn văn tự do kiểu “Người bệnh nam...”.
-        5. Không có nhãn nhóm như “Hội chứng chính”, “Hội chứng phụ”, “Dữ kiện cơ năng”, “Dữ kiện thực thể”, hoặc heading cận lâm sàng.
-        6. Trong mỗi hội chứng tối đa 1 dòng xét nghiệm và 1 dòng chẩn đoán hình ảnh/thăm dò.
-        7. Cận lâm sàng chỉ lấy từ A14_STATE.
-        8. C4_FOR_O2 không thêm dữ kiện ngoài C4_ITEMS và không bỏ sót C4_ITEM quan trọng.
+C4_LOGIC_RULES
+    C4_SYNDROME_DICTIONARY — NAME canonical exact-match duy nhất cho TYPE = Hội chứng:
+        1. Hội chứng cổ vai cánh tay
+        2. Hội chứng viêm khớp
+        3. Hội chứng thắt lưng hông
+        4. Hội chứng tiền đình
+        5. Hội chứng viêm dạ dày tá tràng
+        6. Hội chứng tăng glucose máu
+    Cấm viết biến thể, tên gần đúng, tên theo vị trí/tổn thương tự do hoặc thêm hội chứng ngoài danh sách.
+    Tên bị cấm gồm: Hội chứng dạ dày - thực quản; Hội chứng cơ xương khớp; Hội chứng đau khớp gối; Hội chứng thoái hóa khớp gối; Hội chứng đau cột sống thắt lưng; Hội chứng thần kinh; Hội chứng hô hấp; Hội chứng nhiễm trùng / viêm; Hội chứng chuyển hóa / huyết áp / huyết học; Hội chứng tăng đường huyết; Hội chứng rối loạn tiền đình; Hội chứng cổ vai gáy; hoặc biến thể tương đương ngoài dictionary.
 
-C4.14. Quy tắc dùng xét nghiệm / chẩn đoán hình ảnh / thăm dò trong C4
-    C4 chỉ dùng kết quả đã có từ A14_STATE trong full current A_STATE.
-    Không dùng xét nghiệm, chẩn đoán hình ảnh hoặc thăm dò cần làm trong A13 để tạo kết quả.
-    Không tự tạo kết quả bình thường hoặc bất thường.
-    Khi không có kết quả thật, ghi CẬN_LÂM_SÀNG: NONE trong item hoặc bỏ item cận lâm sàng độc lập.
-    Khi có xét nghiệm liên quan trực tiếp hội chứng, trong hội chứng đó chỉ render tối đa 1 dòng xét nghiệm.
-    Khi có chẩn đoán hình ảnh/thăm dò liên quan trực tiếp hội chứng, trong hội chứng đó chỉ render tối đa 1 dòng chẩn đoán hình ảnh/thăm dò.
-    Không dùng heading “Xét nghiệm:”, “Chẩn đoán hình ảnh:” hoặc “Cận lâm sàng:” trong output thật.
-    Cận lâm sàng liên quan trực tiếp một hội chứng phải được gộp vào CẬN_LÂM_SÀNG của hội chứng đó.
-    Khi một kết quả cận lâm sàng đã được gộp vào CẬN_LÂM_SÀNG của TYPE = Hội chứng, cùng kết quả đó không được render lại thành TYPE = Cận lâm sàng rời.
-    Không được cùng lúc có C4_ITEM hội chứng với CẬN_LÂM_SÀNG: MRI cột sống cổ ... và C4_ITEM khác TYPE = Cận lâm sàng, NAME = MRI cột sống cổ, CẬN_LÂM_SÀNG cùng nội dung.
-    Nếu duplicate cận lâm sàng đã ghép hội chứng xảy ra: ITEM_CHECK/C4_CHECK = NEEDS_FIX và C4_ERROR = ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME.
-    C4_FOR_O2 không được render lại cận lâm sàng rời nếu nội dung đó đã xuất hiện dưới block hội chứng.
+    Rule phân loại:
+        1. C4 tạo hội chứng khi dữ kiện thật match trigger hội chứng chuẩn; TYPE = Hội chứng và NAME = canonical exact literal.
+        2. Nếu dữ kiện match trigger hội chứng chuẩn thì không được hạ xuống TYPE = Triệu chứng hoặc TYPE = Cận lâm sàng.
+        3. C4 tạo triệu chứng rời chỉ khi có triệu chứng thật cần đưa vào O2 nhưng không đủ điều kiện vào 6 hội chứng chuẩn.
+        4. C4 tạo cận lâm sàng rời chỉ khi có kết quả đã có từ A14_STATE và kết quả đó không ghép trực tiếp vào hội chứng nào.
+        5. C4 phải gộp lâm sàng theo cơ quan/vị trí thành một dòng ngắn gọn khi có thể.
+        6. C4 phải gộp xét nghiệm liên quan hội chứng vào tối đa 1 dòng xét nghiệm trong hội chứng.
+        7. C4 phải gộp chẩn đoán hình ảnh/thăm dò liên quan hội chứng vào tối đa 1 dòng trong hội chứng.
+        8. Không bê nguyên chẩn đoán A12, bệnh nền, tiền sử hoặc ICD nền thay hội chứng hiện tại.
+        9. Không dùng “nghi”, “theo dõi”, “hướng tới”, “phù hợp”, “chưa loại trừ” hoặc “có khả năng” trước/tại NAME hội chứng hoặc trong C4_FOR_O2.
 
-C4.15. Quy tắc placeholder / phủ định / suy đoán
-    C4_ITEMS và C4_FOR_O2 không ghi placeholder.
-    Khi thiếu dữ kiện cho một hội chứng, bỏ hội chứng đó hoặc hạ xuống TYPE = Triệu chứng nếu có dữ kiện thật.
-    Cấm trong NAME và C4_FOR_O2: “nghi”, “theo dõi”, “hướng tới”, “phù hợp”, “chưa loại trừ”, “có khả năng”.
-    Khi thiếu kết quả cận lâm sàng cho hội chứng, ghi CẬN_LÂM_SÀNG: NONE trong C4_ITEMS và không render dòng cận lâm sàng tương ứng.
-    Khi không có bất kỳ item render-ready nào, C4_CHECK = NEEDS_FIX và C4_ERROR nêu thiếu dữ kiện thật để tạo C4_ITEMS/C4_FOR_O2.
-    Ví dụ sai chỉ để nhận diện lỗi, không được dùng trong output thật:
-        - Không có hội chứng chính đủ điều kiện.
-        - Không có hội chứng phụ đủ điều kiện.
-        - Chưa có cận lâm sàng đã có.
-        - Chưa có kết quả cận lâm sàng.
-        - Không có kết quả xét nghiệm.
-        - Không áp dụng.
-        - Không ghi nhận.
-        - Chưa có dữ kiện.
-        - Nếu có dữ kiện.
+    Trigger và rule từng hội chứng:
+        1. Hội chứng cổ vai cánh tay: trigger là đau vùng cổ/cột sống cổ/cổ vai/cổ vai cánh tay hoặc vận động cột sống cổ đau/hạn chế; có thể kèm đau lan vai/cánh tay, co cứng cơ cạnh sống cổ, tê bì/đau lan tay nếu có dữ kiện thật; ghép X-quang/MRI/CT cột sống cổ nếu có trong A14_STATE.
+        2. Hội chứng viêm khớp: trigger là triệu chứng khớp rõ như đau khớp, đau khớp gối khi vận động, hạn chế vận động khớp, sưng/nóng/đỏ/đau khớp, lạo xạo khớp/lạo xạo xương, tràn dịch/cứng khớp; ghép X-quang/siêu âm/MRI khớp hoặc CRP nếu có trong A14_STATE.
+        3. Hội chứng thắt lưng hông: trigger là đau vùng cột sống thắt lưng/đau thắt lưng hoặc vận động CSTL đau/hạn chế; có thể kèm đau lan mông/chân, đau kiểu rễ, tê bì chân đi kèm; ghép X-quang/MRI/CT CSTL nếu có trong A14_STATE.
+        4. Hội chứng tiền đình: trigger là hoa mắt chóng mặt hoặc chóng mặt kèm đi lại khó/mất thăng bằng/Romberg(+); hoa mắt chóng mặt đơn độc hiện tại rõ vẫn quy về Hội chứng tiền đình; chỉ đưa cận lâm sàng khi A14_STATE có kết quả thật liên quan.
+        5. Hội chứng viêm dạ dày tá tràng: trigger là ợ hơi, ợ chua, nóng rát thượng vị, đau thượng vị, ấn tức thượng vị, Mendel(+), hoặc buồn nôn/nôn/đầy bụng/khó tiêu nếu liên quan dữ kiện thật; ghép nội soi dạ dày - tá tràng, test H. pylori hoặc kết quả liên quan nếu có trong A14_STATE.
+        6. Hội chứng tăng glucose máu: trigger là triệu chứng tăng glucose hoặc glucose/đường máu/HbA1c tăng/cao rõ trong dữ kiện hiện tại hợp lệ; gồm khát nhiều, uống nhiều, tiểu nhiều, mệt do tăng đường, sụt cân, nhìn mờ, tê bì/dị cảm liên quan; glucose máu tăng, đường máu tăng, HbA1c tăng, tăng glucose máu, tăng đường máu; đường máu tại nhà dao động cao rõ như 15-20 mmol/L, glucose 18,4 mmol/L, HbA1c 9,7% hoặc mọi glucose/HbA1c numeric cao rõ từ nguồn hợp lệ. Không dùng NAME = Hội chứng tăng đường huyết và không để glucose/đường máu/HbA1c tăng thành TYPE = Cận lâm sàng rời nếu đủ trigger hội chứng.
 
-C4.16. Ranh giới với A/C/O
-    C4 không đọc C1_STATE mặc định và không dùng danh sách “cần làm” của C1 làm kết quả đã có.
-    C4 không biến cảnh báo lâm sàng C2 thành hội chứng.
-    C4 không kiểm thuốc, không cảnh báo tác dụng phụ và không theo dõi thuốc thay C3.
-    C4 không đọc C5_STATE mặc định, không tạo chẩn đoán phân biệt và không biến chẩn đoán phân biệt thành hội chứng hoặc triệu chứng trong C4_ITEMS/C4_FOR_O2.
-    C4 không tạo nội dung guideline, hội chẩn hoặc kế hoạch điều trị thay C6/C7.
-    C4 không phục vụ O3/O7 và không tạo C4_FOR_O3/C4_FOR_O7.
-    C4 không tự chuyển sang O nếu C_GATE chưa PASS khi G_STATE yêu cầu C_GATE.
-    C4 không đưa bệnh nền, tiền sử hoặc chẩn đoán ICD nền thành C4_ITEM nếu không có biểu hiện hiện tại liên quan trong A_STATE.
-    Đái tháo đường typ 2 chỉ đưa vào C4_ITEMS/C4_FOR_O2 khi có biểu hiện hiện tại như tăng glucose máu, khát nhiều, uống nhiều, tiểu nhiều, mệt do tăng đường, tê bì/dị cảm đang là triệu chứng chính, hoặc cận lâm sàng đường máu liên quan.
-    Nếu chỉ là tiền sử đái tháo đường đang điều trị, để O2 đưa vào câu mở đầu tiền sử, không đưa thành block C4.
-    Không bê A12/ICD nền như “bệnh đa dây thần kinh do đái tháo đường” vào C4_FOR_O2 nếu không có triệu chứng hiện tại hỗ trợ.
-    Nếu các module C khác có thông tin cần dùng cho C4 trong tương lai, phải mở task dependency riêng và cập nhật G plan.
+    Rule cận lâm sàng:
+        1. Chỉ dùng kết quả đã có từ A14_STATE; không dùng xét nghiệm/chẩn đoán hình ảnh/thăm dò cần làm trong A13 hoặc C1 để tạo kết quả.
+        2. Không tự tạo kết quả bình thường hoặc bất thường và không biến chỉ định cần làm thành kết quả đã có.
+        3. Khi thiếu kết quả thật, ghi CẬN_LÂM_SÀNG: NONE trong C4_ITEMS và không render dòng cận lâm sàng tương ứng trong C4_FOR_O2.
+        4. Cận lâm sàng liên quan trực tiếp hội chứng phải được gộp vào CẬN_LÂM_SÀNG của hội chứng đó; không render lại thành cận lâm sàng rời nếu đã ghép.
+        5. Nếu duplicate cận lâm sàng đã ghép hội chứng xảy ra: ITEM_CHECK/C4_CHECK = NEEDS_FIX và C4_ERROR = ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME.
 
-C4.17. Schema C4_STATE
-    C4.17.1. Schema chuẩn
-        C4_STATE:
-            STATE_VERSION = ...
-            C4_REV = ...
-            C4_SOURCE_A_REV = ...
-            C4_ITEMS:
-                C4_ITEM_N:
-                    TYPE = Hội chứng / Triệu chứng / Cận lâm sàng
-                    NAME = ...
-                    ORDER = ...
-                    LÂM_SÀNG: ... / NONE
-                    CẬN_LÂM_SÀNG: ... / NONE
-                    ITEM_CHECK = PASS / NEEDS_FIX
-                    ITEM_ERROR = NONE / ...
-            C4_FOR_O2:
-                - ...
-            C4_CHECK = PASS / NEEDS_FIX
-            C4_ERROR = ...
+    TYPE_GROUP_ORDER và ORDER:
+        1. Toàn bộ TYPE = Hội chứng trước.
+        2. Sau đó toàn bộ TYPE = Triệu chứng.
+        3. Cuối cùng toàn bộ TYPE = Cận lâm sàng rời.
+        4. ORDER trong C4_ITEMS phải khớp thứ tự render cuối cùng trong C4_FOR_O2 sau khi group theo TYPE_GROUP_ORDER.
+        5. Không giữ thứ tự input nếu làm sai group TYPE; phải reorder theo TYPE_GROUP_ORDER rồi ORDER nội bộ.
 
-    C4.17.2. Nguyên tắc schema
-        C4_STATE không cần STATUS.
-        C4_STATE không cần UPDATED_AT.
-        C4_STATE không cần C4_FOR_O3.
-        C4_STATE không cần C4_FOR_O7.
-        C4_STATE không cần C4_PROBLEM_LIST độc lập.
-        C4_STATE không cần C4_FINAL độc lập.
-        C4_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        C4_STATE phải có C4_REV và C4_SOURCE_A_REV.
-        C4_SOURCE_A_REV ghi A_MODULE_REV của full current A_STATE đã dùng.
-        C4_STATE khi được chạy luôn là full state, không dùng patch/delta.
-        Nếu C4_CHECK = PASS: C4_ERROR = NONE.
-        Nếu C4_CHECK = NEEDS_FIX: C4_ERROR phải ghi rõ lỗi.
-        Không được ghi “giữ nguyên như trước”.
-        Không được ghi “reuse C4” thay nội dung thật.
+    Format C4_FOR_O2:
+        1. C4_FOR_O2 phải là danh sách render-ready; mỗi item top-level bắt đầu bằng “-”.
+        2. TYPE = Hội chứng render duy nhất:
+            - [NAME]:
+              + [LÂM_SÀNG nếu khác NONE]
+              + [CẬN_LÂM_SÀNG nếu khác NONE]
+        3. Dòng con hội chứng thụt đúng 2 khoảng trắng trước dấu “+”; dòng con chỉ là dữ kiện, không thêm nhãn.
+        4. TYPE = Triệu chứng render duy nhất “- [LÂM_SÀNG]”; không render NAME, không dấu hai chấm, không block cha-con, không dòng “- Triệu chứng”, không fallback sang NAME.
+        5. TYPE = Cận lâm sàng render duy nhất “- [CẬN_LÂM_SÀNG]”; không render NAME, không block cha-con, không fallback sang NAME.
+        6. Không render label “Lâm sàng:”, “Cận lâm sàng:”, NONE, N/A, placeholder/no-data literal, paragraph tự do, heading O2, câu mở đầu O2 hoặc nhãn nhóm không thuộc format.
 
-C4.18. Lỗi không được mắc
-    Không tự tạo hội chứng.
-    Không tự tạo tên hội chứng mới mơ hồ.
-    Không dùng “nghi”, “theo dõi”, “hướng tới”, “phù hợp”, “chưa loại trừ” hoặc “có khả năng” trong NAME/C4_FOR_O2.
-    Không bê chẩn đoán A12, bệnh nền, tiền sử hoặc ICD nền thay biểu hiện hiện tại.
-    Không tạo kết quả cận lâm sàng.
-    Không dùng A13_LABS/A13_IMAGING/A13_TREATMENT làm kết quả đã có.
-    Không dùng C3 làm cận lâm sàng.
-    Không dùng C1 “cần làm” như dữ kiện đã có.
-    Không biến cảnh báo C2 thành hội chứng.
-    Không biến chẩn đoán phân biệt C5 thành hội chứng.
-    Không sửa A_STATE.
-    Không tạo C5_STATE.
-    Không render O2.
-    Không tạo C4_FOR_O3.
-    Không tạo C4_FOR_O7.
-    Không tạo C4_PROBLEM_LIST độc lập.
-    Không dùng patch/delta làm C4_STATE chính thức.
-    Không để O2 tự render lại từ C4_ITEMS.
+C4_SPECIAL_RULES
+    O2 dependency: O2 requires C4; nếu user yêu cầu O2/tóm tắt bệnh án, G phải thêm C4 vào C_RUN_ORDER trước khi O2 render; C4 không render O2; O2 đọc/copy C4_FOR_O2.
+    A14/CLS boundary: chỉ dùng kết quả cận lâm sàng đã có từ A14_STATE; không dùng A13 chỉ định cần làm; không dùng C1 danh sách cần làm; không tự tạo kết quả bình thường/bất thường; không biến chỉ định cần làm thành kết quả đã có.
+    Duplicate CLS: cận lâm sàng liên quan trực tiếp hội chứng phải gộp vào hội chứng; không render lại thành cận lâm sàng rời nếu đã ghép; duplicate kéo NEEDS_FIX với ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME.
+    A12/bệnh nền boundary: không bê A12/ICD/bệnh nền/tiền sử thành C4 nếu không có biểu hiện hiện tại; đái tháo đường typ 2 chỉ vào C4 khi có biểu hiện hiện tại hoặc cận lâm sàng đường máu liên quan.
+    No-placeholder/no-data: khi không có item render-ready nào thì C4_CHECK = NEEDS_FIX; không render “Không áp dụng”, “Chưa có dữ kiện”, “Không ghi nhận”, “NONE”, “N/A” hoặc placeholder/no-data literal tương đương trong C4_FOR_O2.
+    Cấm nguồn C khác: không đọc C1/C2/C3/C5 mặc định; không dùng C5 chẩn đoán phân biệt để tạo hội chứng/triệu chứng; không dùng C2 cảnh báo thành hội chứng; không dùng C3 làm cận lâm sàng; nếu tương lai cần C khác thì phải mở dependency riêng và cập nhật G plan.
 
-C4.19. C4_CHECK mới
-    C4_CHECK phải kiểm cả C4_ITEMS và C4_FOR_O2.
-    C4_CHECK = PASS chỉ khi qua đủ 3 tầng validation bắt buộc:
-        - Tầng 1 — Schema/render validation: giữ đầy đủ điều kiện schema C4_ITEMS, format C4_FOR_O2, label leak, NONE, TYPE_GROUP_ORDER và boundary source.
-        - Tầng 2 — Semantic dictionary validation: bắt buộc scan toàn bộ C4_ITEMS trước khi PASS; với mọi item TYPE = Triệu chứng, so NAME và LÂM_SÀNG với trigger của 6 hội chứng chuẩn; với mọi item TYPE = Cận lâm sàng, so NAME và CẬN_LÂM_SÀNG với trigger của 6 hội chứng chuẩn. Nếu TYPE = Triệu chứng match trigger hội chứng thì C4_CHECK = NEEDS_FIX và C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM; nếu TYPE = Cận lâm sàng match trigger hội chứng thì C4_CHECK = NEEDS_FIX và C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS.
-        - Tầng 3 — Duplicate cận lâm sàng validation: bắt buộc scan CẬN_LÂM_SÀNG của tất cả C4_ITEMS; nếu một nội dung cận lâm sàng đã xuất hiện trong TYPE = Hội chứng và lại xuất hiện trong TYPE = Cận lâm sàng rời thì C4_CHECK = NEEDS_FIX và C4_ERROR = ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME.
-    C4_CHECK không được PASS nếu C4_FOR_O2 render đúng format nhưng C4_ITEMS sai classification.
-    C4_CHECK không được PASS chỉ vì C4_FOR_O2 khớp C4_ITEMS, nếu bản thân C4_ITEMS đã hạ hội chứng xuống Triệu chứng, hạ hội chứng xuống Cận lâm sàng rời hoặc lặp cận lâm sàng đã ghép hội chứng.
-    C4_CHECK không được PASS nếu C4_ITEMS để glucose máu/đường máu tại nhà/HbA1c tăng hoặc cao rõ thành TYPE = Cận lâm sàng rời, hoặc không tạo TYPE = Hội chứng, NAME = Hội chứng tăng glucose máu khi dữ kiện hiện tại hợp lệ đủ trigger.
-    Tất cả ITEM_CHECK phải PASS thì C4_CHECK mới được PASS; nếu bất kỳ ITEM_CHECK = NEEDS_FIX thì C4_CHECK bắt buộc = NEEDS_FIX.
-    Nếu C4_ERROR lẽ ra có lỗi semantic classification hoặc duplicate cận lâm sàng thì không được ghi C4_ERROR = NONE.
-    C4_CHECK = PASS chỉ khi:
-        1. C4_ITEMS đúng schema block C4_ITEM_N.
-        2. LÂM_SÀNG và CẬN_LÂM_SÀNG dùng dấu hai chấm, không dùng dấu bằng.
-        3. Mỗi item có TYPE, NAME, ORDER, LÂM_SÀNG, CẬN_LÂM_SÀNG, ITEM_CHECK và ITEM_ERROR.
+C4_CHECK_PASS_IF
+    C4_CHECK = PASS chỉ khi tất cả điều kiện sau đúng:
+        1. C4 nằm trong G_STATE.C_RUN_ORDER, A_GATE hợp lệ, đã đọc full current A_STATE, A_MODULE_REV có mặt và chỉ dùng nguồn hợp lệ.
+        2. C4_STATE là full state đúng C4_STATE_SCHEMA; C4_ITEMS đúng block C4_ITEM_N; không patch/delta, list ID hoặc schema cũ.
+        3. Mỗi item có TYPE, NAME, ORDER, LÂM_SÀNG, CẬN_LÂM_SÀNG, ITEM_CHECK và ITEM_ERROR; mọi ITEM_CHECK = PASS và ITEM_ERROR = NONE.
         4. TYPE chỉ là Hội chứng / Triệu chứng / Cận lâm sàng.
-        5. Không có TYPE bị cấm đã loại khỏi schema và không còn schema cũ TRIỆU_CHỨNG_CƠ_NĂNG / TRIỆU_CHỨNG_THỰC_THỂ.
-        6. TYPE = Hội chứng render đúng “- [NAME]:” và chỉ render dòng con “  + [LÂM_SÀNG nếu khác NONE]” / “  + [CẬN_LÂM_SÀNG nếu khác NONE]”.
-        7. TYPE = Triệu chứng render đúng “- [LÂM_SÀNG]”, không có NAME, không có dấu hai chấm sau NAME và không có block cha-con.
-        8. TYPE = Cận lâm sàng render đúng “- [CẬN_LÂM_SÀNG]”.
-        9. Không render nhãn lâm sàng/cận lâm sàng trong C4_FOR_O2.
-        10. Không render NONE trong C4_FOR_O2.
-        11. Không render dòng top-level bắt đầu bằng “- Triệu chứng”.
-        12. Không render “Hoa mắt chóng mặt:” nếu item là TYPE = Triệu chứng.
-        13. Không render triệu chứng tiêu hóa/trào ngược thành NAME triệu chứng khi đủ tiêu chí Hội chứng viêm dạ dày tá tràng; không dùng NAME = Hội chứng dạ dày - thực quản.
-        14. Không hạ dữ kiện thuộc một trong 6 hội chứng chuẩn xuống TYPE = Triệu chứng.
-        15. Không đưa bệnh nền, tiền sử hoặc chẩn đoán nền vào C4_FOR_O2 nếu không có biểu hiện hiện tại.
-        16. Dòng cha top-level bắt đầu bằng “-”; dòng con hội chứng thụt đúng 2 khoảng trắng trước dấu “+”.
-        17. Cận lâm sàng chỉ lấy từ A14_STATE và không dùng A13 làm kết quả đã có.
-        18. C4_FOR_O2 khớp C4_ITEMS sau khi reorder theo TYPE_GROUP_ORDER.
-        19. Tất cả item TYPE = Hội chứng trong C4_FOR_O2 đứng trước mọi item TYPE = Triệu chứng.
-        20. Tất cả item TYPE = Triệu chứng đứng trước mọi item TYPE = Cận lâm sàng rời.
-        21. Không có Hội chứng nào xuất hiện sau Triệu chứng hoặc sau Cận lâm sàng rời.
-        22. Không có Triệu chứng nào xuất hiện sau Cận lâm sàng rời.
-        23. ORDER trong C4_ITEMS phản ánh đúng thứ tự render cuối cùng hoặc có GROUP_ORDER/rule rõ để kiểm thứ tự group; nếu C4_FOR_O2 không khớp ORDER/group order trong C4_ITEMS thì không được PASS.
-        24. TYPE = Hội chứng chỉ PASS khi NAME exact-match một trong 6 hội chứng chuẩn: Hội chứng cổ vai cánh tay / Hội chứng viêm khớp / Hội chứng thắt lưng hông / Hội chứng tiền đình / Hội chứng viêm dạ dày tá tràng / Hội chứng tăng glucose máu.
-        25. Không dùng hội chứng cũ hoặc tên ngoài danh sách như Hội chứng đau khớp gối, Hội chứng thoái hóa khớp gối, Hội chứng cơ xương khớp, Hội chứng dạ dày - thực quản, Hội chứng tăng đường huyết, Hội chứng rối loạn tiền đình, Hội chứng cổ vai gáy.
-        26. Không tự sửa/tùy biến NAME hội chứng; không tạo hội chứng ngoài danh sách mới.
-        27. Không hạ dữ kiện thuộc 6 hội chứng chuẩn xuống TYPE = Triệu chứng hoặc TYPE = Cận lâm sàng rời, gồm đau khớp gối khi vận động, ợ hơi/ợ chua/nóng rát thượng vị, đau vùng cổ/cột sống cổ, đau thắt lưng, hoa mắt chóng mặt hiện tại rõ, glucose máu/đường máu tại nhà/HbA1c tăng hoặc cao rõ hoặc triệu chứng tăng glucose.
-        28. C4_FOR_O2 không có hội chứng ngoài danh sách mới và phải khớp C4_ITEMS sau khi đổi NAME canonical.
-        29. Không render O2.
-        30. Mọi item TYPE = Triệu chứng đã được scan âm tính với trigger của 6 hội chứng chuẩn trước khi PASS; nếu đau khớp gối khi vận động/lạo xạo xương, hoa mắt chóng mặt hiện tại rõ, ợ hơi/ợ chua/nóng rát thượng vị, đau vùng cổ/cột sống cổ, đau thắt lưng hoặc glucose máu/HbA1c tăng xuất hiện trong TYPE = Triệu chứng thì C4_CHECK = NEEDS_FIX.
-        31. Mọi item TYPE = Cận lâm sàng đã được scan âm tính với trigger của 6 hội chứng chuẩn trước khi PASS; nếu MRI cột sống cổ liên quan, X-quang/siêu âm/MRI khớp hoặc CRP liên quan, MRI/X-quang cột sống thắt lưng liên quan, glucose máu/đường máu tại nhà/HbA1c tăng hoặc cao rõ xuất hiện trong TYPE = Cận lâm sàng rời mà đủ trigger hội chứng chuẩn thì C4_CHECK = NEEDS_FIX và C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS.
-        32. Không có item TYPE = Cận lâm sàng rời trùng normalized text, cùng kết quả A14_STATE hoặc cùng nội dung cận lâm sàng đã nằm trong CẬN_LÂM_SÀNG của bất kỳ TYPE = Hội chứng nào.
-        33. Không có ITEM_CHECK = NEEDS_FIX; mọi ITEM_ERROR khác NONE phải kéo C4_CHECK = NEEDS_FIX.
-    Nếu sai bất kỳ điểm nào trên:
-        C4_CHECK = NEEDS_FIX, không được PASS.
-        C4_ERROR phải ghi rõ lỗi thuộc nhóm:
-            - C4_ITEMS schema / ERR-C4-FIELD-SYNTAX.
-            - TYPE không hợp lệ / ERR-C4-FORBIDDEN-TYPE.
-            - Render C4_FOR_O2 / ERR-C4-TYPE-RENDER.
-            - Nhãn leak / ERR-C4-LABEL-LEAK.
-            - NAME triệu chứng leak / ERR-C4-SYMPTOM-NAME-LEAK.
-            - Render NONE / ERR-C4-RENDER-NONE.
-            - C4_FOR_O2 không khớp C4_ITEMS / ERR-C4-FOR-O2-ORDER.
-            - Sai thứ tự TYPE_GROUP_ORDER / ERR-C4-TYPE-GROUP-ORDER.
-            - Nguồn cận lâm sàng.
-            - Ranh giới A/C/O.
-            - NAME hội chứng không thuộc danh sách / ERR-C4-SYNDROME-NAME-NOT-IN-LIST.
-            - Dictionary hội chứng cũ / ERR-C4-LEGACY-SYNDROME-DICTIONARY.
-            - NAME hội chứng bị sửa/tùy biến / ERR-C4-SYNDROME-NAME-MODIFIED.
-            - Hạ hội chứng chuẩn xuống triệu chứng / ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM.
-            - Hạ hội chứng chuẩn xuống cận lâm sàng rời / ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS.
-            - Cận lâm sàng rời trùng cận lâm sàng đã ghép hội chứng / ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME.
+        5. Hội chứng dùng NAME canonical exact trong 6 hội chứng, không dùng biến thể/tên cũ; nếu match trigger hội chứng chuẩn thì không downgrade thành Triệu chứng/Cận lâm sàng.
+        6. Triệu chứng chỉ dùng khi không đủ hội chứng; Cận lâm sàng rời chỉ dùng khi là kết quả đã có từ A14 và không ghép hội chứng.
+        7. Không dùng A13/C1 chỉ định cần làm như kết quả; không bê A12/bệnh nền/tiền sử/ICD thành C4 nếu không có biểu hiện hiện tại.
+        8. C4_FOR_O2 được render từ C4_ITEMS, đúng format, đúng TYPE_GROUP_ORDER, ORDER khớp thứ tự render, không label leak, không NONE/N/A, không placeholder/no-data, không paragraph/heading O2/câu mở đầu O2.
+        9. Không duplicate CLS đã ghép hội chứng.
+        10. C4_SOURCE_A_REV đúng A_MODULE_REV đã dùng; C4_REV đúng C4_REV_RULE.
+        11. C4 không render O2, không tạo output O, không sửa A/G/O hoặc C khác.
+        12. C4_ERROR = NONE.
 
-C4.20. NAME/TYPE canonical theo C4_SYNDROME_DICTIONARY
-    C4 bắt buộc chạy bước canonical syndrome trigger scan theo C4_SYNDROME_DICTIONARY trước khi quyết định TYPE = Triệu chứng hoặc TYPE = Cận lâm sàng rời.
-    Không được tạo TYPE = Triệu chứng hoặc TYPE = Cận lâm sàng rời trước rồi bỏ qua dictionary scan.
-    Nếu dữ kiện match trigger hội chứng chuẩn, NAME phải là canonical exact-match trong 6 hội chứng, không phụ thuộc dữ kiện có đầy đủ nhiều dấu hiệu hay chỉ có trigger đủ theo dictionary mới.
-    Nếu dữ kiện đủ tiêu chí một trong 6 hội chứng chuẩn trong C4_SYNDROME_DICTIONARY thì bắt buộc TYPE = Hội chứng và NAME = đúng tên canonical exact-match.
-    Nếu có triệu chứng thật nhưng không đủ điều kiện vào bất kỳ hội chứng nào trong 6 hội chứng chuẩn thì TYPE = Triệu chứng.
-    Nếu là kết quả cận lâm sàng rời thì TYPE = Cận lâm sàng.
-    Không được đổi tên hội chứng thành tên triệu chứng tự do, tên gần đúng, tên theo vị trí/tổn thương hoặc biến thể ngoài 6 tên canonical.
-    Với ợ hơi, ợ chua, nóng rát thượng vị hoặc ấn tức thượng vị đủ rõ: chọn TYPE = Hội chứng, NAME = Hội chứng viêm dạ dày tá tràng; không hạ thành triệu chứng tiêu hóa/trào ngược và không dùng NAME = Hội chứng dạ dày - thực quản.
-    Với đau khớp gối khi vận động hoặc triệu chứng khớp rõ: chọn TYPE = Hội chứng, NAME = Hội chứng viêm khớp; không hạ thành triệu chứng đau khớp gối đơn lẻ và không dùng NAME = Hội chứng đau khớp gối / Hội chứng thoái hóa khớp gối / Hội chứng cơ xương khớp.
-    Với hoa mắt chóng mặt là triệu chứng hiện tại rõ: chọn TYPE = Hội chứng, NAME = Hội chứng tiền đình; không hạ thành TYPE = Triệu chứng và không dùng NAME = Hội chứng rối loạn tiền đình hoặc Hội chứng thần kinh.
-    Bệnh nền đái tháo đường hoặc đa dây thần kinh do đái tháo đường không được đưa vào C4 nếu chỉ là tiền sử/chẩn đoán nền, không có triệu chứng hiện tại hoặc cận lâm sàng liên quan; nếu C4_FOR_O2 đưa bệnh nền từ A12/tiền sử vào không có biểu hiện hiện tại thì C4_CHECK = NEEDS_FIX.
-    Với đau vùng cổ/cột sống cổ/vận động cổ đau: chọn TYPE = Hội chứng, NAME = Hội chứng cổ vai cánh tay.
-    Với đau thắt lưng/đau vùng cột sống thắt lưng/vận động cột sống thắt lưng đau: chọn TYPE = Hội chứng, NAME = Hội chứng thắt lưng hông.
-    Với glucose máu tăng, đường máu tăng, HbA1c tăng, tăng glucose máu, tăng đường máu, đường máu tại nhà dao động cao rõ, glucose máu numeric cao rõ, HbA1c numeric cao rõ hoặc triệu chứng tăng glucose máu: chọn TYPE = Hội chứng, NAME = Hội chứng tăng glucose máu; không dùng NAME = Hội chứng tăng đường huyết và không hạ thành TYPE = Cận lâm sàng rời.
-    Mapping runtime bắt buộc:
-        1. Đau khớp gối hai bên / đau khớp gối khi vận động / lạo xạo xương (+) → Hội chứng viêm khớp.
-        2. Hoa mắt chóng mặt hiện tại rõ → Hội chứng tiền đình.
-        3. Ợ hơi / ợ chua / nóng rát thượng vị / ấn tức thượng vị / Mendel (+) → Hội chứng viêm dạ dày tá tràng.
-        4. Đau vùng cổ vai cánh tay / vận động cột sống cổ giảm / co cứng cơ cạnh sống cổ / MRI cột sống cổ liên quan → Hội chứng cổ vai cánh tay.
-        5. Đau cột sống thắt lưng / đau thắt lưng / đau lan mông chân → Hội chứng thắt lưng hông.
-        6. Đường máu tại nhà dao động 15-20 mmol/L → Hội chứng tăng glucose máu nếu là dữ kiện hiện tại hợp lệ/cao rõ.
-        7. Glucose máu 18,4 mmol/L → Hội chứng tăng glucose máu nếu là dữ kiện hiện tại hợp lệ/cao rõ.
-        8. HbA1c 9,7% → Hội chứng tăng glucose máu nếu là dữ kiện hiện tại hợp lệ/cao rõ.
-        9. Đường máu tăng / glucose máu tăng / HbA1c tăng / tăng đường máu / tăng glucose máu / triệu chứng tăng glucose → Hội chứng tăng glucose máu.
-    Nếu runtime output vi phạm các mapping này nhưng vẫn render format đúng, C4_CHECK vẫn phải NEEDS_FIX.
-    Không có nhóm vá riêng ngoài dictionary; tiêu chí từng hội chứng đã nằm trong C4_SYNDROME_DICTIONARY.
+C4_NEEDS_FIX_IF
+    C4_CHECK = NEEDS_FIX nếu có bất kỳ lỗi nào:
+        1. C4 không nằm trong C_RUN_ORDER nhưng vẫn chạy/ghi state.
+        2. Thiếu A_GATE, full A_STATE hoặc A_MODULE_REV.
+        3. Dùng nguồn ngoài allowlist, O output/rendered output, C khác mặc định, A13 chỉ định như kết quả, A14 sai boundary, A12/ICD/bệnh nền/tiền sử thay biểu hiện hiện tại hoặc C5 chẩn đoán phân biệt thay hội chứng.
+        4. Thiếu field schema, TYPE sai, ITEM_CHECK/ITEM_ERROR sai, C4_STATE không full state hoặc patch/delta.
+        5. NAME hội chứng không thuộc 6 canonical, dùng biến thể hội chứng cũ hoặc NAME bị sửa/tùy biến.
+        6. Match trigger hội chứng nhưng downgrade thành Triệu chứng/Cận lâm sàng.
+        7. Triệu chứng hoặc Cận lâm sàng render sai format.
+        8. C4_FOR_O2 không render từ C4_ITEMS, không khớp C4_ITEMS, sai ORDER/TYPE_GROUP_ORDER, có label leak, NONE/N/A, placeholder/no-data, heading O2, câu mở đầu O2, đoạn văn tự do, NAME triệu chứng hoặc fallback từ NAME.
+        9. Duplicate CLS đã nằm trong hội chứng.
+        10. C4_CHECK = PASS nhưng C4_ERROR khác NONE; hoặc C4_CHECK = NEEDS_FIX nhưng C4_ERROR không rõ nhóm lỗi.
+        11. C4_REV hoặc C4_SOURCE_A_REV sai.
+        12. C4_FOR_O2 thiếu/sai format khiến O2 không thể exact-copy render; lỗi phải route về C4/source C4, không để O2 tự sửa.
 
-C4.21. Ví dụ PASS — item hội chứng
-    Ví dụ chỉ minh họa format runtime đúng, không phải dữ kiện mặc định.
-    C4_ITEM_1:
-        TYPE = Hội chứng
-        NAME = Hội chứng viêm khớp
-        ORDER = 1
-        LÂM_SÀNG: Khớp vai trái sưng đau, vận động đau tăng, ấn khe khớp đau.
-        CẬN_LÂM_SÀNG: MRI khớp vai: tụ dịch, rách bán phần dây chằng/gân cơ dưới vai.
-        ITEM_CHECK = PASS
-        ITEM_ERROR = NONE
+C4_ERROR_RULE
+    Nếu C4_CHECK = PASS: C4_ERROR = NONE.
+    Nếu C4_CHECK = NEEDS_FIX: C4_ERROR phải ghi rõ lỗi cụ thể và nhóm lỗi.
+    Giữ taxonomy lỗi chính: field syntax; forbidden type; type render; label leak; symptom name leak; render NONE; order mismatch; source CLS; boundary A/C/O; syndrome name not in list; legacy dictionary; modified name; downgraded to symptom; downgraded to isolated CLS; duplicate CLS.
+    Mã lỗi quan trọng: ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME.
+    Mã lỗi ưu tiên khi cần: ERR-C4-FIELD-SYNTAX; ERR-C4-FORBIDDEN-TYPE; ERR-C4-TYPE-RENDER; ERR-C4-LABEL-LEAK; ERR-C4-SYMPTOM-NAME-LEAK; ERR-C4-RENDER-NONE; ERR-C4-FOR-O2-ORDER; ERR-C4-TYPE-GROUP-ORDER; ERR-C4-SYNDROME-NAME-NOT-IN-LIST; ERR-C4-LEGACY-SYNDROME-DICTIONARY; ERR-C4-SYNDROME-NAME-MODIFIED; ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM; ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS; ERR-C4-STALE-PASS; ERR-C4-REUSE-WITHOUT-REVALIDATION; ERR-C4-MISSING-ITEMS; ERR-C4-NAME-FALLBACK.
 
-C4.22. Ví dụ PASS — item triệu chứng và cận lâm sàng
-    Ví dụ chỉ minh họa format runtime đúng, không phải dữ kiện mặc định.
-    C4_ITEM_2:
-        TYPE = Triệu chứng
-        NAME = Ho khan
-        ORDER = 2
-        LÂM_SÀNG: Ho khan từng cơn về đêm.
-        CẬN_LÂM_SÀNG: NONE
-        ITEM_CHECK = PASS
-        ITEM_ERROR = NONE
-    C4_ITEM_3:
-        TYPE = Cận lâm sàng
-        NAME = X-quang ngực
-        ORDER = 3
-        LÂM_SÀNG: NONE
-        CẬN_LÂM_SÀNG: X-quang ngực: tim phổi chưa phát hiện tổn thương.
-        ITEM_CHECK = PASS
-        ITEM_ERROR = NONE
+C4_REUSE_RULE
+    CREATE khi chưa có C4_STATE hợp lệ trong ROUND hoặc C4_SOURCE_A_REV trống.
+    UPDATE khi C4_STATE đã có nhưng A_MODULE_REV nguồn thay đổi, dữ kiện tổng hợp thay đổi, C4_ITEMS cần thay đổi hoặc C4_FOR_O2 cần render lại từ C4_ITEMS.
+    REUSE chỉ hợp lệ khi C4_STATE hiện hành hợp lệ, C4_SOURCE_A_REV khớp A_MODULE_REV hiện tại đã dùng, C4_ITEMS hợp lệ, C4_FOR_O2 hợp lệ, C4_ITEMS và C4_FOR_O2 khớp nhau, đã revalidate trong ROUND hiện tại và C4_CHECK = PASS.
+    Không được REUSE stale PASS, state chỉ có C4_FOR_O2 nhưng thiếu C4_ITEMS, state cũ chưa revalidate hoặc output cũ sai schema.
+    Khi REUSE vẫn xuất full C4_STATE; không ghi “giữ nguyên như trước” hoặc “reuse C4” thay nội dung thật; không dùng patch/delta.
 
-C4.23. Ví dụ C4_STATE chuẩn
-    Ví dụ chỉ minh họa format, không phải dữ kiện mặc định.
-    C4_STATE:
-        STATE_VERSION = V1
-        C4_REV = 1
-        C4_SOURCE_A_REV = A_MODULE_REV của full current A_STATE đã dùng
-        C4_ITEMS:
-            C4_ITEM_1:
-                TYPE = Hội chứng
-                NAME = Hội chứng viêm khớp
-                ORDER = 1
-                LÂM_SÀNG: Khớp vai trái sưng đau, vận động đau tăng, ấn khe khớp đau.
-                CẬN_LÂM_SÀNG: MRI khớp vai: tụ dịch, rách bán phần dây chằng/gân cơ dưới vai.
-                ITEM_CHECK = PASS
-                ITEM_ERROR = NONE
-            C4_ITEM_2:
-                TYPE = Hội chứng
-                NAME = Hội chứng viêm dạ dày tá tràng
-                ORDER = 2
-                LÂM_SÀNG: Ợ hơi, ợ chua, nóng rát vùng thượng vị, ấn tức vùng thượng vị.
-                CẬN_LÂM_SÀNG: NONE
-                ITEM_CHECK = PASS
-                ITEM_ERROR = NONE
-            C4_ITEM_3:
-                TYPE = Hội chứng
-                NAME = Hội chứng tiền đình
-                ORDER = 3
-                LÂM_SÀNG: Hoa mắt chóng mặt tăng, đi lại khó khăn.
-                CẬN_LÂM_SÀNG: NONE
-                ITEM_CHECK = PASS
-                ITEM_ERROR = NONE
-            C4_ITEM_4:
-                TYPE = Cận lâm sàng
-                NAME = X-quang ngực
-                ORDER = 4
-                LÂM_SÀNG: NONE
-                CẬN_LÂM_SÀNG: X-quang ngực: tim phổi chưa phát hiện tổn thương.
-                ITEM_CHECK = PASS
-                ITEM_ERROR = NONE
-        C4_FOR_O2:
-            - Hội chứng viêm khớp:
-              + Khớp vai trái sưng đau, vận động đau tăng, ấn khe khớp đau.
-              + MRI khớp vai: tụ dịch, rách bán phần dây chằng/gân cơ dưới vai.
-            - Hội chứng viêm dạ dày tá tràng:
-              + Ợ hơi, ợ chua, nóng rát vùng thượng vị, ấn tức vùng thượng vị.
-            - Hội chứng tiền đình:
-              + Hoa mắt chóng mặt tăng, đi lại khó khăn.
-            - X-quang ngực: tim phổi chưa phát hiện tổn thương.
-        C4_CHECK = PASS
-        C4_ERROR = NONE
+C4_REV_RULE
+    CREATE: tạo C4_STATE mới và set/increment C4_REV theo contract hiện hành.
+    UPDATE: tăng C4_REV khi nội dung thật của C4_ITEMS hoặc C4_FOR_O2 thay đổi.
+    REUSE: giữ C4_REV khi nội dung thật không đổi sau revalidation hiện hành.
+    C4_SOURCE_A_REV luôn ghi A_MODULE_REV của full current A_STATE đã dùng.
+    Nếu C4 không nằm trong C_RUN_ORDER thì không tăng C4_REV, không cập nhật C4_SOURCE_A_REV và không ghi C4_STATE mới.
+    C4 không tự sửa RUN_MODE, không tạo RUN_MODE mới, không điều phối RUN_MODE và không tạo C_MODULE_REV trực tiếp nếu contract chung không cho phép.
 
-C4.24. Ví dụ FAIL và kết thúc module
-    C4.24.1. FAIL vì TYPE không hợp lệ
-        C4_ITEMS có TYPE = Vấn đề.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = TYPE không hợp lệ; chỉ được dùng Hội chứng / Triệu chứng / Cận lâm sàng.
-
-    C4.24.2. FAIL vì TYPE = Triệu chứng render NAME
-        C4_ITEM TYPE = Triệu chứng, NAME = Hoa mắt chóng mặt, nhưng C4_FOR_O2 render “- Hoa mắt chóng mặt: Hoa mắt chóng mặt tăng...”.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-SYMPTOM-NAME-LEAK; triệu chứng phải render trực tiếp LÂM_SÀNG.
-        Nếu “hoa mắt chóng mặt” là triệu chứng hiện tại rõ theo dictionary hiện hành thì TYPE = Triệu chứng còn sai classification; lỗi chính hoặc lỗi bổ sung là ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM và đúng ra phải là TYPE = Hội chứng, NAME = Hội chứng tiền đình.
-        Ví dụ này không được hiểu rằng Hoa mắt chóng mặt có thể PASS dưới TYPE = Triệu chứng nếu render đúng.
-
-    C4.24.3. FAIL vì nhãn lâm sàng/cận lâm sàng leak
-        C4_FOR_O2 render “  + Lâm sàng: ...” hoặc “  + Cận lâm sàng: ...”.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-LABEL-LEAK; C4_FOR_O2 không được thêm nhãn lâm sàng/cận lâm sàng.
-
-    C4.24.4. FAIL vì render NONE
-        C4_FOR_O2 render “  + Cận lâm sàng: NONE” hoặc bất kỳ dòng NONE nào.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-RENDER-NONE; field NONE chỉ được giữ trong C4_ITEMS, không render sang C4_FOR_O2.
-
-    C4.24.5. FAIL vì sai cú pháp field
-        C4_ITEMS dùng “LÂM_SÀNG = ...” hoặc “CẬN_LÂM_SÀNG = ...”.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-FIELD-SYNTAX; hai field này bắt buộc dùng dấu hai chấm.
-
-    C4.24.6. FAIL vì dạng list ID
-        C4_ITEMS dùng “- ID = C4_ITEM_01” thay vì block “C4_ITEM_1:”.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-FIELD-SYNTAX; C4_ITEM phải là block C4_ITEM_N.
-
-    C4.24.7. FAIL vì hạ hội chứng viêm dạ dày tá tràng thành triệu chứng hoặc dùng tên cũ
-        Dữ kiện có ợ hơi, ợ chua, nóng rát thượng vị hoặc ấn tức thượng vị đủ rõ nhưng C4_ITEMS chọn TYPE = Triệu chứng, NAME = Triệu chứng tiêu hóa trên, NAME = Triệu chứng trào ngược dạ dày - thực quản hoặc NAME = Hội chứng dạ dày - thực quản.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM hoặc ERR-C4-LEGACY-SYNDROME-DICTIONARY; dữ kiện đủ hội chứng phải chọn Hội chứng viêm dạ dày tá tràng.
-
-    C4.24.8. FAIL vì đưa bệnh nền từ tiền sử/chẩn đoán nền
-        C4_FOR_O2 đưa bệnh đa dây thần kinh do đái tháo đường hoặc Bệnh lý thần kinh ngoại biên do đái tháo đường chỉ từ A12/tiền sử, không có triệu chứng hiện tại hoặc cận lâm sàng liên quan.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = Ranh giới A/C/O; không bê bệnh nền/tiền sử/chẩn đoán nền vào C4_FOR_O2.
-
-    C4.24.9. FAIL vì Triệu chứng chen giữa Hội chứng
-        C4_FOR_O2:
-            - Hội chứng cổ vai cánh tay:
-              + Đau vùng cổ vai cánh tay...
-            - Hoa mắt chóng mặt tăng trước vào viện.
-            - Hội chứng viêm dạ dày tá tràng:
-              + Ợ hơi, ợ chua, nóng rát vùng thượng vị.
-        Lỗi:
-            - TYPE = Triệu chứng xuất hiện trước khi render hết TYPE = Hội chứng.
-            - C4_CHECK phải NEEDS_FIX.
-            - C4_ERROR = ERR-C4-TYPE-GROUP-ORDER.
-
-    C4.24.10. FAIL vì Cận lâm sàng rời đứng trước triệu chứng
-        C4_FOR_O2:
-            - X-quang ngực: tim phổi chưa phát hiện tổn thương.
-            - Hoa mắt chóng mặt tăng trước vào viện.
-        Lỗi:
-            - TYPE = Cận lâm sàng rời phải đứng cuối cùng.
-            - C4_CHECK phải NEEDS_FIX.
-            - C4_ERROR = ERR-C4-TYPE-GROUP-ORDER.
-
-    C4.24.11. FAIL vì dùng NAME không trong danh sách hội chứng chuẩn
-        C4_ITEM TYPE = Hội chứng, NAME = Hội chứng đau khớp gối.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-SYNDROME-NAME-NOT-IN-LIST; NAME hội chứng phải exact-match một trong 6 hội chứng chuẩn.
-
-    C4.24.12. FAIL vì sửa/tùy biến tên hội chứng
-        C4_ITEM TYPE = Hội chứng, NAME = Hội chứng tăng đường huyết.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-SYNDROME-NAME-MODIFIED; phải dùng NAME = Hội chứng tăng glucose máu.
-
-    C4.24.13. FAIL vì hạ hội chứng chuẩn xuống triệu chứng
-        Dữ kiện đau khớp gối khi vận động nhưng C4_ITEMS chọn TYPE = Triệu chứng.
-        C4_CHECK = NEEDS_FIX.
-        C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM; đau khớp gối khi vận động phải quy về Hội chứng viêm khớp.
-
-    C4.24.14. FAIL vì hạ đau khớp gối runtime thành Triệu chứng
-        C4_ITEM:
-            TYPE = Triệu chứng
-            NAME = Đau khớp gối hai bên
-            LÂM_SÀNG: Đau khớp gối hai bên, đau tăng khi vận động, vận động khớp gối đau tăng, lạo xạo xương (+).
-            CẬN_LÂM_SÀNG: NONE
-            ITEM_CHECK = PASS
-        Lỗi:
-            - Đúng ra phải TYPE = Hội chứng, NAME = Hội chứng viêm khớp.
-            - ITEM_CHECK không được PASS.
-            - C4_CHECK = NEEDS_FIX.
-            - C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM.
-
-    C4.24.15. FAIL vì hạ hoa mắt chóng mặt runtime thành Triệu chứng
-        C4_ITEM:
-            TYPE = Triệu chứng
-            NAME = Hoa mắt chóng mặt
-            LÂM_SÀNG: Hoa mắt chóng mặt, triệu chứng tăng vào ngày 03/06/2026.
-            CẬN_LÂM_SÀNG: NONE
-            ITEM_CHECK = PASS
-        Lỗi:
-            - Đúng ra phải TYPE = Hội chứng, NAME = Hội chứng tiền đình.
-            - ITEM_CHECK không được PASS.
-            - C4_CHECK = NEEDS_FIX.
-            - C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM.
-
-    C4.24.16. FAIL vì hạ triệu chứng tiêu hóa trên runtime thành Triệu chứng
-        C4_ITEM:
-            TYPE = Triệu chứng
-            NAME = Triệu chứng tiêu hóa trên
-            LÂM_SÀNG: Ợ hơi, ợ chua, nóng rát vùng thượng vị, ấn tức vùng thượng vị, dấu hiệu Mendel (+).
-            CẬN_LÂM_SÀNG: NONE
-            ITEM_CHECK = PASS
-        Lỗi:
-            - Đúng ra phải TYPE = Hội chứng, NAME = Hội chứng viêm dạ dày tá tràng.
-            - ITEM_CHECK không được PASS.
-            - C4_CHECK = NEEDS_FIX.
-            - C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM.
-
-    C4.24.17. FAIL vì MRI cột sống cổ duplicate sau khi đã ghép hội chứng
-        C4_ITEM_1:
-            TYPE = Hội chứng
-            NAME = Hội chứng cổ vai cánh tay
-            CẬN_LÂM_SÀNG: MRI cột sống cổ ghi nhận thoái hóa cột sống cổ, thoái hóa các đĩa đệm, phồng đĩa đệm C5/6, C6/7.
-        C4_ITEM_5:
-            TYPE = Cận lâm sàng
-            NAME = MRI cột sống cổ
-            CẬN_LÂM_SÀNG: MRI cột sống cổ ghi nhận thoái hóa cột sống cổ, thoái hóa các đĩa đệm, phồng đĩa đệm C5/6, C6/7.
-        Lỗi:
-            - MRI đã được gộp vào Hội chứng cổ vai cánh tay.
-            - Không được render lại thành Cận lâm sàng rời.
-            - ITEM_CHECK/C4_CHECK không được PASS.
-            - C4_ERROR = ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME.
-
-    C4.24.18. FAIL vì false PASS khi render đúng nhưng classification sai
-        C4_FOR_O2 render đúng format và khớp C4_ITEMS sai, nhưng C4_ITEMS hạ hội chứng chuẩn xuống TYPE = Triệu chứng hoặc lặp cận lâm sàng đã ghép hội chứng.
-        Lỗi:
-            - C4_CHECK không được PASS chỉ vì render format đúng hoặc C4_FOR_O2 khớp C4_ITEMS.
-            - C4_CHECK = NEEDS_FIX.
-            - C4_ERROR phải ghi ERR-C4-SYNDROME-DOWNGRADED-TO-SYMPTOM và/hoặc ERR-C4-DUPLICATE-CLS-ALREADY-IN-SYNDROME theo lỗi thật.
-
-    C4.24.19. FAIL vì hạ đường máu/glucose/HbA1c tăng thành Cận lâm sàng rời
-        C4_ITEM:
-            TYPE = Cận lâm sàng
-            NAME = Đường máu tăng
-            LÂM_SÀNG: NONE
-            CẬN_LÂM_SÀNG: Đường máu tại nhà dao động 15-20 mmol/L; glucose máu 18,4 mmol/L; HbA1c 9,7%.
-            ITEM_CHECK = PASS
-            ITEM_ERROR = NONE
-        C4_CHECK = PASS
-        C4_ERROR = NONE
-        Lỗi:
-            - Dữ kiện này đủ trigger Hội chứng tăng glucose máu.
-            - Đúng ra phải TYPE = Hội chứng, NAME = Hội chứng tăng glucose máu.
-            - ITEM_CHECK không được PASS.
-            - C4_CHECK không được PASS.
-            - C4_ERROR phải có ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS.
-
-    C4.24.20. PASS vì glucose/HbA1c tăng được gộp đúng vào Hội chứng tăng glucose máu
-        C4_ITEM:
-            TYPE = Hội chứng
-            NAME = Hội chứng tăng glucose máu
-            LÂM_SÀNG: NONE
-            CẬN_LÂM_SÀNG: Đường máu tại nhà dao động 15-20 mmol/L; glucose máu 18,4 mmol/L; HbA1c 9,7%.
-            ITEM_CHECK = PASS
-            ITEM_ERROR = NONE
-        C4_FOR_O2:
-            - Hội chứng tăng glucose máu:
-              + Đường máu tại nhà dao động 15-20 mmol/L; glucose máu 18,4 mmol/L; HbA1c 9,7%.
-
-    C4.24.21. FAIL vì false PASS khi C4_FOR_O2 render dòng cận lâm sàng đúng format nhưng classification sai
-        C4_FOR_O2 render dòng “- Đường máu tại nhà dao động 15-20 mmol/L; glucose máu 18,4 mmol/L; HbA1c 9,7%.” ở cuối đúng format TYPE = Cận lâm sàng.
-        Lỗi:
-            - Classification vẫn sai vì glucose/HbA1c tăng hoặc cao rõ phải là TYPE = Hội chứng, NAME = Hội chứng tăng glucose máu.
-            - C4_CHECK không được PASS chỉ vì render format đúng.
-            - C4_CHECK = NEEDS_FIX.
-            - C4_ERROR = ERR-C4-SYNDROME-DOWNGRADED-TO-ISOLATED-CLS.
-
-    C4 hoàn tất khi:
-        1. Đã tạo mới, cập nhật hoặc dùng lại C4_STATE.
-        2. Đã xác định C4_ITEMS hợp lệ hoặc C4_ERROR nêu rõ lý do NEEDS_FIX.
-        3. Đã render C4_FOR_O2 từ C4_ITEMS hoặc C4_ERROR nêu rõ lý do NEEDS_FIX.
-        4. Đã kiểm C4_CHECK.
-        5. Không tạo dữ liệu ngoài C4_STATE.
-        6. Không tạo state của C khác.
-        7. Không sửa A_STATE.
-        8. Không chạy A.
-        9. Không render O.
-        10. Không tạo C4_FOR_O3.
-        11. Không tạo C4_FOR_O7.
-    Sau khi hoàn tất C4_STATE, chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-    Nếu C4 là module C cuối cần chạy trong ROUND hiện tại thì STEP C kết thúc và chuyển sang C_GATE.
-    Không chuyển sang O nếu chưa qua C_GATE khi G_STATE yêu cầu C_GATE.
-    C4 không tự gọi O2.
-    O2 sẽ render dựa trên C4_FOR_O2 khi G/O yêu cầu.
+C4_END
+    C4 hoàn tất khi đã CREATE/UPDATE/REUSE full C4_STATE, C4_CHECK xác định PASS hoặc NEEDS_FIX, PASS thì C4_ERROR = NONE, NEEDS_FIX thì C4_ERROR rõ lỗi, và không render O2, không sửa A, không sửa C khác, không sửa G, không gọi O.
+    Sau C4, chuyển sang module C kế tiếp trong C_RUN_ORDER; hoặc STEP C kết thúc và chuyển sang C_GATE nếu C4 là module C cuối.
+    C4 không giả định C5 luôn là module kế tiếp.
 
 <<< END C4
 
