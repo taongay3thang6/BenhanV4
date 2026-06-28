@@ -1026,358 +1026,111 @@ O8_END
 
 <<< END O8
 O9 — HỎI THÊM / KHÁM THÊM / XÉT NGHIỆM CẦN LÀM
-Version: BA S-G-A-C-O v3
-Update: 10/06/2026 GMT+7 — chuẩn hóa O9 renderer-only của C1
+Version: BA S-G-A-C-O v4
+Update: 28/06/2026 GMT+7 — compact allowlist renderer C1
 
-O9.0. READ LOCK
-    Khi audit, patch, final review hoặc sử dụng/render O9, AI/Codex phải đọc toàn bộ O9 từ O9.0 đến marker “<<< END O9”.
-    Không được chỉ đọc một đoạn giữa module.
-    Không được chỉ đọc nguồn dữ liệu.
-    Không được chỉ đọc ví dụ, checklist hoặc lỗi cấm.
-    Không được chỉ đọc diff.
-    Không được patch một mục nếu chưa kiểm tra ảnh hưởng tới các mục còn lại trong O9.
-    Nếu chưa đọc đủ toàn bộ O9 thì phải kết luận UNCLEAR, không được kết luận PASS/FAIL.
-    O9 chỉ render khi nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt theo G_STATE.O_RENDER_ORDER.
+O9_ROLE
+    O9 là renderer/output module thuộc layer O cho “HỎI THÊM / KHÁM THÊM / XÉT NGHIỆM CẦN LÀM”.
+    O9 là renderer của C1 và chỉ trình bày nội dung đã được C1 tạo/chốt.
+    O9 không tự xác định hoặc tự tạo câu hỏi cần hỏi thêm, khám thêm, xét nghiệm/cận lâm sàng/hình ảnh/thăm dò cần làm, đánh giá lại/theo dõi lại, mức ưu tiên, chẩn đoán, hướng điều trị, chỉ định, thuốc/đơn thuốc, cảnh báo, chẩn đoán phân biệt hoặc tra cứu nguồn.
+    O9 không phải C1, A13, O10, O11, O12 hoặc O13.
+    O9 output nếu có không phải state nguồn, không là source cho A/C/O khác và không được reuse như nguồn lâm sàng.
 
-O9.1. Mục tiêu
-    O9 là module render “HỎI THÊM / KHÁM THÊM / XÉT NGHIỆM CẦN LÀM”.
-    O9 là module render/output thuộc lớp O.
-    O9 là renderer của C1.
-    O9 render nội dung do C1 tạo.
-    O9 phục vụ trình bày các dữ kiện còn cần bổ sung từ C1_STATE hợp lệ.
-    O9 không tự xác định cần hỏi gì.
-    O9 không tự xác định cần khám thêm gì.
-    O9 không tự chỉ định xét nghiệm, cận lâm sàng, chẩn đoán hình ảnh hoặc thăm dò.
-    O9 không tự tạo đánh giá lại.
-    O9 không tự tạo mức ưu tiên.
-    O9 không tạo kế hoạch điều trị.
-    O9 không sửa C1_STATE.
-    O9 không thay C1.
-    O9 không thay A13.
-    O9 không tự chạy C.
-    O9 không tự gọi A, C hoặc O khác.
-    O9 không sửa A_STATE/C_STATE/G_STATE.
-    O9 không render metadata kỹ thuật vào output thường quy.
-    O9 chỉ hoạt động khi có trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt theo O_RENDER_ORDER.
+O9_ALLOWED_SOURCE
+    O9 chỉ được đọc:
+        1. G_STATE ROUND hiện tại: chỉ để kiểm O9 nằm trong O_RENDER_LIST/O_RENDER_ORDER, đã đến lượt render và metadata điều phối cần thiết; không dùng G_STATE làm nguồn tạo câu hỏi/khám/xét nghiệm và không render metadata G_STATE.
+        2. C_GATE mới nhất nếu hệ thống có: chỉ để kiểm C1_STATE hợp lệ; không render C_GATE.
+        3. C1_STATE: nguồn chính và bắt buộc của O9.
+        4. C1_CHECK: phải = PASS để O9 render.
+        5. C1_FINAL: nguồn tổng hợp cuối nếu C1 đã chốt.
+        6. C1_QUESTIONS nếu có: nguồn cho mục “1. Cần hỏi thêm:”.
+        7. C1_EXAM_TO_ADD nếu có: nguồn cho mục “2. Cần khám thêm:”.
+        8. C1_TESTS_TO_DO nếu có: nguồn cho mục “3. Cận lâm sàng / thăm dò cần làm:”.
+        9. C1_REASSESSMENT_POINTS nếu có: nguồn cho mục “4. Cần đánh giá lại / theo dõi lại:”.
+        10. C1_ERROR: chỉ dùng làm lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu; không render C1_ERROR trong output thường quy khi C1_CHECK = PASS.
+    O9 không được đọc/dùng A_STATE/A_GATE/A1-A15 ngoài nội dung đã được C1 đưa vào C1_STATE/C1_FINAL; không dùng A13/A13_LABS/A13_IMAGING/A13_TREATMENT thay C1 hoặc tự tạo xét nghiệm/hình ảnh/hướng xử trí; không dùng A14 kết quả đã có làm mục cần làm; không dùng A15 thuốc/đơn thuốc.
+    O9 không được đọc/dùng C2_STATE, C3_STATE, C4_STATE, C5_STATE, C6_STATE, C7_STATE, generic C_STATE hoặc Cx_STATE ngoài C1 để bù nội dung.
+    O9 không được đọc/dùng O_OUTPUT cũ, O9_OUTPUT cũ, rendered output cũ, O1-O8 output, O10-O13 output, raw user input, hidden memory, web/guideline/source ngoài, patch/delta hoặc metadata RUN_MODE/REV làm nguồn nội dung.
+    Nếu cần bối cảnh A hoặc nội dung từ A13/C2-C6, bối cảnh đó phải được C1 xử lý trước và nằm trong C1_STATE/C1_FINAL.
+    O9 không tự gọi hoặc tự chạy C1.
 
-O9.2. Nguồn dữ liệu được phép
-    O9 chỉ được đọc nguồn mapping rõ:
-        1. G_STATE của ROUND hiện tại:
-            - chỉ để kiểm O9 nằm trong O_RENDER_LIST/O_RENDER_ORDER và thứ tự render;
-            - không dùng G_STATE làm nguồn tạo câu hỏi, khám thêm hoặc cận lâm sàng;
-            - không render metadata G_STATE vào output.
-        2. C_GATE mới nhất nếu hệ thống có:
-            - chỉ để kiểm C1_STATE hợp lệ;
-            - không render C_GATE vào output.
-        3. C1_STATE:
-            - nguồn chính và bắt buộc của O9.
-        4. C1_CHECK:
-            - phải = PASS để O9 render.
-        5. C1_FINAL:
-            - nguồn tổng hợp cuối nếu C1 đã chốt.
-        6. C1_QUESTIONS nếu có:
-            - nguồn cho mục “Cần hỏi thêm”.
-        7. C1_EXAM_TO_ADD nếu có:
-            - nguồn cho mục “Cần khám thêm”.
-        8. C1_TESTS_TO_DO nếu có:
-            - nguồn cho mục “Cận lâm sàng / thăm dò cần làm”.
-        9. C1_REASSESSMENT_POINTS nếu có:
-            - nguồn cho mục “Cần đánh giá lại / theo dõi lại”.
-        10. C1_ERROR:
-            - chỉ dùng để ghi lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu;
-            - không render vào output thường quy khi C1_CHECK = PASS.
-    Không viết nguồn đọc kiểu “các Cx_STATE cần thiết” lấp lửng.
-    Không đọc Cx_STATE rộng.
-    Không đọc A_STATE để tự tạo nội dung O9.
-    Nếu cần bối cảnh lâm sàng, bối cảnh đó phải nằm trong C1_STATE/C1_FINAL.
-    Không giữ A_MODULE_REV/RUN_MODE như nguồn render O9; nếu nhắc thì chỉ nằm trong cấm metadata hoặc đẩy consistency/source-basis validation về C1/C_GATE/G contract.
+O9_ALLOWED_ACTION
+    O9 RUN/render khi đồng thời: O9 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER; đã đến lượt theo G_STATE.O_RENDER_ORDER; C1_STATE tồn tại; C1_CHECK = PASS; C1_FINAL hoặc các field C1 tương ứng có nội dung/schema hợp lệ; output đúng schema O9; chỉ dùng source allowlist.
+    O9 SKIP khi O9 không nằm trong render plan hoặc chưa đến lượt render.
+    Khi SKIP: không render O9, không tạo/cập nhật O9_OUTPUT, không in “O9_OUTPUT = SKIP” và không tự thêm O9 vào render plan.
+    O9 BLOCKED/NEEDS_FIX khi O9 được yêu cầu render nhưng thiếu điều kiện RUN, thiếu C1_STATE, C1_CHECK != PASS, C1_CHECK = NEEDS_FIX, C1_FINAL thiếu/sai schema, field C1 thiếu/sai schema khi cần, C1 chưa tạo nội dung nhưng O9 được yêu cầu, C1_STATE mâu thuẫn/không phù hợp format O9, dùng nguồn cấm, output sai schema hoặc O9 cố tự tạo/bù nội dung.
+    Khi BLOCKED/NEEDS_FIX: không render bản O9 hoàn chỉnh, không tự tạo nội dung mới, không tự sửa/chạy C1, không tự chạy A/C/O, không tự gọi O khác, không tự sửa A/C/G/O, không fallback sang A/A13/C2-C6/O output cũ/raw/hidden/web và chỉ ghi lý do chặn nếu hệ thống yêu cầu.
 
-O9.3. Nguồn dữ liệu không được dùng
-    O9 không được đọc/dùng:
-        1. Raw input để tự tạo câu hỏi.
-        2. Raw input để tự tạo khám thêm.
-        3. Raw input để tự tạo xét nghiệm, cận lâm sàng, hình ảnh hoặc thăm dò cần làm.
-        4. Hidden memory / trí nhớ ẩn.
-        5. O_OUTPUT cũ, O9_OUTPUT cũ hoặc rendered output cũ.
-        6. A_STATE_PATCH làm nguồn chính.
-        7. C_STATE_PATCH làm nguồn chính.
-        8. A_STATE để tự tạo nội dung O9.
-        9. A13_STATE để tự thay C1.
-        10. A13_LABS để tự tạo xét nghiệm cần làm nếu C1 chưa tạo.
-        11. A13_IMAGING để tự tạo chẩn đoán hình ảnh/thăm dò nếu C1 chưa tạo.
-        12. A13_TREATMENT để tự tạo hướng xử trí.
-        13. C2_STATE để tạo cảnh báo.
-        14. C3_STATE để tạo cảnh báo thuốc.
-        15. C4_STATE để tạo hội chứng/tóm tắt.
-        16. C5_STATE để tạo chẩn đoán phân biệt.
-        17. C6_STATE để tự tra cứu hoặc thêm khuyến cáo.
-        18. Cx_STATE ngoài C1.
-        19. O10_OUTPUT để tạo cảnh báo.
-        20. O11_OUTPUT để tạo cảnh báo thuốc.
-        21. O12_OUTPUT để thêm kiến thức/nguồn.
-        22. O13_OUTPUT để thêm chẩn đoán phân biệt.
-        23. Web, guideline hoặc source ngoài nếu không có contract.
-        24. Metadata kỹ thuật để render thành nội dung hỏi thêm, khám thêm hoặc cần làm.
+O9_ALLOWED_WRITE
+    O9 chỉ được ghi/render output thường quy của chính O9 theo schema, O9_OUTPUT nếu framework vận hành dùng field này, O9_RENDER_CHECK nếu framework nội bộ dùng và lý do BLOCKED/NEEDS_FIX nếu framework yêu cầu.
+    O9_RENDER_CHECK là metadata kỹ thuật nếu còn dùng; không render O9_RENDER_CHECK vào output thường quy.
+    O9 không được ghi/tạo/sửa O9_STATE, O9_REV, O9_FINAL, O9_ERROR field riêng nếu contract hiện tại không định nghĩa, G_STATE, O_RENDER_LIST, O_RENDER_ORDER, A_STATE, C_STATE, C1_STATE, C2-C7, O module khác hoặc S/G.
+    Không tạo/cập nhật O9_OUTPUT khi SKIP.
+    Không dùng O9 output làm source cho module khác nếu contract khác không nêu rõ.
 
-O9.4. Vai trò của O9 trong hệ thống
-    O9 nằm trong lớp O.
-    O9 là module render/output.
-    O9 là renderer của C1.
-    O9 chỉ trình bày nội dung đã có từ C1_STATE hợp lệ.
-    O9 chỉ chạy khi nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-    O9 không tự chạy C.
-    O9 không sửa A_STATE/C_STATE/G_STATE.
-    O9 không tạo dữ liệu lâm sàng mới.
-    O9 không tự tạo hỏi thêm, khám thêm, cận lâm sàng, hình ảnh hoặc thăm dò.
-    O9 không tự tạo đánh giá lại.
-    O9 không tự tạo mức ưu tiên.
-    O9 không thay C1.
-    O9 không thay A13.
-    Nếu thiếu C1 hoặc C1 không hợp lệ, O9 BLOCKED/NEEDS_FIX.
-    Nếu nguồn sai hoặc mâu thuẫn, O9 không tự sửa mà yêu cầu chạy lại module nguồn theo điều phối hệ thống.
-
-O9.5. Điều kiện RUN / SKIP / BLOCKED
-    RUN chỉ khi tất cả đúng:
-        1. O9 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER.
-        2. Đã đến lượt O9 theo O_RENDER_ORDER.
-        3. C1_STATE tồn tại.
-        4. C1_CHECK = PASS.
-        5. C1_FINAL hoặc các field tương ứng có nội dung/schema hợp lệ.
-    SKIP khi:
-        1. O9 không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        2. Không render SKIP output nếu hệ thống không yêu cầu.
-        3. Không tạo hoặc cập nhật O9_OUTPUT khi SKIP.
-    BLOCKED/NEEDS_FIX khi:
-        1. Thiếu C1_STATE.
-        2. C1_CHECK != PASS.
-        3. C1_CHECK = NEEDS_FIX.
-        4. C1_FINAL thiếu hoặc sai schema.
-        5. C1_QUESTIONS thiếu schema khi cần.
-        6. C1_EXAM_TO_ADD thiếu schema khi cần.
-        7. C1_TESTS_TO_DO thiếu schema khi cần.
-        8. C1_REASSESSMENT_POINTS thiếu schema khi cần.
-        9. C1 chưa tạo nội dung nhưng O9 được yêu cầu.
-        10. C1_STATE mâu thuẫn hoặc không phù hợp format O9.
-    Khi BLOCKED/NEEDS_FIX:
-        1. Không tự tạo hỏi thêm.
-        2. Không tự tạo khám thêm.
-        3. Không tự tạo xét nghiệm, cận lâm sàng, hình ảnh hoặc thăm dò.
-        4. Không tự tạo đánh giá lại.
-        5. Không tự tạo mức ưu tiên.
-        6. Không tự sửa C1.
-        7. Không tự chạy C1.
-        8. Chỉ ghi lý do chặn nếu hệ thống yêu cầu.
-
-O9.6. Mapping dữ liệu nguồn sang output
-    O9 mapping:
-        1. Cần hỏi thêm:
-            - lấy từ C1_QUESTIONS hoặc phần tương ứng trong C1_FINAL.
-        2. Cần khám thêm:
-            - lấy từ C1_EXAM_TO_ADD hoặc phần tương ứng trong C1_FINAL.
-        3. Cận lâm sàng / thăm dò cần làm:
-            - lấy từ C1_TESTS_TO_DO hoặc phần tương ứng trong C1_FINAL.
-        4. Cần đánh giá lại / theo dõi lại:
-            - lấy từ C1_REASSESSMENT_POINTS nếu có.
-        5. Ghi chú giới hạn dữ kiện:
-            - lấy từ C1_FINAL nếu C1 có ghi giới hạn hoặc lý do cần bổ sung.
-        6. Mức ưu tiên:
-            - chỉ lấy từ C1 nếu C1 có field rõ;
-            - không tự thêm mức ưu tiên.
-    Không tự thêm mục nếu C1 không có nội dung.
-    Không chuyển A13 hướng xử trí thành C1.
-    Không chuyển C2 cảnh báo thành C1.
-    Không chuyển C3 cảnh báo thuốc thành C1.
-    Không chuyển C5 chẩn đoán phân biệt thành C1.
-    Không chuyển C6 tra cứu thành O9.
-
-O9.7. Quy tắc render từng nhóm C1
-    Mục “Cần hỏi thêm” chỉ render nội dung từ C1_QUESTIONS hoặc nhóm tương ứng trong C1_FINAL.
-    Mục “Cần khám thêm” chỉ render nội dung từ C1_EXAM_TO_ADD hoặc nhóm tương ứng trong C1_FINAL.
-    Mục “Cận lâm sàng / thăm dò cần làm” chỉ render nội dung từ C1_TESTS_TO_DO hoặc nhóm tương ứng trong C1_FINAL.
-    Mục “Cần đánh giá lại / theo dõi lại” chỉ render nội dung từ C1_REASSESSMENT_POINTS hoặc nhóm tương ứng trong C1_FINAL nếu C1 có.
-    Mục “Ghi chú giới hạn dữ kiện” chỉ render giới hạn dữ kiện hoặc lý do cần bổ sung nếu C1_FINAL có.
-    O9 không tự sửa câu chữ lâm sàng của C1 để thêm nội dung mới.
-    O9 không tự đổi thứ tự nhóm output nếu chuẩn đã khóa.
-
-O9.8. Quy tắc khi C1 ghi không cần bổ sung
-    Nếu C1 ghi không cần bổ sung, O9 render đúng câu C1 đã chốt, ví dụ “Không có nội dung cần bổ sung nổi bật từ C1” hoặc câu tương ứng từ C1.
-    O9 không tự thêm câu hỏi, khám thêm, xét nghiệm, cận lâm sàng, hình ảnh, thăm dò hoặc đánh giá lại khi C1 đã chốt không cần bổ sung.
-    O9 không dùng A13/C2/C3/C5/C6 để bù nội dung khi C1 ghi không cần bổ sung.
-
-O9.9. No-data / BLOCKED / NEEDS_FIX
-    O9 không render bản hoàn chỉnh nếu:
-        1. O9 không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        2. Thiếu C1_STATE.
-        3. C1_CHECK != PASS.
-        4. C1_FINAL thiếu hoặc sai schema.
-        5. C1_QUESTIONS/C1_EXAM_TO_ADD/C1_TESTS_TO_DO/C1_REASSESSMENT_POINTS thiếu schema khi cần.
-        6. C1 chưa tạo nội dung nhưng O9 được yêu cầu.
-        7. C1_STATE mâu thuẫn hoặc không phù hợp format O9.
-    Khi BLOCKED:
-        1. Không tự tạo hỏi thêm.
-        2. Không tự tạo khám thêm.
-        3. Không tự tạo xét nghiệm, cận lâm sàng, hình ảnh hoặc thăm dò.
-        4. Không tự tạo đánh giá lại.
-        5. Không tự tạo mức ưu tiên.
-        6. Không tự sửa C1.
-        7. Không tự chạy C1.
-        8. Không render C1_ERROR vào output thường quy; chỉ dùng C1_ERROR làm lý do chặn nếu hệ thống yêu cầu.
-
-O9.10. Metadata không được render
-    O9 không được render vào output thường quy:
-        1. STATE_VERSION.
-        2. ROUND_ID.
-        3. RUN_MODE.
-        4. Ax_REV.
-        5. Cx_REV.
-        6. Ox_REV nếu có.
-        7. UPDATED_AT.
-        8. A_CHECK / A_ERROR.
-        9. C_CHECK / C_ERROR.
-        10. O_CHECK / O_ERROR.
-        11. CREATE / UPDATE / REUSE.
-        12. A_MODULE_REV.
-        13. C_MODULE_REV.
-        14. O9_RENDER_CHECK.
-        15. G_STATE metadata kỹ thuật.
-        16. C1 technical metadata.
-    Nếu O9_RENDER_CHECK còn dùng, O9_RENDER_CHECK chỉ là kiểm nội bộ, không render vào output thường quy và chỉ được hiển thị trong debug/report khi hệ thống yêu cầu.
-
-O9.11. Ranh giới O9
-    O9 không thay:
-        1. C1 — tạo nội dung hỏi thêm, khám thêm hoặc cần làm thêm.
-        2. A13 — hướng xử trí / điều trị.
-        3. O10 — cảnh báo lâm sàng.
-        4. O11 — cảnh báo thuốc.
-        5. O12 — render C6 / tra cứu.
-        6. O13 — chẩn đoán phân biệt.
-        7. C2 — cảnh báo lâm sàng.
-        8. C3 — cảnh báo thuốc.
-        9. C5 — chẩn đoán phân biệt.
-        10. C6 — tra cứu / kiến thức ngoài.
-    C1 tạo nội dung.
-    O9 chỉ render nội dung.
-    Nếu cần bổ sung nội dung mới, phải chạy lại C1 theo điều phối hệ thống.
-    O9 không tự chạy C1.
-    O9 không tự sửa C1.
-    O9 không tự lấy A13/C2/C3/C5/C6 để bù nội dung.
-    O9 không biến thành O10/O11/O12/O13/A13.
-
-O9.12. Chuẩn đầu ra O9
-    O9 render nội dung do C1 tạo.
-    Format chuẩn:
+O9_RENDER_SCHEMA
+    O9 render thành block riêng theo contract O hiện tại; O9 không bắt buộc code block text riêng và không thêm code block riêng nếu contract O9 không yêu cầu.
+    Heading literal chuẩn:
         HỎI THÊM / KHÁM THÊM / CẬN LÂM SÀNG CẦN LÀM
-
+    Thứ tự mục chuẩn:
         1. Cần hỏi thêm:
-           ...
-
         2. Cần khám thêm:
-           ...
-
         3. Cận lâm sàng / thăm dò cần làm:
-           ...
-
         4. Cần đánh giá lại / theo dõi lại:
-           ...
-
         5. Ghi chú giới hạn dữ kiện:
-           ...
-    Nếu C1 ghi không cần bổ sung:
-        - O9 render đúng “Không có nội dung cần bổ sung nổi bật từ C1” hoặc câu tương ứng từ C1.
-        - Không tự thêm câu hỏi, khám hoặc xét nghiệm.
-    Nguyên tắc:
-        1. Không tự thêm mục nếu C1 không có.
-        2. Không tự tạo nội dung để lấp mục trống.
-        3. Không tự sửa nội dung C1.
-        4. Không tự đổi thứ tự nhóm output nếu chuẩn đã khóa.
-        5. Không render metadata kỹ thuật.
-        6. Không render C1_ERROR vào output thường quy khi C1_CHECK = PASS.
-        7. Nếu C1_ERROR được dùng, chỉ dùng cho lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
+    Mapping:
+        - “Cần hỏi thêm” lấy từ C1_QUESTIONS hoặc phần tương ứng trong C1_FINAL.
+        - “Cần khám thêm” lấy từ C1_EXAM_TO_ADD hoặc phần tương ứng trong C1_FINAL.
+        - “Cận lâm sàng / thăm dò cần làm” lấy từ C1_TESTS_TO_DO hoặc phần tương ứng trong C1_FINAL.
+        - “Cần đánh giá lại / theo dõi lại” lấy từ C1_REASSESSMENT_POINTS hoặc phần tương ứng trong C1_FINAL.
+        - “Ghi chú giới hạn dữ kiện” lấy từ C1_FINAL nếu C1 có ghi giới hạn/lý do cần bổ sung.
+        - “Mức ưu tiên” chỉ lấy từ C1 nếu có field rõ; không tự thêm.
+    Nếu C1 không có nội dung cho một mục, O9 không tự thêm mục/nội dung mới từ A/A13/C2-C6/O output và chỉ render theo schema/no-data behavior hiện hành từ C1.
+    Nếu C1 ghi không cần bổ sung, O9 render đúng câu C1 đã chốt, ví dụ “Không có nội dung cần bổ sung nổi bật từ C1” hoặc câu tương ứng từ C1; không tự thêm câu hỏi/khám/xét nghiệm.
+    Khi xuất thật: không in placeholder, tên biến, nhãn kỹ thuật như C1_STATE/C1_FINAL/O9_OUTPUT, metadata, check/error/rev/state hoặc debug text.
 
-O9.13. Ví dụ chuẩn hóa nếu cần
-    Ví dụ 1 — C1 có đủ nội dung:
-        - C1_QUESTIONS có câu hỏi.
-        - C1_EXAM_TO_ADD có khám thêm.
-        - C1_TESTS_TO_DO có cận lâm sàng/thăm dò.
-        - C1_REASSESSMENT_POINTS có điểm đánh giá lại nếu có.
-        - O9 render đúng các mục từ C1.
-    Ví dụ 2 — C1 ghi không cần bổ sung:
-        - C1_FINAL = “Không có nội dung cần bổ sung nổi bật từ C1.”
-        - O9 render đúng câu C1 đã chốt.
-        - O9 không tự thêm câu hỏi, khám hoặc xét nghiệm.
-    Ví dụ 3 — thiếu C1_STATE:
-        - O9 BLOCKED: thiếu C1_STATE.
-    Ví dụ 4 — C1_CHECK lỗi:
-        - O9 BLOCKED: C1_CHECK != PASS hoặc C1_CHECK = NEEDS_FIX.
-    Ví dụ 5 — C1 thiếu schema:
-        - C1_QUESTIONS/C1_EXAM_TO_ADD/C1_TESTS_TO_DO/C1_REASSESSMENT_POINTS thiếu schema khi cần.
-        - O9 BLOCKED/NEEDS_FIX.
-        - O9 không tự bù.
-    Các ví dụ chỉ minh họa contract; không sao chép dữ kiện mẫu vào ca thật.
-    Ví dụ không được render metadata kỹ thuật.
-    Ví dụ không được dùng A13/C2/C3/C5/C6 để tự tạo nội dung.
+O9_LOGIC_RULES
+    O9 render nguyên nội dung C1 đúng vị trí theo mapping O9.
+    O9 không tự tạo câu hỏi, khám thêm, xét nghiệm/thăm dò cần làm, đánh giá lại/theo dõi lại, mức ưu tiên, chẩn đoán, hướng xử trí, thuốc, cảnh báo hoặc chẩn đoán phân biệt.
+    O9 không tự thêm nội dung từ A13/C2-C6, không tự chuyển A13/C2/C3/C5/C6 thành C1/O9, không tự biến dữ kiện đã có thành “cần làm”, không tự biến kết quả A14 đã có thành xét nghiệm cần làm và không tự biến gợi ý thành y lệnh chính thức nếu C1 không chốt.
+    Nếu cần bổ sung nội dung mới, phải quay lại C1 theo điều phối hệ thống; O9 không tự chạy C1 và không tự sửa C1.
 
-O9.14. Checklist trước khi chốt O9
-    Trước khi chốt O9, phải kiểm:
-        1. Đã đọc đủ O9 theo READ LOCK.
-        2. O9 nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        3. Đã đến lượt O9 theo O_RENDER_ORDER.
-        4. C1_STATE tồn tại.
-        5. C1_CHECK = PASS.
-        6. C1_FINAL hoặc các field C1 tương ứng có nội dung/schema hợp lệ.
-        7. Nguồn đọc đúng O9.2.
-        8. Không đọc Cx_STATE ngoài C1.
-        9. Không dùng A_STATE/A13 để tự tạo nội dung.
-        10. Không dùng A13_LABS/A13_IMAGING/A13_TREATMENT để thay C1.
-        11. Không dùng C2/C3/C5/C6 sai phạm vi.
-        12. Không dùng raw input, hidden memory, output cũ hoặc patch state.
-        13. Output đúng hỏi thêm / khám thêm / cận lâm sàng cần làm.
-        14. Nếu C1 ghi không cần bổ sung, O9 render đúng câu C1.
-        15. Không tự thêm mục nếu C1 không có.
-        16. Không tự tạo hỏi thêm.
-        17. Không tự tạo khám thêm.
-        18. Không tự tạo xét nghiệm, cận lâm sàng, hình ảnh hoặc thăm dò.
-        19. Không tự tạo đánh giá lại.
-        20. Không tự tạo mức ưu tiên.
-        21. No-data/BLOCKED đúng.
-        22. Không sửa C1.
-        23. Không tự chạy C1.
-        24. Không render metadata.
-        25. Không biến thành O10/O11/O12/O13/A13.
+O9_SPECIAL_RULES
+    Boundary với A: O9 không đọc A_STATE để tự tạo nội dung; không dùng A13/A13_LABS/A13_IMAGING/A13_TREATMENT để thay C1 hoặc tự tạo xét nghiệm/hình ảnh/hướng xử trí; không dùng A14 kết quả đã có để tự tạo mục cần làm; không dùng A15 thuốc/đơn thuốc; nếu bối cảnh A cần cho O9, bối cảnh đó phải nằm trong C1_STATE/C1_FINAL.
+    Boundary với C: O9 chỉ là renderer của C1; chỉ đọc C1_STATE/C1_CHECK/C1_FINAL/C1_* theo allowlist; không đọc C2/C3/C4/C5/C6/C7 để bù; không thay/sửa/chạy C1; không biến C2 cảnh báo lâm sàng, C3 cảnh báo thuốc, C5 chẩn đoán phân biệt hoặc C6 tra cứu nguồn thành O9.
+    Boundary với O: O9 không đọc O output cũ, O9_OUTPUT cũ, rendered output cũ, O1-O8 output hoặc O10-O13 output; không thay O10 cảnh báo lâm sàng, O11 cảnh báo thuốc, O12 tra cứu nguồn hoặc O13 chẩn đoán phân biệt; không tự gọi O10/O11/O12/O13.
+    Metadata: không render metadata kỹ thuật, gồm O9_RENDER_CHECK, O9_ERROR nếu framework có, C1_CHECK, C1_ERROR trong output thường quy khi C1_CHECK PASS, STATE_VERSION, ROUND_ID, RUN_MODE, A/C/O REV, A_CHECK/C_CHECK/O_CHECK, CREATE/UPDATE/REUSE, A_MODULE_REV/C_MODULE_REV, output cũ hoặc debug text.
+    No-data/no-content: nếu C1 ghi không cần bổ sung, O9 render đúng câu C1 đã chốt; nếu C1 chưa tạo nội dung nhưng O9 được yêu cầu, O9 NEEDS_FIX/BLOCKED; không tự bù nội dung từ nguồn khác.
 
-O9.15. Các lỗi không được mắc
-    Không bỏ qua READ LOCK.
-    Không audit, patch, final review hoặc sử dụng khi chưa đọc đủ O9.
-    Không render O9 khi không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-    Không render khi C1 chưa chạy.
-    Không render khi thiếu C1_STATE.
-    Không render khi C1_CHECK != PASS.
-    Không render khi C1_CHECK lỗi.
-    Không tự tạo hỏi thêm.
-    Không tự tạo khám thêm.
-    Không tự tạo xét nghiệm cần làm.
-    Không tự tạo cận lâm sàng.
-    Không tự tạo hình ảnh/thăm dò.
-    Không tự tạo đánh giá lại.
-    Không tự tạo mức ưu tiên.
-    Không dùng A13 thay C1.
-    Không dùng A13_LABS/A13_IMAGING để tự tạo cận lâm sàng nếu C1 chưa tạo.
-    Không dùng A13_TREATMENT để tự tạo hướng xử trí.
-    Không dùng C2 làm hỏi thêm/cảnh báo trong O9.
-    Không dùng C3 làm cảnh báo thuốc.
-    Không dùng C5 làm chẩn đoán phân biệt.
-    Không dùng C6 trực tiếp để tra cứu/thêm khuyến cáo.
-    Không dùng raw input.
-    Không dùng hidden memory.
-    Không dùng output cũ/rendered output cũ.
-    Không dùng patch state làm nguồn.
-    Không biến O9 thành O10.
-    Không biến O9 thành O11.
-    Không biến O9 thành O12.
-    Không biến O9 thành O13.
-    Không biến O9 thành hướng điều trị A13.
-    Không sửa nội dung C1 khi render.
-    Không render metadata kỹ thuật.
+O9_CHECK_PASS_IF
+    PASS khi tất cả đúng:
+        1. O9 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt render.
+        2. C1_STATE tồn tại.
+        3. C1_CHECK = PASS.
+        4. C1_FINAL hoặc các field C1 tương ứng có nội dung/schema hợp lệ.
+        5. Chỉ dùng source allowlist; không dùng A_STATE/A13, C2-C7, O output cũ/rendered output cũ, raw input/hidden memory/web hoặc patch/delta để tự tạo/bù.
+        6. Output đúng heading/schema O9; các mục render đúng từ C1; không tự thêm mục/nội dung ngoài C1; không render metadata.
+        7. Nếu C1 ghi không cần bổ sung thì O9 render đúng câu C1 đã chốt.
+        8. Nếu O9_RENDER_CHECK = PASS thì không có lỗi nội bộ còn mở.
+
+O9_NEEDS_FIX_IF
+    NEEDS_FIX/BLOCKED khi có bất kỳ điều kiện nào: O9 được plan nhưng thiếu điều kiện RUN; O9 chưa đến lượt render; thiếu C1_STATE; C1_CHECK != PASS hoặc C1_CHECK = NEEDS_FIX; C1_FINAL thiếu/sai schema; C1_QUESTIONS/C1_EXAM_TO_ADD/C1_TESTS_TO_DO/C1_REASSESSMENT_POINTS thiếu/sai schema khi cần; C1 chưa tạo nội dung nhưng O9 được yêu cầu; C1_STATE mâu thuẫn hoặc không phù hợp format O9; dùng source ngoài allowlist; dùng A_STATE/A13/A14/A15 để tự tạo/bù; dùng C2-C7 để bù; dùng O output cũ/rendered output cũ; dùng raw input/hidden memory/web; dùng patch/delta; output sai schema; O9 tự tạo/bù câu hỏi/khám/xét nghiệm/đánh giá lại/mức ưu tiên; O9 render metadata kỹ thuật.
+
+O9_ERROR_RULE
+    Khi NEEDS_FIX/BLOCKED: không render bản O9 hoàn chỉnh, không tự tạo nội dung, không tự sửa/chạy C1, không tự chạy A/C/O và không fallback sang A/A13/C2-C6/O output cũ/raw/hidden/web.
+    Nếu framework cần lỗi/check nội bộ: ghi lý do chặn theo framework, có thể dùng C1_ERROR làm lý do chặn và không render lỗi/check metadata vào output thường quy.
+    Lý do chặn phải nêu rõ nguyên nhân, ví dụ O9 không nằm render plan, thiếu C1_STATE, C1_CHECK không PASS, C1_FINAL hoặc field C1 thiếu/sai schema, C1_STATE mâu thuẫn, dùng nguồn cấm hoặc output sai schema.
+
+O9_REUSE_RULE
+    O9 không có lifecycle CREATE/UPDATE/REUSE state riêng theo contract hiện tại.
+    Không reuse O output cũ, O9_OUTPUT cũ hoặc rendered output cũ.
+    Khi G plan O9, render từ current allowed sources của ROUND hiện tại.
+    Nếu hệ thống có REUSE nội bộ, REUSE chỉ là metadata điều phối, không làm nguồn nội dung và không render thường quy.
+    Không ghi “reuse O9”, không tạo O9_REV và không tạo O9_STATE.
+
+O9_END
+    Giữ marker kết thúc O9 bên dưới.
+    Sau O9, hệ thống render O tiếp theo theo G_STATE.O_RENDER_ORDER; O9 không tự chạy O10, không gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O9
 
