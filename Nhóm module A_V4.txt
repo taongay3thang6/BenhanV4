@@ -3517,8 +3517,119 @@ A13_END
 
 <<< END A13
 ```text id="a14_detail"
-####################################################################################################
+A14 — THÔNG TIN BỔ SUNG PHỤC VỤ BỆNH ÁN / CẬN LÂM SÀNG ĐÃ CÓ
+Version: BA S-G-A-C-O V4
+Update: 08/06/2026 GMT+7 — compact allowlist, giữ schema A14 hiện hành
 
+>>> READ-LOCK: A14
+- Bắt buộc đọc toàn bộ A14 từ A14_ROLE đến A14_END.
+- A14 chỉ tạo full A14_STATE; không tạo state của module khác.
+- A14 là kho thông tin bổ sung phục vụ bệnh án và cận lâm sàng đã có từ user input qua nhiều ROUND.
+- A14 không diễn giải lâm sàng sâu, không chạy C, không render O và không tự dừng STEP A.
+- Sau khi hoàn tất A14_STATE, chuyển sang A15 theo A_RUN_ORDER.
+<<< END READ-LOCK: A14
+
+A14_ROLE
+    A14 lưu/chuẩn hóa tối thiểu và bảo toàn dữ kiện user đã cung cấp trong phạm vi A14 qua nhiều ROUND.
+    A14 chỉ lưu dữ kiện đã có, không lưu chỉ định cần làm.
+    A14 không phải module hành chính rộng, không phải A12 chẩn đoán, không phải A13 hướng cần làm, không phải A15 thuốc/đơn thuốc và không phải C7/O module.
+    A14 không tạo chẩn đoán, hướng điều trị, thuốc/đơn thuốc, tình trạng ra viện, bệnh trình, lời dặn, tái khám, chuyển tuyến hoặc kết quả xét nghiệm/hình ảnh/thăm dò nếu user không cung cấp.
+
+A14_ALLOWED_SOURCE
+    A14 chỉ được đọc:
+        1. User input của ROUND hiện tại.
+        2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật: ROUND_ID, STATE_VERSION, RUN_MODE.
+        3. A14_STATE hiện hành mới nhất nếu đã có, để lưu trữ dữ kiện A14 qua nhiều ROUND.
+        4. File/module A14.
+        5. A1_STATE đến A11_STATE nếu cần đối chiếu ngữ cảnh, phân ranh, phát hiện mâu thuẫn hoặc tránh trùng lặp; không dùng để tự tạo dữ kiện user chưa cung cấp.
+    A14 không được đọc/dùng: C_STATE, O_OUTPUT, output đã render, hidden memory/trí nhớ ẩn, dữ liệu ngoài state hợp lệ, web/guideline/source ngoài, A12/A13/A15 của ROUND hiện tại để viết ngược A14, A12_STATE của ROUND hiện tại, A12_STATE cũ từ ROUND trước để tạo A14 trong ROUND hiện tại, A13_LABS/A13_IMAGING như kết quả đã có, A13_TREATMENT như điều trị đã thực hiện, hoặc A15_STATE để viết ngược thuốc/đơn thuốc vào A14.
+
+A14_ALLOWED_ACTION
+    A14 được CREATE, UPDATE, REUSE và CHECK full A14_STATE; quản lý A14_REV của chính A14; lưu/chuẩn hóa tối thiểu dữ kiện user cung cấp trong scope A14; tạo A14_SUMMARY_FOR_O chỉ từ dữ liệu đã có trong A14; phát hiện dữ kiện mơ hồ/xung đột/không thể lưu an toàn và đặt A14_CHECK = NEEDS_FIX.
+    A14 không được tạo state module khác, sửa A1-A13, sửa A15, sửa A_GATE, tạo toàn bộ A_MODULE_REV, tạo C_STATE, chạy C, render O, tạo O_OUTPUT, tự gọi module kế tiếp, chuyển sớm sang A_GATE hoặc tự tạo dữ kiện thật user chưa cung cấp.
+
+A14_ALLOWED_WRITE
+    A14 chỉ được ghi full current A14_STATE.
+    A14 không ghi A1-A13, A15, A_GATE, A_STATE_OUTPUT_SCHEMA, C_STATE, O_OUTPUT, S/G hoặc A_MODULE_REV toàn cục.
+    A14_STATE là full state, không patch/delta.
+
+A14_STATE_SCHEMA
+    A14_STATE bắt buộc có đúng các field chính sau:
+        STATE_VERSION: lấy từ G_STATE
+        A14_REV: <revision của chính A14>
+        UPDATED_AT: HH:MM dd/mm/yyyy
+        A14_HAS_DATA: YES | NO
+        A14_AGE: <tuổi/ngày sinh/năm sinh nếu user cung cấp hoặc no-data>
+        A14_SEX: <giới tính nếu user cung cấp hoặc no-data>
+        A14_DISCHARGE_DATE: <ngày ra viện nếu user cung cấp hoặc no-data>
+        A14_LABS_RESULT: <kết quả xét nghiệm đã có nếu user cung cấp hoặc no-data>
+        A14_IMAGING_RESULT: <kết quả chẩn đoán hình ảnh/thăm dò đã có nếu user cung cấp hoặc no-data>
+        A14_OTHER_PARACLINICAL_RESULT: <kết quả cận lâm sàng khác đã có nếu user cung cấp hoặc no-data>
+        A14_SUMMARY_FOR_O: <tóm tắt sạch dữ liệu A14 cho O hoặc no-data>
+        A14_CHECK: PASS | NEEDS_FIX
+        A14_ERROR: NONE | <mô tả dữ kiện cần user xác nhận>
+    Không thêm, đổi tên hoặc dùng schema chính ngoài danh sách trên; không dùng A14_ADMIN, A14_PARACLINICAL hoặc A14_DATA_QUALITY làm schema chính.
+    Không thêm A14_DISCHARGE_TYPE, A14_TRANSFER_HOSPITAL, A14_DISCHARGE_STATUS, A14_DISCHARGE_SOURCE, A14_DISCHARGE_NOTE, A14_DISCHARGE_DATETIME, A14_FOR_C7, A14_FOR_O3 hoặc field mới ngoài schema hiện tại.
+
+A14_LOGIC_RULES
+    A14_HAS_DATA = NO nếu tất cả field nội dung là no-data literal; A14_HAS_DATA = YES nếu có ít nhất một dữ kiện A14 thật do user cung cấp.
+    Chưa có dữ kiện A14 không phải lỗi; vẫn tạo full A14_STATE no-data và có thể A14_CHECK = PASS.
+    Không dùng NONE/NULL/SKIP/N/A/blank thay no-data literal.
+    No-data literals bắt buộc:
+        A14_AGE = Chưa có tuổi/ngày sinh/năm sinh được cung cấp.
+        A14_SEX = Chưa có giới tính được cung cấp.
+        A14_DISCHARGE_DATE = Chưa có ngày ra viện được cung cấp.
+        A14_LABS_RESULT = Chưa có kết quả xét nghiệm được cung cấp.
+        A14_IMAGING_RESULT = Chưa có kết quả chẩn đoán hình ảnh được cung cấp.
+        A14_OTHER_PARACLINICAL_RESULT = Chưa có kết quả cận lâm sàng khác được cung cấp.
+        A14_SUMMARY_FOR_O = Chưa có thông tin bổ sung/cận lâm sàng được cung cấp.
+    A14 chỉ lưu dữ kiện đã có do user cung cấp hoặc đã có trong current/latest A14_STATE hợp lệ; không tự bịa tuổi, giới, ngày ra viện, trị số xét nghiệm, mô tả hình ảnh/thăm dò, nội soi, điện tim, kết quả cận lâm sàng khác hoặc summary cho O.
+    Kết quả cận lâm sàng đã có thuộc A14; chỉ định xét nghiệm/thăm dò cần làm thuộc A13; chẩn đoán thuộc A12; thuốc/đơn thuốc thuộc A15; tình trạng ra viện/bệnh trình thuộc C7/O3/O4 theo contract riêng.
+    Nếu user cung cấp kết quả cũ, A14 lưu là kết quả đã có. Nếu user chỉ cung cấp “cần làm xét nghiệm / cần chụp / cần nội soi”, A14 không biến thành kết quả đã có.
+    A14_SUMMARY_FOR_O chỉ tổng hợp dữ liệu đã có trong A14; không thêm dữ kiện chưa cung cấp, không diễn giải thành chẩn đoán, không tạo hướng điều trị, lời dặn, chuyển tuyến, tái khám, tình trạng ra viện và không dùng để thay C7/O3/O4.
+
+A14_SPECIAL_RULES
+    Boundary A13: A13 là hướng cần làm/y lệnh cần làm; A14 không lưu y lệnh cần làm của A13, không dùng A13_LABS/A13_IMAGING làm kết quả và không biến chỉ định cần làm thành kết quả đã có.
+    Boundary A12: A12 là chẩn đoán; A14 không tạo/sửa chẩn đoán, không diễn giải kết quả thành chẩn đoán và không dùng A12 current/cũ để tạo A14.
+    Boundary A15: A15 là thuốc/đơn thuốc/an toàn thuốc; A14 không lưu thuốc hoặc đơn thuốc, không viết thay A15 và không dùng A15 để viết ngược A14.
+    Boundary discharge/C7/O: A14 chỉ lưu A14_DISCHARGE_DATE nếu user cung cấp; không lưu tình trạng ra viện, hướng xử trí ra viện, lời dặn, tái khám, chuyển tuyến, DISCHARGE_DATETIME, DISCHARGE_STATUS, DISCHARGE_SOURCE, DISCHARGE_NOTE, loại kết thúc điều trị hoặc tên bệnh viện chuyển đến nếu schema hiện tại chưa có field. O3/C7/O4 nếu cần discharge type/condition phải lấy theo contract riêng, không ép A14 thêm field mới trong patch này.
+    A14_LABS_RESULT chỉ chứa kết quả xét nghiệm đã có nếu user cung cấp; không chứa xét nghiệm cần làm của A13, không tự tạo trị số và không biến “công thức máu cần làm” thành “công thức máu đã có”.
+    A14_IMAGING_RESULT chỉ chứa kết quả chẩn đoán hình ảnh/thăm dò đã có nếu user cung cấp; có thể chứa X-quang, siêu âm, CT, MRI, nội soi, điện tim hoặc thăm dò khác nếu là kết quả đã có; không chứa chỉ định cần làm của A13, không tự tạo mô tả hình ảnh/thăm dò và không biến “cần làm siêu âm tim” thành “siêu âm tim có kết quả”.
+    A14_OTHER_PARACLINICAL_RESULT chỉ chứa kết quả cận lâm sàng khác đã có nếu user cung cấp; không chứa chỉ định cần làm và không tự tạo kết quả.
+    Không hồi quy về legacy schema A14_ADMIN, A14_PARACLINICAL hoặc A14_DATA_QUALITY.
+
+A14_CHECK_PASS_IF
+    PASS khi A14_STATE đủ field schema; STATE_VERSION hợp lệ; A14_REV đúng; UPDATED_AT đúng format; A14_HAS_DATA đúng với nội dung thực; các no-data literal đúng khi chưa có dữ kiện; dữ kiện user cung cấp được lưu an toàn; không tự bịa dữ kiện thật; A14_LABS_RESULT/A14_IMAGING_RESULT/A14_OTHER_PARACLINICAL_RESULT chỉ chứa kết quả đã có tương ứng; A14_SUMMARY_FOR_O chỉ tổng hợp dữ liệu đã có; không chứa chỉ định cần làm của A13; không tạo chẩn đoán; không lưu thuốc/đơn thuốc; không lưu tình trạng ra viện/lời dặn/hướng xử trí/tái khám/chuyển tuyến; không dùng nguồn bị cấm; không đọc C/O/rendered output/hidden memory; không patch/delta; và A14_ERROR = NONE.
+
+A14_NEEDS_FIX_IF
+    NEEDS_FIX khi thiếu field schema; UPDATED_AT sai format; A14_REV sai; A14_HAS_DATA sai với nội dung; no-data literal sai; dữ kiện user cung cấp mơ hồ/xung đột/không thể lưu an toàn; tuổi/ngày sinh/năm sinh mâu thuẫn; giới tính mâu thuẫn; ngày ra viện không rõ định dạng hoặc mâu thuẫn; xét nghiệm thiếu tên; giá trị xét nghiệm không rõ đơn vị và có nguy cơ hiểu sai; cùng xét nghiệm cùng thời điểm có hai giá trị khác nhau; kết quả hình ảnh/thăm dò không rõ tên thăm dò hoặc không thể phân loại an toàn; A14_LABS_RESULT chứa xét nghiệm cần làm của A13; A14_IMAGING_RESULT chứa chẩn đoán hình ảnh/thăm dò cần làm của A13; A14 tự tạo trị số xét nghiệm; A14 tự tạo mô tả hình ảnh/thăm dò; A14 tạo chẩn đoán; A14 lưu thuốc hoặc đơn thuốc; A14 lưu field hành chính vượt scope; A14 lưu tình trạng ra viện/lời dặn/hướng xử trí/tái khám/chuyển tuyến; A14_SUMMARY_FOR_O thêm dữ kiện không có trong A14; A14 đọc C/O/rendered output/hidden memory; A14 dùng A12/A13/A15 current để viết ngược A14; hoặc A14_STATE không full state/dùng patch/delta.
+
+A14_ERROR_RULE
+    Nếu A14_CHECK = PASS thì A14_ERROR = NONE.
+    Nếu A14_CHECK = NEEDS_FIX thì A14_ERROR ghi rõ dữ kiện cần user xác nhận.
+    Lỗi phải chỉ rõ nhóm khi xác định được: AGE, SEX, DISCHARGE_DATE, LABS_RESULT, IMAGING_RESULT, OTHER_PARACLINICAL_RESULT, SUMMARY_FOR_O, Schema, Source boundary, A12 boundary, A13 boundary, A15 boundary hoặc C/O/hidden source.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
+
+A14_REUSE_RULE
+    CREATE khi chưa có A14_STATE cũ; nếu không có dữ kiện A14 vẫn tạo full no-data state; A14_REV = 1.
+    UPDATE khi user input current bổ sung/sửa dữ kiện làm field nội dung thật A14 thay đổi; thay phần bị ảnh hưởng; giữ phần không bị ảnh hưởng nếu còn đúng; tăng A14_REV; cập nhật UPDATED_AT; vẫn xuất full A14_STATE.
+    REUSE khi input không liên quan A14 hoặc nội dung thật không đổi; vẫn xuất full A14_STATE; giữ A14_REV; không ghi “reuse A14” hoặc “giữ nguyên như trước”; không patch/delta.
+    CREATE/UPDATE/REUSE không suy từ tên RUN_MODE.
+
+A14_REV_RULE
+    CREATE: A14_REV = 1.
+    UPDATE có thay đổi nội dung thật: A14_REV tăng 1.
+    REUSE hoặc nội dung thật không đổi: giữ nguyên A14_REV.
+    Không tăng/giữ theo RUN_MODE và không tăng chỉ vì metadata.
+    A14 chỉ quản lý A14_REV; A14 không tự tạo toàn bộ A_MODULE_REV.
+
+A14_END
+    A14 hoàn tất khi đã CREATE/UPDATE/REUSE full current A14_STATE; A14_CHECK xác định PASS hoặc NEEDS_FIX; A14_ERROR đúng; không ghi ngoài A14_ALLOWED_WRITE; không chạy C/O; không render O; không chuyển sớm sang A_GATE.
+    Sau A14 chuyển sang A15 theo A_RUN_ORDER; không tự gọi A15, không tự sửa A15 và không tự chuyển A_GATE trước khi đủ A1-A15 hợp lệ.
+
+<<< END A14
+
+```text id="a15_detail"
 A15 — THUỐC / ĐƠN THUỐC CỤ THỂ / AN TOÀN THUỐC
 Version: BA S-G-A-C-O v3
 Update: 08/06/2026 GMT+7 — đồng bộ A15 thuốc/đơn thuốc cụ thể, schema UPDATED_AT và no-data clean
@@ -3943,363 +4054,6 @@ A15.12. Checklist và kết thúc
     Sau khi hoàn tất A15_STATE, chuyển sang A_GATE.
 
 <<< END A15
-
-####################################################################################################
-
-A14 — THÔNG TIN BỔ SUNG PHỤC VỤ BỆNH ÁN / CẬN LÂM SÀNG ĐÃ CÓ
-Version: BA S-G-A-C-O v3
-Update 08/06/2026 GMT+7
-
->>> READ-LOCK: A14
-- Bắt buộc đọc tuần tự toàn bộ A14 từ A14.1 đến A14.18.
-- Chỉ tạo A14_STATE; không tạo state của module khác.
-- A14 là kho lưu thông tin bổ sung phục vụ bệnh án và cận lâm sàng đã có từ user input qua nhiều ROUND.
-- A14 chỉ lưu, chuẩn hóa tối thiểu và bảo toàn dữ kiện user đã cung cấp trong phạm vi A14; không diễn giải lâm sàng sâu.
-- A14 không phải module hành chính rộng.
-- A14 không phải module ra viện/C7.
-- A14 không tự tạo dữ kiện thật nếu user không cung cấp.
-- A14 không chạy C, không render O và không tự dừng STEP A.
-- Sau khi hoàn tất A14_STATE, chuyển sang A15 theo A_RUN_ORDER.
-<<< END READ-LOCK: A14
-
-A14.1. Nhiệm vụ và vai trò
-    A14.1.1. Vai trò chính
-        A14 lưu thông tin bổ sung phục vụ bệnh án và cận lâm sàng đã có từ user input qua nhiều ROUND.
-        A14_STATE là full current state chính thức để module cần dùng có thể đọc theo dependency hợp lệ.
-        A14 không phục vụ riêng một output hoặc một module tiêu thụ cụ thể.
-        A14 không phải module lâm sàng chuyên sâu.
-        A14 không phải module hành chính rộng.
-        A14 không phải module ra viện/C7.
-
-    A14.1.2. Phạm vi dữ kiện được lưu
-        A14 trước mắt chỉ lưu:
-            1. Tuổi, ngày sinh hoặc năm sinh nếu user cung cấp.
-            2. Giới tính nếu user cung cấp.
-            3. Ngày ra viện nếu user cung cấp.
-            4. Kết quả xét nghiệm đã có nếu user cung cấp.
-            5. Kết quả chẩn đoán hình ảnh hoặc thăm dò đã có nếu user cung cấp.
-            6. Kết quả cận lâm sàng khác đã có nếu user cung cấp.
-
-    A14.1.3. Giới hạn trách nhiệm
-        A14 không lưu bệnh nền hoặc tiền sử bệnh thay A2.
-        A14 không lưu thuốc đang dùng hoặc dị ứng thuốc thay A2/A15.
-        A14 không viết bệnh sử thay A3.
-        A14 không viết khám lâm sàng thay A4-A11.
-        A14 không viết chẩn đoán thay A12.
-        A14 không đề xuất hướng xử trí thay A13.
-        A14 không viết thuốc hoặc đơn thuốc thay A15.
-        A14 không viết tình trạng ra viện, hướng xử trí ra viện, lời dặn, tái khám hoặc chuyển tuyến thay C7/O tương ứng.
-        A14 không biến chỉ định cần làm thành kết quả đã có.
-        A14 không diễn giải kết quả cận lâm sàng thành chẩn đoán.
-
-    A14.1.4. Dữ kiện không thuộc A14
-        A14 không lưu:
-            1. Tình trạng ra viện.
-            2. Hướng xử trí sau ra viện.
-            3. Lời dặn ra viện.
-            4. Tái khám.
-            5. Chuyển tuyến hoặc tuyến chuyển.
-            6. Mã hồ sơ, mã bệnh án hoặc số vào viện.
-            7. Bảo hiểm.
-            8. Người liên hệ.
-            9. Thông tin hành chính không phục vụ phạm vi A14.
-            10. Nghề nghiệp.
-            11. Khoa, phòng hoặc giường.
-            12. Ngày vào viện.
-            13. Chiều cao, cân nặng hoặc BMI.
-            14. Y lệnh cần làm của A13.
-            15. Thuốc hoặc đơn thuốc của A15.
-            16. Chẩn đoán của A12.
-            17. Chẩn đoán phân biệt của C5.
-            18. Nội dung C7.
-            19. DISCHARGE_DATETIME.
-            20. DISCHARGE_DATE_STATUS.
-            21. DISCHARGE_DATE_SOURCE.
-            22. DISCHARGE_NOTE.
-
-A14.2. Nguồn đọc hợp lệ
-    A14 chỉ được đọc:
-        1. User input của ROUND hiện tại.
-        2. G_STATE của ROUND hiện tại, chỉ để lấy metadata kỹ thuật ROUND_ID, STATE_VERSION và RUN_MODE.
-        3. A14_STATE hiện hành mới nhất nếu đã có, để lưu trữ dữ kiện A14 qua nhiều ROUND.
-        4. File/module A14.
-        5. A1-A11 nếu cần đối chiếu ngữ cảnh, phân ranh, phát hiện mâu thuẫn hoặc tránh trùng lặp.
-    Khi đối chiếu A1-A11, A14 không được tự tạo tuổi, giới, ngày ra viện hoặc kết quả cận lâm sàng mà user chưa cung cấp.
-
-A14.3. Nguồn không được đọc hoặc suy ngược
-    A14 không được đọc:
-        1. C_STATE.
-        2. O_OUTPUT.
-        3. Output đã render.
-        4. Trí nhớ ẩn.
-        5. Dữ liệu ngoài state hợp lệ.
-        6. A12, A13 hoặc A15 của ROUND hiện tại để viết ngược A14.
-        7. A12_STATE của ROUND hiện tại.
-        8. A12_STATE cũ từ ROUND trước để tạo A14 trong ROUND hiện tại.
-
-A14.4. RUN_MODE và trạng thái xử lý nội bộ
-    A14 không tự xác định RUN_MODE.
-    A14 chỉ đọc RUN_MODE từ G_STATE.
-    RUN_MODE là chế độ tạo dữ liệu do G xác định, không phải trạng thái xử lý nội bộ của A14.
-    A14 tự quyết định một trong ba trạng thái xử lý nội bộ: CREATE, UPDATE hoặc REUSE.
-    Không được suy trạng thái xử lý nội bộ chỉ từ tên RUN_MODE.
-
-A14.5. Quy tắc CREATE / UPDATE / REUSE
-    A14.5.1. CREATE
-        CREATE khi chưa có A14_STATE cũ.
-        Nếu user cung cấp dữ kiện A14, tạo A14_STATE từ dữ kiện hợp lệ đó.
-        Nếu user không cung cấp dữ kiện A14, vẫn tạo full A14_STATE rỗng với no-data theo từng field.
-
-    A14.5.2. UPDATE
-        UPDATE khi user input ROUND hiện tại bổ sung hoặc sửa dữ kiện làm một trong các field A14_AGE, A14_SEX, A14_DISCHARGE_DATE, A14_LABS_RESULT, A14_IMAGING_RESULT, A14_OTHER_PARACLINICAL_RESULT hoặc A14_SUMMARY_FOR_O thay đổi thật.
-        Dependency hợp lệ chỉ được dùng để đối chiếu; không được dùng để tự tạo dữ kiện thật user chưa cung cấp.
-        Khi user sửa dữ kiện đã có, cập nhật đúng field liên quan và chỉ bảo toàn lịch sử nếu có đủ dữ kiện để không gây nhầm; nếu không, ghi rõ dữ kiện mới thay thế dữ kiện cũ.
-
-    A14.5.3. REUSE
-        REUSE khi input không liên quan A14 hoặc nội dung thật của các field A14 không thay đổi.
-        REUSE vẫn phải xuất full A14_STATE.
-        Không ghi “reuse A14” hoặc “giữ nguyên như trước” thay nội dung thật.
-
-A14.6. Quy tắc A14_REV
-    A14 chỉ quản lý revision của chính A14.
-    A14 không tự tạo toàn bộ A_MODULE_REV.
-    Quy tắc:
-        1. CREATE A14_STATE: A14_REV = 1.
-        2. UPDATE và nội dung thật trong các field A14 thay đổi: A14_REV tăng 1 so với A14_REV hiện hành.
-        3. REUSE hoặc nội dung thật không đổi: giữ nguyên A14_REV hiện hành.
-        4. A14_REV không tăng hoặc giữ theo tên RUN_MODE.
-    A14_REV là metadata kỹ thuật để A_GATE và full current A_STATE tổng hợp vào A_MODULE_REV.
-
-A14.7. Schema A14_STATE bắt buộc
-    A14_STATE là full state, không phải patch hoặc delta.
-    A14_STATE luôn có đủ:
-        STATE_VERSION: lấy từ G_STATE
-        A14_REV: <revision của chính A14>
-        UPDATED_AT: HH:MM dd/mm/yyyy
-        A14_HAS_DATA: YES | NO
-        A14_AGE: <tuổi/ngày sinh/năm sinh nếu user cung cấp hoặc no-data>
-        A14_SEX: <giới tính nếu user cung cấp hoặc no-data>
-        A14_DISCHARGE_DATE: <ngày ra viện nếu user cung cấp hoặc no-data>
-        A14_LABS_RESULT: <kết quả xét nghiệm đã có nếu user cung cấp hoặc no-data>
-        A14_IMAGING_RESULT: <kết quả chẩn đoán hình ảnh/thăm dò đã có nếu user cung cấp hoặc no-data>
-        A14_OTHER_PARACLINICAL_RESULT: <kết quả cận lâm sàng khác đã có nếu user cung cấp hoặc no-data>
-        A14_SUMMARY_FOR_O: <tóm tắt sạch dữ liệu A14 cho O hoặc no-data>
-        A14_CHECK: PASS | NEEDS_FIX
-        A14_ERROR: NONE | <mô tả dữ kiện cần làm rõ>
-    UPDATED_AT là metadata quản lý state, không phải dữ liệu bệnh án.
-    O không render UPDATED_AT.
-    A14 không còn dùng A14_ADMIN, A14_PARACLINICAL hoặc A14_DATA_QUALITY làm schema chính.
-
-A14.8. A14_HAS_DATA và no-data theo field
-    A14_HAS_DATA = YES nếu có bất kỳ dữ liệu user cung cấp trong A14_AGE, A14_SEX, A14_DISCHARGE_DATE, A14_LABS_RESULT, A14_IMAGING_RESULT hoặc A14_OTHER_PARACLINICAL_RESULT.
-    A14_HAS_DATA = NO nếu không có tuổi/ngày sinh/năm sinh, giới tính, ngày ra viện hoặc kết quả cận lâm sàng đã có.
-    Nếu không có dữ liệu A14:
-        A14_HAS_DATA = NO
-        A14_AGE = Chưa có tuổi/ngày sinh/năm sinh được cung cấp.
-        A14_SEX = Chưa có giới tính được cung cấp.
-        A14_DISCHARGE_DATE = Chưa có ngày ra viện được cung cấp.
-        A14_LABS_RESULT = Chưa có kết quả xét nghiệm được cung cấp.
-        A14_IMAGING_RESULT = Chưa có kết quả chẩn đoán hình ảnh được cung cấp.
-        A14_OTHER_PARACLINICAL_RESULT = Chưa có kết quả cận lâm sàng khác được cung cấp.
-        A14_SUMMARY_FOR_O = Chưa có thông tin bổ sung/cận lâm sàng được cung cấp.
-        A14_CHECK = PASS
-        A14_ERROR = NONE
-    Nếu có bất kỳ field nào có dữ liệu user cung cấp:
-        A14_HAS_DATA = YES
-        Các field không có dữ liệu riêng vẫn dùng câu no-data field tương ứng.
-        A14_SUMMARY_FOR_O chỉ tổng hợp dữ liệu đã có, không thêm dữ liệu chưa cung cấp.
-
-A14.9. Tuổi / ngày sinh / năm sinh
-    A14_AGE lưu tuổi, ngày sinh hoặc năm sinh nếu user cung cấp.
-    Không tự bịa tuổi.
-    Không tự đoán tuổi.
-    Nếu có ngày sinh/năm sinh và ngày hiện tại/ngày vào viện đủ căn cứ, chỉ tính tuổi nếu hệ thống cho phép và không mâu thuẫn dữ kiện.
-    Nếu không chắc, giữ nguyên dữ kiện user cung cấp.
-    Không đưa tuổi vào chẩn đoán.
-    Không dùng tuổi để tự tạo bệnh nếu không có căn cứ.
-    Nếu không có dữ kiện: A14_AGE = Chưa có tuổi/ngày sinh/năm sinh được cung cấp.
-
-A14.10. Giới tính
-    A14_SEX lưu giới tính nếu user cung cấp.
-    Không tự đoán giới tính từ tên.
-    Không tự suy giới tính nếu không có dữ kiện.
-    Giới tính chỉ phục vụ render bệnh án và ngữ cảnh lâm sàng theo dependency hợp lệ.
-    Nếu không có dữ kiện: A14_SEX = Chưa có giới tính được cung cấp.
-
-A14.11. Ngày ra viện
-    A14_DISCHARGE_DATE chỉ lưu ngày ra viện nếu user cung cấp.
-    Không tự tạo ngày ra viện.
-    Không lưu tình trạng ra viện.
-    Không lưu hướng xử trí sau ra viện.
-    Không lưu lời dặn.
-    Không lưu tái khám.
-    Không lưu chuyển tuyến hoặc tuyến chuyển.
-    Không lưu DISCHARGE_DATETIME.
-    Không lưu DISCHARGE_DATE_STATUS.
-    Không lưu DISCHARGE_DATE_SOURCE.
-    Không lưu DISCHARGE_NOTE.
-    Các nội dung tình trạng ra viện, hướng xử trí, lời dặn, tái khám và chuyển tuyến thuộc C7/O tương ứng nếu hệ thống có, không thuộc A14.
-    Nếu không có dữ kiện: A14_DISCHARGE_DATE = Chưa có ngày ra viện được cung cấp.
-
-A14.12. Kết quả xét nghiệm đã có
-    A14_LABS_RESULT chỉ chứa kết quả xét nghiệm đã có nếu user cung cấp.
-    Không chứa xét nghiệm cần làm của A13.
-    Không biến “công thức máu cần làm” thành “công thức máu đã có”.
-    Không tự tạo trị số xét nghiệm.
-    Không tự diễn giải trị số nếu user không cung cấp.
-    Không tạo chẩn đoán từ xét nghiệm.
-    Nếu user cung cấp kết quả bất thường, A14 lưu đúng kết quả; diễn giải hoặc chẩn đoán thuộc A12/C5 hoặc module phù hợp theo hệ thống.
-    Nếu không có dữ kiện: A14_LABS_RESULT = Chưa có kết quả xét nghiệm được cung cấp.
-
-A14.13. Kết quả chẩn đoán hình ảnh / thăm dò đã có
-    A14_IMAGING_RESULT chỉ chứa kết quả chẩn đoán hình ảnh hoặc thăm dò đã có nếu user cung cấp.
-    Không chứa chẩn đoán hình ảnh hoặc thăm dò cần làm của A13.
-    Không tự tạo mô tả X-quang, siêu âm, CT, MRI, nội soi hoặc điện tim.
-    Không biến “cần làm siêu âm tim” thành “siêu âm tim có kết quả”.
-    Không tạo chẩn đoán từ kết quả hình ảnh.
-    Nếu không có dữ kiện: A14_IMAGING_RESULT = Chưa có kết quả chẩn đoán hình ảnh được cung cấp.
-
-A14.14. Kết quả cận lâm sàng khác
-    A14_OTHER_PARACLINICAL_RESULT chứa kết quả cận lâm sàng khác đã có nếu user cung cấp.
-    Không mở rộng sang thông tin hành chính không liên quan.
-    Không nhầm với C7 hoặc A13.
-    Nếu không có dữ kiện: A14_OTHER_PARACLINICAL_RESULT = Chưa có kết quả cận lâm sàng khác được cung cấp.
-
-A14.15. A14_SUMMARY_FOR_O
-    A14_SUMMARY_FOR_O là bản tóm tắt sạch để O render nếu O cần.
-    Nếu có dữ liệu, A14_SUMMARY_FOR_O chỉ tóm tắt dữ liệu đã có trong A14.
-    Không thêm thông tin chưa cung cấp.
-    Không tự diễn giải quá mức.
-    Không tạo chẩn đoán.
-    Không thêm hướng điều trị.
-    Không thêm lời dặn ra viện.
-    Không thêm chuyển tuyến, tái khám hoặc tình trạng ra viện.
-    Nếu không có dữ liệu: A14_SUMMARY_FOR_O = Chưa có thông tin bổ sung/cận lâm sàng được cung cấp.
-
-A14.16. A14_CHECK và A14_ERROR
-    A14_CHECK = PASS khi A14_STATE lưu an toàn dữ kiện hiện có, kể cả khi chưa có dữ kiện A14.
-    A14_CHECK = NEEDS_FIX khi dữ kiện user cung cấp mơ hồ, xung đột hoặc không thể lưu an toàn, ví dụ:
-        1. Tuổi/ngày sinh/năm sinh mâu thuẫn và không thể chọn an toàn.
-        2. Giới tính mâu thuẫn và không thể chọn an toàn.
-        3. Ngày ra viện mâu thuẫn hoặc không rõ định dạng gây nguy cơ hiểu sai.
-        4. Kết quả xét nghiệm thiếu tên xét nghiệm.
-        5. Giá trị xét nghiệm không rõ đơn vị và có nguy cơ hiểu sai.
-        6. Cùng một xét nghiệm cùng thời điểm có hai giá trị khác nhau.
-        7. Kết quả hình ảnh/thăm dò không rõ tên thăm dò hoặc không thể phân loại an toàn.
-    A14_CHECK phải kiểm:
-        1. A14_STATE có STATE_VERSION.
-        2. A14_STATE có A14_REV.
-        3. A14_STATE có UPDATED_AT.
-        4. A14_STATE có A14_HAS_DATA.
-        5. A14_STATE có A14_AGE.
-        6. A14_STATE có A14_SEX.
-        7. A14_STATE có A14_DISCHARGE_DATE.
-        8. A14_STATE có A14_LABS_RESULT.
-        9. A14_STATE có A14_IMAGING_RESULT.
-        10. A14_STATE có A14_OTHER_PARACLINICAL_RESULT.
-        11. A14_STATE có A14_SUMMARY_FOR_O.
-        12. A14 không còn dùng A14_ADMIN, A14_PARACLINICAL hoặc A14_DATA_QUALITY làm schema chính.
-        13. A14 không lưu field hành chính vượt scope.
-        14. A14 không lưu tình trạng ra viện, lời dặn, hướng xử trí, tái khám hoặc chuyển tuyến.
-        15. A14 chỉ lưu ngày ra viện.
-        16. A14_LABS_RESULT không chứa xét nghiệm cần làm của A13.
-        17. A14_IMAGING_RESULT không chứa chẩn đoán hình ảnh/thăm dò cần làm của A13.
-        18. A14 không tự tạo trị số xét nghiệm.
-        19. A14 không tự tạo mô tả hình ảnh/thăm dò.
-        20. A14 không tạo chẩn đoán.
-        21. A14 không lưu thuốc hoặc đơn thuốc.
-        22. A14_SUMMARY_FOR_O chỉ tổng hợp dữ liệu đã có.
-        23. A14 không đọc C/O/rendered output/hidden memory.
-    Nếu A14_CHECK = PASS thì A14_ERROR = NONE.
-    Nếu A14_CHECK = NEEDS_FIX thì A14_ERROR ghi rõ dữ kiện cần user xác nhận.
-
-A14.17. Ví dụ tối thiểu
-    A14.17.1. CREATE không có dữ liệu
-        Chưa có A14_STATE cũ; user không cung cấp dữ kiện A14.
-        Kết quả:
-            A14_STATE:
-                STATE_VERSION = V1
-                A14_REV = 1
-                UPDATED_AT = HH:MM dd/mm/yyyy
-                A14_HAS_DATA = NO
-                A14_AGE = Chưa có tuổi/ngày sinh/năm sinh được cung cấp.
-                A14_SEX = Chưa có giới tính được cung cấp.
-                A14_DISCHARGE_DATE = Chưa có ngày ra viện được cung cấp.
-                A14_LABS_RESULT = Chưa có kết quả xét nghiệm được cung cấp.
-                A14_IMAGING_RESULT = Chưa có kết quả chẩn đoán hình ảnh được cung cấp.
-                A14_OTHER_PARACLINICAL_RESULT = Chưa có kết quả cận lâm sàng khác được cung cấp.
-                A14_SUMMARY_FOR_O = Chưa có thông tin bổ sung/cận lâm sàng được cung cấp.
-                A14_CHECK = PASS
-                A14_ERROR = NONE
-
-    A14.17.2. CREATE có dữ liệu
-        Chưa có A14_STATE cũ; user cung cấp tuổi, giới, ngày ra viện và kết quả cận lâm sàng đã có.
-        Kết quả:
-            A14_STATE:
-                STATE_VERSION = V1
-                A14_REV = 1
-                UPDATED_AT = HH:MM dd/mm/yyyy
-                A14_HAS_DATA = YES
-                A14_AGE = 58 tuổi.
-                A14_SEX = Nam.
-                A14_DISCHARGE_DATE = 23/05/2026.
-                A14_LABS_RESULT = Glucose máu 8,5 mmol/L, HbA1c 7,2%.
-                A14_IMAGING_RESULT = Điện tim: nhịp xoang. X-quang ngực: chưa thấy tổn thương phổi cấp.
-                A14_OTHER_PARACLINICAL_RESULT = Chưa có kết quả cận lâm sàng khác được cung cấp.
-                A14_SUMMARY_FOR_O = Nam, 58 tuổi. Ngày ra viện 23/05/2026. Glucose máu 8,5 mmol/L, HbA1c 7,2%. Điện tim: nhịp xoang. X-quang ngực: chưa thấy tổn thương phổi cấp.
-                A14_CHECK = PASS
-                A14_ERROR = NONE
-
-    A14.17.3. UPDATE
-        Đã có A14_STATE; user bổ sung hoặc sửa dữ kiện trong scope A14.
-        Kết quả: UPDATE full A14_STATE và tăng A14_REV nếu nội dung thật thay đổi.
-
-    A14.17.4. REUSE
-        Đã có A14_STATE; input không liên quan hoặc dữ kiện thật không đổi.
-        Kết quả: REUSE nhưng vẫn xuất full A14_STATE và giữ nguyên A14_REV.
-
-    A14.17.5. USER_ONLY mơ hồ
-        User cung cấp dữ kiện A14 mơ hồ hoặc mâu thuẫn không thể lưu an toàn.
-        Kết quả: A14_CHECK = NEEDS_FIX và A14_ERROR ghi rõ dữ kiện cần xác nhận.
-
-A14.18. Ranh giới vận hành và checklist kết thúc module
-    A14 không tạo state của module khác.
-    A14 không đọc C_STATE.
-    A14 không đọc O_OUTPUT.
-    A14 không đọc output đã render.
-    A14 không dùng trí nhớ ẩn.
-    A14 không chạy C hoặc O.
-    A14 không render output.
-    A14 không tự dừng STEP A.
-    A14 không chuyển sớm sang A_GATE.
-    A14 không tự gọi module kế tiếp.
-    A14 không viết ngược A1-A13.
-    A14 không viết thay A15.
-    A14 tạo full current A14_STATE, không patch/delta.
-    A14 chỉ hoàn tất A14_STATE rồi chuyển luồng sang A15 theo A_RUN_ORDER.
-    Trước khi kết thúc, kiểm:
-        1. A14_STATE có STATE_VERSION từ G_STATE.
-        2. A14_STATE có A14_REV đúng quy tắc thay đổi nội dung thật.
-        3. A14_STATE có UPDATED_AT.
-        4. A14_STATE có A14_HAS_DATA.
-        5. A14_STATE có A14_AGE.
-        6. A14_STATE có A14_SEX.
-        7. A14_STATE có A14_DISCHARGE_DATE.
-        8. A14_STATE có A14_LABS_RESULT.
-        9. A14_STATE có A14_IMAGING_RESULT.
-        10. A14_STATE có A14_OTHER_PARACLINICAL_RESULT.
-        11. A14_STATE có A14_SUMMARY_FOR_O.
-        12. A14_STATE có A14_CHECK.
-        13. A14_STATE có A14_ERROR.
-        14. CREATE, UPDATE hoặc REUSE được quyết định độc lập với RUN_MODE.
-        15. Không tự bịa dữ kiện thật.
-        16. Không đọc nguồn bị cấm.
-        17. Không viết thay trách nhiệm của module khác.
-        18. Không dùng patch hoặc delta thay full state.
-        19. Không chạy C hoặc O và không render output.
-        20. Không lưu field ngoài scope A14.
-
-<<< END A14
 
 ```text id="a_gate"
 ####################################################################################################
