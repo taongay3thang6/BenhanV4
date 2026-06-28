@@ -900,891 +900,155 @@ C4_END
 ####################################################################################################
 
 C5 — CHẨN ĐOÁN PHÂN BIỆT / BỆNH KHÁC CÓ KHẢ NĂNG
-Version: BA S-G-A-C-O v3
-Update 01/06/2026 GMT+7
-
->>> READ-LOCK: C5
-- Bắt buộc đọc tuần tự toàn bộ C5 từ C5.1 đến C5.22.
-- Không được bỏ qua mục nào.
-- C5 chỉ được chạy nếu C5 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-- Chỉ tạo C5_STATE; không tạo state của C khác; không sửa A_STATE; không chạy A; không render hoặc tự gọi O.
-- C5 chỉ xử lý chẩn đoán phân biệt và bệnh khác có khả năng.
-- C5 không chứa hoặc chuẩn hóa dữ liệu cận lâm sàng; không tạo C5_PARACLINICAL_STATUS, C5_PARACLINICAL_SUMMARY, C5_SIGNIFICANT_FINDINGS hoặc C5_TO_C4.
-- Dữ liệu cận lâm sàng đã có nằm ở A14. C5 chỉ đọc A14 như nguồn bối cảnh, không dùng A13 như kết quả đã có.
-- C5 không thay A12, A13, A15, C1, C2, C3, C4, C6 hoặc C7.
-- C5 không đọc C1_STATE/C2_STATE/C3_STATE/C4_STATE/C6_STATE/C7_STATE mặc định và không dùng state C khác chỉ vì state đó tồn tại.
-- Sau C5, chuyển sang module kế tiếp đúng theo G_STATE.C_RUN_ORDER; nếu C5 là module cuối thì STEP C kết thúc.
-<<< END READ-LOCK: C5
-
-C5.1. Nhiệm vụ của C5
-    C5.1.1. Vai trò chính của C5
-        C5 là module chuẩn hóa chẩn đoán phân biệt và bệnh khác có khả năng từ dữ kiện đã có.
-        C5 tạo C5_STATE để đưa vào current selective C_STATE của ROUND hiện tại.
-        C5_STATE là nguồn chính thức để O13 render chẩn đoán phân biệt hoặc bệnh khác có khả năng.
-        C5 không tạo chẩn đoán chính thức.
-        C5 không thay A12.
-        C5 không thay A13.
-        C5 không tạo hướng xử trí.
-        C5 không hỏi thêm.
-        C5 không cảnh báo lâm sàng.
-        C5 không kiểm thuốc.
-        C5 không tổng hợp hội chứng.
-        C5 không chứa cận lâm sàng.
-
-    C5.1.2. Nội dung C5 tạo ra
-        C5 tạo:
-            1. C5_DIFFERENTIAL_DIAGNOSES.
-            2. C5_OTHER_POSSIBLE_CONDITIONS.
-            3. C5_REASONING_BASIS.
-            4. C5_EXCLUSION_LIMITS.
-            5. C5_FINAL.
-            6. C5_CHECK.
-            7. C5_ERROR nếu C5_CHECK = NEEDS_FIX.
-
-    C5.1.3. Nguyên tắc trách nhiệm
-        C5 chỉ nêu chẩn đoán phân biệt / bệnh khác có khả năng nếu có căn cứ từ dữ kiện đã có.
-        C5 không bịa dữ kiện để tạo phân biệt.
-        C5 không liệt kê lan man bệnh không liên quan.
-        C5 không biến chẩn đoán phân biệt thành chẩn đoán chính thức.
-        C5 không biến bệnh khác có khả năng thành kết luận chắc chắn.
-        C5 không dùng từ ngữ làm người đọc hiểu rằng C5 đã thay A12.
-        Nếu không đủ dữ kiện để lập phân biệt có ý nghĩa, C5 phải ghi rõ chưa đủ dữ kiện.
-        Nếu không có bệnh khác nổi bật, C5 phải ghi rõ không có bệnh khác có khả năng nổi bật từ dữ kiện hiện có.
-        C5 không tự tra cứu nguồn ngoài; nếu tương lai cần đọc C6 hoặc Cy, phải mở task kiến trúc riêng.
-
-C5.2. Khi nào chạy C5
-    C5.2.1. Điều kiện tiên quyết duy nhất
-        C5 chỉ được chạy nếu C5 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-        G_STATE chỉ xác định C5 có nằm trong C_RUN_ORDER hay không.
-        C5 không tự quyết định chạy ngoài C_RUN_ORDER.
-
-    C5.2.2. Lý do để G cân nhắc đưa C5 vào C_RUN_ORDER
-        G có thể đưa C5 vào C_RUN_ORDER khi:
-            1. User yêu cầu trực tiếp chẩn đoán phân biệt / bệnh khác có khả năng.
-            2. O13 được đưa vào O_RENDER_LIST, vì O13 requires C5.
-            3. PLAN của ROUND hiện tại chỉ định rõ chạy hoặc cập nhật C5.
-        User request trực tiếp không làm C5 tự chạy; G phải thêm C5 vào C_RUN_ORDER trước.
-        O13 được render không làm C5 tự chạy; G phải thêm C5 vào C_RUN_ORDER trước.
-        Chỉ O13 trực tiếp requires C5. Output khác muốn phần phân biệt phải render O13 hoặc được khai báo dependency rõ trong task khác.
-
-    C5.2.3. Các dữ kiện không tự kích hoạt C5
-        A_GATE PASS, A_STATE thay đổi, A_MODULE_REV thay đổi, A12/chẩn đoán chưa đủ chắc, dữ kiện còn thiếu hoặc nhu cầu phân biệt không tự kích hoạt C5 ngoài C_RUN_ORDER.
-        Nếu A_STATE đổi nhưng ROUND không có O13, không có yêu cầu C5 và PLAN không chỉ định C5 thì C5 không chạy.
-
-    C5.2.4. Khi C5 không nằm trong C_RUN_ORDER
-        Không chạy C5.
-        Không tạo hoặc cập nhật C5_STATE.
-        Không in C5_STATE dạng SKIP.
-        Không tạo patch/delta.
-        Không tăng C5_REV.
-        Không cập nhật C5_SOURCE_A_REV.
-        C5_STATE cũ nếu có giữ nguyên cho đến khi PLAN yêu cầu chạy lại C5.
-
-C5.3. Nguồn được đọc
-    C5.3.1. Nguồn được đọc
-        C5 được đọc:
-            1. User input của ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C5.
-            2. G_STATE metadata kỹ thuật và C_RUN_ORDER để xác nhận C5 được chạy.
-            3. A_GATE hợp lệ mới nhất.
-            4. Full current A_STATE mới nhất sau A_GATE, gồm A1-A15.
-            5. A_MODULE_REV từ A_GATE / full current A_STATE.
-            6. C5_STATE hiện hành mới nhất nếu đã có.
-            7. File/module C5.
-        C5 chỉ dùng full current A_STATE làm nguồn chính thức cho dữ kiện bệnh nhân.
-
-    C5.3.2. Nguồn không được đọc
-        C5 không được đọc:
-            1. O_OUTPUT hoặc output đã render.
-            2. C1_STATE, C2_STATE, C3_STATE, C4_STATE, C6_STATE hoặc C7_STATE mặc định.
-            3. Hidden memory / trí nhớ ẩn.
-            4. Dữ liệu ngoài state hợp lệ.
-            5. Nguồn web/guideline ngoài nếu không thuộc user input hoặc contract kiến trúc riêng.
-            6. C6 trong PLAN_9 ngoài bệnh án.
-            7. A_STATE patch/delta thay full current A_STATE.
-        C5 không dùng state C khác chỉ vì state đó tồn tại.
-        Nếu tương lai cần C5 đọc C6 hoặc Cy, phải mở task kiến trúc riêng, khai báo dependency trong G plan và audit dependency đó.
-
-C5.4. Quan hệ với A_STATE và dependency nội bộ
-    C5 đọc full current A_STATE và A_MODULE_REV đã qua A_GATE.
-    C5 ghi A_MODULE_REV nguồn vào C5_SOURCE_A_REV.
-    C5 không đọc A_STATE patch/delta, không sửa bất kỳ Ax_STATE nào và không tạo A_MODULE_REV.
-    Nếu A_MODULE_REV thay đổi nhưng C5 không được G plan thì C5 không chạy.
-    Nếu C5 được G plan và A_MODULE_REV thay đổi, C5 đọc full current A_STATE rồi xuất full C5_STATE theo lifecycle.
-    C5 không đọc C1/C2/C3/C4/C6/C7 mặc định, không tạo state C khác và không buộc C khác chạy.
-
-C5.5. Quy tắc CREATE / UPDATE / REUSE C5_STATE
-    CREATE / UPDATE / REUSE là lifecycle nội bộ của C5 sau khi C5 được chạy; không phải RUN_MODE và không do G chọn.
-    CREATE khi C5 được chạy và chưa có C5_STATE cũ:
-        - Tạo full C5_STATE; C5_REV = 1.
-    UPDATE khi C5 được chạy và nội dung thật C5 thay đổi do user input hoặc full current A_STATE hợp lệ:
-        - Tạo full C5_STATE mới; tăng C5_REV.
-    REUSE khi C5 được chạy nhưng nội dung thật C5 không đổi:
-        - In full C5_STATE; giữ nguyên C5_REV.
-    A_MODULE_REV đổi nhưng nội dung thật C5 sau tính toán không đổi:
-        - Giữ nguyên C5_REV; cập nhật C5_SOURCE_A_REV theo nguồn A đã đọc trong lần chạy này.
-    Mỗi lần C5 được chạy đều phải đọc full current A_STATE và A_MODULE_REV sau A_GATE, rồi ghi C5_SOURCE_A_REV.
-    Nếu C5 không được chạy thì không in C5_STATE, không tạo patch/delta, không tăng C5_REV và không cập nhật C5_SOURCE_A_REV.
-    Không ghi “reuse C5” hoặc “giữ nguyên như trước” thay nội dung thật.
-    C5 không tự tạo C_MODULE_REV chung.
-
-C5.6. Quy tắc xử lý theo RUN_MODE
-    C5 không tự xác định RUN_MODE.
-    Nếu cần RUN_MODE, C5 chỉ đọc RUN_MODE từ G_STATE.
-    RUN_MODE không phải CREATE / UPDATE / REUSE và không quyết định C5 có chạy hay không; quyền chạy chỉ do C_RUN_ORDER.
-    USER_ONLY / DEFAULT_COMPLETION / AUTO_SAMPLE là chế độ dữ liệu, không phải lifecycle.
-
-C5.7. Phạm vi C5
-    C5.7.1. Thành phần thuộc C5
-        C5 xử lý:
-            1. Chẩn đoán phân biệt có căn cứ.
-            2. Bệnh khác có khả năng.
-            3. Căn cứ lập luận từ dữ kiện đã có.
-            4. Yếu tố ủng hộ từng khả năng.
-            5. Yếu tố chưa ủng hộ hoặc còn thiếu.
-            6. Giới hạn loại trừ.
-            7. Gói kết luận phân biệt cho output nếu cần.
-            8. Không đọc state C khác làm nguồn mặc định.
-        Tất cả nội dung phải nằm trong C5_STATE.
-        C5 không tạo biến cận lâm sàng.
-
-    C5.7.2. Thành phần không thuộc C5
-        C5 không xử lý:
-            1. Lý do vào viện thuộc A1.
-            2. Tiền sử gốc thuộc A2.
-            3. Bệnh sử gốc thuộc A3.
-            4. Khám lâm sàng gốc thuộc A4-A11.
-            5. Cận lâm sàng gốc thuộc A14.
-            6. Chẩn đoán chính thức thuộc A12.
-            7. Hướng điều trị thuộc A13.
-            8. Bệnh trình không thuộc phạm vi module này.
-            9. Đơn thuốc thuộc A15.
-            10. Hỏi thêm/khám thêm/làm thêm thuộc C1.
-            11. Cảnh báo lâm sàng thuộc C2.
-            12. An toàn thuốc thuộc A15; cảnh báo tác dụng phụ / theo dõi thuộc C3.
-            13. Tổng hợp hội chứng O2 thuộc C4.
-            14. Tra cứu nguồn ngoài thuộc C6.
-            15. Render output cuối thuộc O.
-        Nếu nội dung thuộc các nhóm trên, module tương ứng xử lý.
-
-C5.8. Nguyên tắc chung của C5_FINAL
-    C5.8.1. C5_FINAL phải có 4 nhóm
-        C5_FINAL bắt buộc gồm 4 nhóm:
-            1. Chẩn đoán phân biệt.
-            2. Bệnh khác có khả năng.
-            3. Căn cứ lập luận.
-            4. Giới hạn loại trừ / dữ kiện còn thiếu.
-        Không được bỏ nhóm nào.
-        Không được đổi tên nhóm tùy tiện.
-        Không được gộp thành một đoạn văn.
-        Không được để nhóm trống.
-        Nhóm “Chẩn đoán phân biệt” bắt buộc là danh sách gạch đầu dòng khi có từ một chẩn đoán phân biệt trở lên; mỗi chẩn đoán phân biệt nằm trên một dòng riêng bắt đầu bằng “-”.
-        Không nối nhiều chẩn đoán phân biệt bằng dấu chấm phẩy trong một dòng dài.
-
-    C5.8.2. Dựa trên dữ kiện đã có
-        C5_FINAL phải dựa trên:
-            1. Full current A_STATE.
-            2. A12_STATE trong full current A_STATE.
-        C5_FINAL không được dựa trên dữ kiện chưa được đưa vào A_STATE.
-        C5_FINAL không được sao chép cận lâm sàng thành trường riêng.
-        Nếu dùng A14 làm căn cứ, chỉ được ghi ở mức căn cứ tổng quát, không chuẩn hóa/thống kê kết quả cận lâm sàng.
-
-    C5.8.3. Không kết luận quá mức
-        C5 không được viết:
-            - Chẩn đoán chắc chắn là...
-            - Khẳng định bệnh...
-            - Kết luận bệnh...
-            - Chẩn đoán cuối cùng...
-        C5 được viết:
-            - Cần phân biệt...
-            - Bệnh khác có khả năng...
-            - Khả năng cần cân nhắc...
-            - Chưa đủ dữ kiện để loại trừ...
-        Nếu cần chẩn đoán chính thức:
-            - A12 xử lý.
-
-    C5.8.4. Không liệt kê lan man
-        C5 chỉ nêu các khả năng liên quan dữ kiện.
-        Không liệt kê quá nhiều bệnh chỉ vì có một triệu chứng chung.
-        Không đưa bệnh hiếm nếu không có dấu hiệu gợi ý.
-        Không đưa bệnh nguy hiểm nếu không có căn cứ, trừ khi dữ kiện hiện có buộc phải không bỏ sót.
-        Nếu liệt kê bệnh nguy hiểm cần loại trừ, phải ghi căn cứ và giới hạn rõ.
-        C5 phải ưu tiên chất lượng hơn số lượng.
-
-    C5.8.5. Khi không đủ dữ kiện
-        Nếu không đủ dữ kiện:
-            - C5_DIFFERENTIAL_DIAGNOSES = Chưa đủ dữ kiện để lập chẩn đoán phân biệt có ý nghĩa.
-            - C5_OTHER_POSSIBLE_CONDITIONS = Chưa xác định bệnh khác có khả năng nổi bật từ dữ kiện hiện có.
-            - C5_REASONING_BASIS = Dữ kiện hiện có chưa đủ đặc hiệu.
-            - C5_EXCLUSION_LIMITS = Ghi rõ dữ kiện còn thiếu nếu biết.
-        Không bịa phân biệt cho đủ danh sách.
-
-C5.9. Quy tắc C5_DIFFERENTIAL_DIAGNOSES
-    C5.9.1. Vai trò
-        C5_DIFFERENTIAL_DIAGNOSES là danh sách chẩn đoán phân biệt có căn cứ.
-        C5_DIFFERENTIAL_DIAGNOSES phải render được thành các gạch đầu dòng riêng biệt; mỗi chẩn đoán phân biệt là một item riêng.
-        Mỗi chẩn đoán phân biệt phải có lý do ngắn gọn.
-        Mỗi chẩn đoán phân biệt phải gắn với dữ kiện đã có.
-        C5_DIFFERENTIAL_DIAGNOSES không phải chẩn đoán chính thức.
-        C5_DIFFERENTIAL_DIAGNOSES không thay A12.
-
-    C5.9.2. Khi nào ghi chẩn đoán phân biệt
-        Ghi chẩn đoán phân biệt khi:
-            1. Dữ kiện hiện tại có thể phù hợp nhiều bệnh.
-            2. Chẩn đoán hiện tại chưa đủ chắc.
-            3. Có triệu chứng/dấu hiệu không điển hình.
-            4. Có diễn biến không phù hợp hướng chẩn đoán.
-            5. Có bệnh quan trọng cần cân nhắc theo dữ kiện.
-            6. User yêu cầu phân biệt.
-        Nếu chỉ có một chẩn đoán rõ ràng nhưng user vẫn hỏi phân biệt:
-            - Có thể nêu các phân biệt ít khả năng hơn kèm lý do.
-        Nếu không có phân biệt có ý nghĩa:
-            - Ghi rõ không có phân biệt nổi bật từ dữ kiện hiện có.
-
-    C5.9.3. Cấu trúc từng mục phân biệt
-        Mỗi mục trong C5_DIFFERENTIAL_DIAGNOSES nên có:
-            1. Tên bệnh / nhóm bệnh cần phân biệt.
-            2. Dữ kiện ủng hộ.
-            3. Dữ kiện chưa ủng hộ hoặc còn thiếu.
-            4. Lý do chưa phải chẩn đoán chính thức.
-        Format gợi ý:
-            - Chẩn đoán [bệnh/nhóm bệnh A] phân biệt với [bệnh/nhóm bệnh B] khi có căn cứ.
-              + Ủng hộ: ...
-              + Chưa đủ / cần phân biệt vì: ...
-              + Giới hạn: ...
-        Ví dụ format ngắn đúng:
-            - Chẩn đoán đột quỵ não phân biệt với rối loạn chức năng tiền đình.
-            - Chẩn đoán phân biệt đau dây thần kinh với thoát vị đĩa đệm.
-        Không bắt buộc quá dài, nhưng phải đủ căn cứ.
-        Không nối nhiều mục phân biệt bằng dấu chấm phẩy trong cùng một dòng.
-
-    C5.9.4. Không biến phân biệt thành chẩn đoán
-        Không viết:
-            - Bệnh nhân bị...
-            - Chẩn đoán là...
-            - Kết luận...
-        trong C5_DIFFERENTIAL_DIAGNOSES.
-        Viết đúng:
-            - Cần phân biệt...
-            - Có thể cân nhắc...
-            - Bệnh khác có khả năng...
-        Nếu A12 đã có chẩn đoán chính thức, C5 có thể phân biệt với bệnh khác nhưng không sửa A12.
-        Nếu cần sửa A12, G phải chạy lại A12.
-
-    C5.9.5. Khi không có phân biệt
-        Nếu không có chẩn đoán phân biệt nổi bật:
-            C5_DIFFERENTIAL_DIAGNOSES = Không có chẩn đoán phân biệt nổi bật từ dữ kiện hiện có.
-        Nếu dữ kiện quá ít:
-            C5_DIFFERENTIAL_DIAGNOSES = Chưa đủ dữ kiện để lập chẩn đoán phân biệt có ý nghĩa.
-        Không để trống.
-        Không tạo bệnh phân biệt giả.
-
-C5.10. Quy tắc C5_OTHER_POSSIBLE_CONDITIONS
-    C5.10.1. Vai trò
-        C5_OTHER_POSSIBLE_CONDITIONS là danh sách bệnh khác có khả năng nhưng chưa đủ dữ kiện để coi là chẩn đoán chính thức.
-        Nhóm này khác với chẩn đoán phân biệt ở chỗ:
-            - Có thể là bệnh đi kèm.
-            - Có thể là bệnh nền liên quan.
-            - Có thể là tình trạng khác giải thích một phần triệu chứng.
-            - Có thể chưa đủ để đưa vào danh sách phân biệt chính.
-        C5_OTHER_POSSIBLE_CONDITIONS không thay A12.
-
-    C5.10.2. Khi nào ghi bệnh khác có khả năng
-        Ghi bệnh khác có khả năng khi:
-            1. Dữ kiện gợi ý nhưng chưa đủ.
-            2. Có bệnh nền khiến bệnh khác dễ xảy ra.
-            3. Có triệu chứng phụ gợi ý bệnh đi kèm.
-            4. Có diễn biến chưa giải thích hết bằng chẩn đoán hiện tại.
-            5. Có thuốc hoặc yếu tố nguy cơ có thể liên quan.
-            6. User hỏi “có thể là bệnh gì khác”.
-        Nếu bệnh khác là nguy cơ cần cảnh báo:
-            - C2 xử lý cảnh báo.
-            - C5 chỉ nêu khả năng bệnh nếu có căn cứ.
-
-    C5.10.3. Cấu trúc từng mục bệnh khác
-        Mỗi mục nên có:
-            1. Tên bệnh/tình trạng.
-            2. Lý do có khả năng.
-            3. Dữ kiện còn thiếu.
-            4. Mức độ liên quan ngắn gọn.
-        Format gợi ý:
-            - [Bệnh/tình trạng]&#58;                 + Lý do cân nhắc: ...
-                + Dữ kiện còn thiếu / chưa đủ: ...
-        Không cần xếp hạng chính/phụ nếu không cần.
-
-    C5.10.4. Không biến bệnh khác thành hội chứng
-        C5_OTHER_POSSIBLE_CONDITIONS không phải hội chứng C4.
-        Không chuyển bệnh khác thành C4_FOR_O2 như hội chứng.
-        C4 không đọc C5 mặc định; C4 tổng hợp hội chứng theo contract C4.
-        Nếu C4 cần hội chứng, C4 dùng thư viện hội chứng và dữ kiện A_STATE.
-
-    C5.10.5. Khi không có bệnh khác rõ
-        Nếu không có bệnh khác rõ:
-            C5_OTHER_POSSIBLE_CONDITIONS = Không có bệnh khác có khả năng nổi bật từ dữ kiện hiện có.
-        Nếu dữ kiện quá ít:
-            C5_OTHER_POSSIBLE_CONDITIONS = Chưa đủ dữ kiện để xác định bệnh khác có khả năng nổi bật.
-        Không để trống.
-        Không tạo bệnh khác cho đủ mục.
-
-C5.11. Quy tắc C5_REASONING_BASIS
-    C5.11.1. Vai trò
-        C5_REASONING_BASIS ghi căn cứ lập luận cho chẩn đoán phân biệt / bệnh khác có khả năng.
-        Căn cứ phải lấy từ dữ kiện đã có.
-        Căn cứ không phải tóm tắt toàn bộ bệnh án.
-        Căn cứ không phải cận lâm sàng đã chuẩn hóa.
-        Căn cứ không phải chẩn đoán chính thức.
-
-    C5.11.2. Nguồn căn cứ
-        Căn cứ có thể gồm:
-            1. Lý do vào viện.
-            2. Triệu chứng chính.
-            3. Diễn biến bệnh.
-            4. Tiền sử/bệnh nền.
-            5. Dấu hiệu toàn thân.
-            6. Dấu khám theo hệ cơ quan.
-            7. Dữ kiện A14 nếu có liên quan, nhưng không sao chép/chuẩn hóa kết quả.
-            8. Chẩn đoán hiện tại A12.
-            9. Không lấy diễn biến từ module bệnh trình trong scope hiện tại.
-            10. Cảnh báo C2 nếu có, nhưng không thay C2.
-            11. Dữ kiện thuốc trong full current A_STATE nếu liên quan, nhưng không kiểm an toàn thuốc thay A15.
-        Nếu dùng A14, ghi ở mức:
-            - Có dữ kiện cận lâm sàng hỗ trợ / chưa hỗ trợ / chưa đủ.
-        Không ghi chi tiết trị số, kết quả, diễn giải xét nghiệm trong C5_STATE.
-
-    C5.11.3. Cách ghi căn cứ
-        C5_REASONING_BASIS nên ngắn gọn.
-        Có thể chia:
-            1. Dữ kiện ủng hộ phân biệt.
-            2. Dữ kiện làm giảm khả năng.
-            3. Dữ kiện còn thiếu.
-        Không cần viết biện luận dài nếu output không cần.
-        Không lặp toàn bộ A_STATE.
-
-    C5.11.4. Không dùng căn cứ giả
-        Không ghi căn cứ nếu A_STATE không có.
-        Không ghi:
-            - Có sốt.
-            - Có khó thở.
-            - Có đau ngực.
-            - Có bạch cầu tăng.
-            - Có X-quang bất thường.
-        nếu dữ kiện không có.
-        Nếu thiếu, ghi thiếu trong C5_EXCLUSION_LIMITS.
-        Không tự tạo căn cứ để làm phân biệt hợp lý.
-
-    C5.11.5. Không chứa cận lâm sàng chi tiết
-        C5_REASONING_BASIS không được biến thành nơi chứa cận lâm sàng.
-        Không ghi bảng xét nghiệm.
-        Không ghi danh sách kết quả hình ảnh.
-        Không ghi diễn giải ECG/nội soi/thăm dò.
-        Nếu cần cận lâm sàng, A14 giữ dữ liệu gốc.
-        Nếu cần tổng hợp hội chứng có cận lâm sàng, C4 đọc A14 trực tiếp.
-        Nếu cần tra cứu ý nghĩa cận lâm sàng, C6 hỗ trợ theo G; C5 vẫn không chứa dữ liệu cận lâm sàng.
-
-C5.12. Quy tắc C5_EXCLUSION_LIMITS
-    C5.12.1. Vai trò
-        C5_EXCLUSION_LIMITS ghi giới hạn loại trừ và dữ kiện còn thiếu.
-        Mục này giúp tránh kết luận quá mức.
-        C5_EXCLUSION_LIMITS không phải C1.
-        C5_EXCLUSION_LIMITS không phải danh sách chỉ định xét nghiệm.
-        C5_EXCLUSION_LIMITS chỉ nêu vì sao chưa thể loại trừ hoặc chưa thể xác định bệnh khác.
-
-    C5.12.2. Nội dung có thể gồm
-        C5_EXCLUSION_LIMITS có thể ghi:
-            1. Thiếu triệu chứng đặc hiệu.
-            2. Thiếu dấu khám quan trọng.
-            3. Thiếu diễn biến.
-            4. Thiếu thông tin tiền sử.
-            5. Thiếu dữ kiện A14 liên quan.
-            6. Thiếu đáp ứng điều trị.
-            7. Thiếu dữ kiện loại trừ bệnh nguy hiểm.
-            8. Dữ kiện hiện có không đủ phân biệt các khả năng.
-            9. Nguồn chính thức trong full current A_STATE chưa đủ nếu có.
-        Không viết quá dài.
-        Không biến thành kế hoạch hỏi thêm/làm thêm chi tiết thay C1/A13.
-
-    C5.12.3. Không thay C1
-        C5 có thể ghi:
-            - Chưa đủ dữ kiện để loại trừ bệnh X do thiếu dữ kiện Y.
-        C5 không viết:
-            - Cần hỏi thêm 10 câu...
-            - Cần khám thêm toàn bộ...
-            - Cần làm danh sách xét nghiệm...
-        nếu nội dung đó thuộc C1/A13.
-        Nếu cần bổ sung dữ kiện cụ thể:
-            - C1 hoặc A13 xử lý theo G_STATE.
-
-    C5.12.4. Không thay C2
-        Nếu giới hạn loại trừ liên quan bệnh nguy hiểm:
-            - C5 ghi giới hạn phân biệt.
-            - C2 ghi cảnh báo lâm sàng nếu cần.
-        C5 không viết cảnh báo cấp cứu.
-        C5 không quyết định chuyển viện.
-        C5 không viết hành động khi nặng.
-
-    C5.12.5. Khi không có giới hạn rõ
-        Nếu dữ kiện đủ cho phần phân biệt đang yêu cầu:
-            C5_EXCLUSION_LIMITS = Không ghi nhận giới hạn lớn cho phạm vi phân biệt hiện tại từ dữ kiện hiện có.
-        Không có nghĩa đã loại trừ toàn bộ bệnh.
-        Không viết “đã loại trừ tất cả bệnh khác”.
-
-C5.13. Phân loại mức độ ưu tiên trong C5
-    C5.13.1. Có thể xếp mức ưu tiên
-        C5 có thể xếp khả năng phân biệt theo:
-            1. Cao hơn.
-            2. Trung bình.
-            3. Thấp hơn nhưng cần lưu ý.
-        Không bắt buộc nếu output không cần.
-        Nếu dùng, phải dựa trên dữ kiện.
-
-    C5.13.2. Không dùng điểm số giả
-        Không tự tạo phần trăm xác suất.
-        Không ghi 80%, 50%, 20% nếu không có mô hình/nguồn hợp lệ.
-        Không dùng điểm số nguy cơ nếu module/nguồn không cung cấp.
-        Nếu cần điểm số, G có thể gọi C6 hoặc module chuyên biệt.
-
-    C5.13.3. Ưu tiên theo dữ kiện
-        Khả năng được ưu tiên cao hơn khi:
-            1. Phù hợp triệu chứng chính.
-            2. Phù hợp dấu khám.
-            3. Phù hợp diễn biến.
-            4. Phù hợp bệnh nền/yếu tố nguy cơ.
-            5. Có dữ kiện hỗ trợ từ A14 nếu có.
-            6. Phù hợp nguồn chính thức trong full current A_STATE.
-        Khả năng thấp hơn khi:
-            1. Thiếu dữ kiện cốt lõi.
-            2. Có dữ kiện trái ngược.
-            3. Ít liên quan bệnh cảnh.
-            4. Cần dữ kiện chưa có mới đánh giá được.
-
-    C5.13.4. Bệnh nguy hiểm cần không bỏ sót
-        Có thể nêu bệnh nguy hiểm cần phân biệt nếu dữ kiện hiện có có căn cứ.
-        Không đưa bệnh nguy hiểm chỉ để phòng xa nếu không có dữ kiện.
-        Nếu nêu bệnh nguy hiểm:
-            - Phải ghi rõ lý do cân nhắc.
-            - Phải ghi giới hạn loại trừ.
-            - Không viết cảnh báo xử trí thay C2.
-        Ví dụ:
-            - Đau ngực có yếu tố nguy cơ: có thể cần phân biệt bệnh tim mạch nguy hiểm.
-            - Đau bụng kèm phản ứng thành bụng: có thể cần phân biệt bệnh ngoại khoa.
-        Nhưng hành động khẩn thuộc C2/A13/O, không thuộc C5.
-
-    C5.13.5. Không xếp hạng tùy tiện
-        Không xếp bệnh A cao hơn bệnh B nếu dữ kiện không đủ.
-        Nếu không đủ để xếp:
-            - Ghi “chưa đủ dữ kiện để ưu tiên chắc chắn giữa các khả năng”.
-        Không dùng kinh nghiệm mơ hồ để xếp hạng chắc chắn.
-
-C5.14. Ranh giới với A12 và A13
-    C5.14.1. Không thay A12
-        A12 là chẩn đoán hiện tại/chẩn đoán chính thức trong hệ thống.
-        C5 không viết chẩn đoán chính thức.
-        C5 không sửa A12_STATE.
-        C5 không ghi “chẩn đoán cuối cùng”.
-        C5 không đổi chẩn đoán A12.
-        Nếu phân biệt gợi ý A12 có thể cần chỉnh:
-            - C5 chỉ ghi phân biệt / bệnh khác có khả năng.
-            - G phải chạy A12 nếu cần cập nhật chẩn đoán.
-
-    C5.14.2. Có thể đối chiếu A12
-        C5 được đọc A12 để:
-            1. Biết chẩn đoán hiện tại.
-            2. Phân biệt với bệnh khác.
-            3. Nêu bệnh khác có khả năng chưa được A12 kết luận.
-            4. Ghi giới hạn nếu A12 chưa đủ dữ kiện.
-        C5 không được viết lại A12.
-        C5 không được tạo A12_TO_*.
-
-    C5.14.3. Không thay A13
-        A13 là hướng cần làm / hướng điều trị.
-        C5 không viết hướng điều trị.
-        C5 không chỉ định xét nghiệm.
-        C5 không viết phác đồ.
-        C5 không viết kế hoạch theo dõi.
-        C5 không dùng A13_LABS/A13_IMAGING như kết quả đã có.
-        Nếu phân biệt cần dữ kiện bổ sung:
-            - C5 ghi giới hạn.
-            - C1/A13 xử lý phần cần hỏi/khám/làm thêm nếu G chạy.
-
-    C5.14.4. Khi C5 ảnh hưởng A12/A13
-        Nếu C5 phát hiện phân biệt quan trọng:
-            - Không sửa A12/A13 ngay trong C5.
-            - G có thể ở vòng sau chạy A12 hoặc A13.
-        C5_STATE có thể giúp A12/A13 tham khảo nếu G cho phép.
-        Không tạo vòng sửa tự động từ C5 nếu G không gọi.
-
-    C5.14.5. Không dùng A13 như kết quả
-        Nếu A13 ghi “cần làm CT”, C5 không được ghi như CT đã có.
-        Nếu A13 ghi “cần xét nghiệm men tim”, C5 không được ghi men tim bình thường/tăng.
-        Nếu A13 ghi “cần nội soi”, C5 không được ghi kết quả nội soi.
-        C5 chỉ có thể ghi:
-            - Chưa đủ dữ kiện cận lâm sàng để loại trừ / ưu tiên phân biệt nếu phù hợp.
-        Dữ liệu cận lâm sàng thật nằm ở A14.
-
-C5.15. Ranh giới với A14
-    C5.15.1. A14 là nơi chứa cận lâm sàng
-        A14 chứa:
-            1. Thông tin hành chính.
-            2. Dữ liệu cận lâm sàng đã có nếu user cung cấp.
-        C5 không di chuyển dữ liệu A14 vào C5.
-        C5 không tạo bản tóm tắt cận lâm sàng.
-        C5 không chuẩn hóa kết quả A14.
-        C5 không tạo C5_TO_C4.
-
-    C5.15.2. C5 được đọc A14 làm căn cứ
-        C5 được phép đọc A14 để hiểu:
-            1. Có hay không có dữ kiện hỗ trợ cho phân biệt.
-            2. Dữ kiện A14 có làm tăng/giảm khả năng bệnh khác không.
-            3. Thiếu dữ kiện A14 có làm hạn chế loại trừ không.
-        Nhưng C5_STATE không được chứa danh sách kết quả cận lâm sàng.
-        Nếu cần nêu căn cứ từ A14, chỉ ghi mức tổng quát:
-            - Có dữ kiện hỗ trợ từ A14.
-            - Chưa có dữ kiện A14 đủ để loại trừ.
-            - Dữ kiện A14 hiện có chưa đủ đặc hiệu.
-        Không ghi trị số, mô tả hình ảnh chi tiết, bảng xét nghiệm.
-
-    C5.15.3. Nếu A14 thiếu dữ liệu
-        Nếu A14 không có dữ liệu cần cho phân biệt:
-            - C5_EXCLUSION_LIMITS ghi thiếu dữ kiện nếu ảnh hưởng phân biệt.
-        C5 không tự tạo dữ liệu thay A14.
-        C5 không ghi cận lâm sàng bình thường nếu A14 không có.
-        C5 không tạo xét nghiệm mẫu cho ca thật.
-
-    C5.15.4. Nếu A14 mâu thuẫn
-        Nếu dữ kiện A14 mâu thuẫn với A khác:
-            - C5 ghi giới hạn hoặc cần xác minh nếu ảnh hưởng phân biệt.
-        C5 không sửa A14.
-        C5 không chọn một dữ kiện làm đúng tuyệt đối nếu không có cơ sở.
-        G phải chạy A14 hoặc module liên quan nếu cần cập nhật.
-
-    C5.15.5. C4 đọc A14 trực tiếp
-        Nếu C4 cần cận lâm sàng cho O2:
-            - C4 đọc A14 trực tiếp.
-        C5 không chuyển cận lâm sàng sang C4.
-        C5 không tạo C5_TO_C4.
-        C5 không làm cầu nối cận lâm sàng.
-
-C5.16. Ranh giới với C khác
-    C5 không đọc C1_STATE/C2_STATE/C3_STATE/C4_STATE/C6_STATE/C7_STATE mặc định.
-    C5 không tạo state của C khác và không buộc C1/C2/C3/C4/C6/C7 chạy.
-    C5 không đọc C4 làm nguồn hội chứng và không làm nguồn cận lâm sàng cho C4.
-    C4 nếu cần cận lâm sàng phải đọc A14 trực tiếp theo contract C4.
-    C5 không đọc C6 trong patch này.
-
-C5.17. Dependency C5 với Cy trong tương lai
-    Hiện tại C5 không có dependency C5 requires Cy.
-    Nếu tương lai cần C5 đọc C6 hoặc Cy, phải mở task kiến trúc riêng:
-        1. Khai báo dependency C5 requires Cy trong G plan.
-        2. G đưa Cy trước C5 trong C_RUN_ORDER.
-        3. Nếu Cy = C6, C6_TO_MODULE phải chỉ định C5.
-        4. Audit lại boundary C5-Cy.
-    Không dùng heuristic nội dung Cy “phù hợp C5” để bypass dependency rõ.
-
-C5.18. Ví dụ hệ thống tối thiểu
-    C5.18.1. Không chạy ngoài C_RUN_ORDER
-        Nếu C5 không nằm trong C_RUN_ORDER: không chạy, không in C5_STATE, không tăng C5_REV và không cập nhật C5_SOURCE_A_REV.
-
-    C5.18.2. CREATE full state
-        Khi G plan C5 lần đầu với A_MODULE_REV = {A1_REV: 2, A12_REV: 1, A14_REV: 3}:
-        C5_STATE:
-            STATE_VERSION = V1
-            C5_REV = 1
-            C5_SOURCE_A_REV = {A1_REV: 2, A12_REV: 1, A14_REV: 3}
-            C5_DIFFERENTIAL_DIAGNOSES = ...
-            C5_OTHER_POSSIBLE_CONDITIONS = ...
-            C5_REASONING_BASIS = ...
-            C5_EXCLUSION_LIMITS = ...
-            C5_FINAL = ...
-            C5_CHECK = PASS
-            C5_ERROR = NONE
-
-    C5.18.3. UPDATE full state
-        Khi G plan C5 lại, A_MODULE_REV nguồn đổi và nội dung thật C5 thay đổi:
-        - C5 đọc full current A_STATE; in full C5_STATE; C5_REV tăng từ 1 lên 2; C5_SOURCE_A_REV cập nhật theo A_MODULE_REV nguồn.
-
-    C5.18.4. REUSE full state
-        Khi G plan C5 lại nhưng nội dung thật không đổi:
-        - C5 đọc full current A_STATE; in full C5_STATE; C5_REV giữ nguyên; C5_SOURCE_A_REV ghi nguồn A hiện hành đã đọc.
-
-    C5.18.5. O13 render
-        Nếu O13 được render: G thêm C5 vào C_RUN_ORDER vì O13 requires C5; C5 chạy; O13 chỉ render từ C5_STATE hợp lệ.
-
-    C5.18.6. A_STATE đổi nhưng không plan C5
-        Nếu A_STATE đổi nhưng không có O13, không có yêu cầu C5 và PLAN không chỉ định C5: C5 không chạy, không in C5_STATE và không tăng C5_REV.
-
-    C5.18.7. PLAN_9 ngoài bệnh án
-        PLAN_9 không làm C5 chạy. C6/O12 trong PLAN_9 chỉ là rules tham khảo; không tạo formal C6_STATE hoặc C5_STATE.
-
-    C5.18.8. Không đọc C khác
-        C5 không dùng C1/C2/C3/C4/C6/C7 mặc định. Ví dụ cũ dùng C6 không áp dụng trong patch này; muốn dùng lại phải mở task C5 requires C6 riêng.
-
-C5.19. Schema C5_STATE
-    C5.19.1. Schema chuẩn
-        C5_STATE:
-            STATE_VERSION = ...
-            C5_REV = ...
-            C5_SOURCE_A_REV = ...
-            C5_DIFFERENTIAL_DIAGNOSES = ...
-            C5_OTHER_POSSIBLE_CONDITIONS = ...
-            C5_REASONING_BASIS = ...
-            C5_EXCLUSION_LIMITS = ...
-            C5_FINAL = ...
-            C5_CHECK = PASS / NEEDS_FIX
-            C5_ERROR = ...
-
-    C5.19.2. Schema C5_FINAL
+Version: BA S-G-A-C-O V4 compact
+Update: 28/06/2026 UTC
+
+C5_ROLE
+    C5 là module C selective chuẩn hóa chẩn đoán phân biệt và bệnh khác có khả năng từ dữ kiện đã có trong full current A_STATE hợp lệ.
+    C5 chỉ chạy khi C5 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
+    C5 tạo full C5_STATE cho current selective C_STATE.
+    C5_STATE là source chính thức để O13 render phần chẩn đoán phân biệt và bệnh khác có khả năng.
+    C5 không tạo chẩn đoán chính thức, không thay/sửa A12, không tạo hướng điều trị, không tạo chỉ định xét nghiệm/thăm dò, không tạo thuốc/đơn thuốc, không tạo cảnh báo lâm sàng, không kiểm thuốc, không tổng hợp hội chứng, không chứa danh sách cận lâm sàng, không render O13/O, không tự gọi O và không tự chạy module C khác.
+
+C5_ALLOWED_SOURCE
+    C5 chỉ được đọc:
+        1. User input của ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C5.
+        2. G_STATE metadata kỹ thuật và C_RUN_ORDER để xác nhận C5 được chạy; nếu cần RUN_MODE thì chỉ đọc từ G_STATE.
+        3. A_GATE hợp lệ mới nhất.
+        4. Full current A_STATE mới nhất sau A_GATE, gồm A1-A15, làm nguồn dữ kiện bệnh nhân hợp lệ.
+        5. A_MODULE_REV từ A_GATE hoặc full current A_STATE.
+        6. C5_STATE hiện hành mới nhất nếu đã có, chỉ để CREATE / UPDATE / REUSE.
+        7. File/module C5.
+    Trong full current A_STATE, C5 được đọc A12 để biết chẩn đoán hiện tại, phân biệt với bệnh khác, nêu bệnh khác có khả năng chưa được A12 kết luận và ghi giới hạn nếu A12 chưa đủ dữ kiện.
+    Trong full current A_STATE, C5 được đọc A14 để làm căn cứ tổng quát / đối chiếu kết quả đã có, nhưng không copy, chuẩn hóa, thống kê, tóm tắt trị số hoặc mô tả cận lâm sàng.
+    C5 không được đọc hoặc dùng: O_OUTPUT, output đã render, C1_STATE/C2_STATE/C3_STATE/C4_STATE/C6_STATE/C7_STATE mặc định, hidden memory/trí nhớ ẩn, dữ liệu ngoài state hợp lệ, web/guideline ngoài nếu không thuộc user input hoặc contract kiến trúc riêng, C6 trong PLAN_9 ngoài bệnh án, hoặc A_STATE patch/delta thay full current A_STATE.
+    Patch này không mở dependency C5 requires C2/C4/C6/Cy. Nếu tương lai cần C5 đọc C module khác, phải mở task kiến trúc riêng, khai báo dependency trong G plan, bảo đảm module nguồn chạy trước C5 và audit lại boundary.
+
+C5_ALLOWED_ACTION
+    C5 được làm:
+        1. CREATE full C5_STATE.
+        2. UPDATE full C5_STATE.
+        3. REUSE full C5_STATE.
+        4. CHECK C5_STATE.
+        5. Đọc full current A_STATE và A_MODULE_REV sau A_GATE.
+        6. Chuẩn hóa C5_DIFFERENTIAL_DIAGNOSES, C5_OTHER_POSSIBLE_CONDITIONS, C5_REASONING_BASIS, C5_EXCLUSION_LIMITS, C5_FINAL, C5_CHECK và C5_ERROR.
+        7. Đối chiếu A12 nhưng không sửa A12.
+        8. Dùng A14 làm căn cứ tổng quát nhưng không chứa/chuẩn hóa dữ liệu cận lâm sàng.
+        9. Xếp mức khả năng nếu cần: cao hơn, trung bình, thấp hơn nhưng cần lưu ý.
+        10. Dùng no-data/no-prominent literals khi không đủ dữ kiện hoặc không có phân biệt/bệnh khác nổi bật.
+        11. Hoàn tất bằng C5_CHECK = PASS hoặc NEEDS_FIX.
+    C5 không được chạy khi không có trong C_RUN_ORDER, không tự thêm C5 vào C_RUN_ORDER, không tự chạy C module khác, không tự gọi O13/O, không render O, không tạo chẩn đoán chính thức, không sửa A12/A13/A14/A_STATE/G_STATE/C state khác, không tạo hướng điều trị, không tạo chỉ định xét nghiệm/thăm dò, không viết phác đồ/kế hoạch theo dõi, không tạo thuốc/đơn thuốc, không tạo cảnh báo thay C2, không tạo hội chứng/thông tin cho C4 và không đọc C6/web để bổ sung phân biệt.
+    Sau C5, chuyển sang module C kế tiếp theo G_STATE.C_RUN_ORDER; không giả định C6 luôn là module kế tiếp.
+
+C5_ALLOWED_WRITE
+    C5 chỉ được ghi full C5_STATE khi C5 được chạy.
+    C5 không được ghi patch/delta, A_STATE, A1-A15, C1-C4, C6-C7, G_STATE, C_RUN_ORDER, O_OUTPUT, O13, S/G hoặc state/output module khác.
+    C5 không tạo C5_FOR_O*, C5_TO_C4, C5_PARACLINICAL_STATUS, C5_PARACLINICAL_SUMMARY, C5_SIGNIFICANT_FINDINGS, C5_SOURCE_C_REV, UPDATED_AT, C5_ITEMS, C5_STATUS hoặc field ngoài schema hiện tại.
+
+C5_STATE_SCHEMA
+    C5_STATE:
+        STATE_VERSION = ...
+        C5_REV = ...
+        C5_SOURCE_A_REV = ...
+        C5_DIFFERENTIAL_DIAGNOSES = ...
+        C5_OTHER_POSSIBLE_CONDITIONS = ...
+        C5_REASONING_BASIS = ...
+        C5_EXCLUSION_LIMITS = ...
         C5_FINAL:
             Chẩn đoán phân biệt:
-                - [Mỗi chẩn đoán phân biệt là một gạch đầu dòng riêng.]
+                ...
             Bệnh khác có khả năng:
                 ...
             Căn cứ lập luận:
                 ...
             Giới hạn loại trừ / dữ kiện còn thiếu:
                 ...
+        C5_CHECK = PASS / NEEDS_FIX
+        C5_ERROR = ...
+    C5_FINAL phải có đúng 4 nhóm: Chẩn đoán phân biệt; Bệnh khác có khả năng; Căn cứ lập luận; Giới hạn loại trừ / dữ kiện còn thiếu.
+    Không đổi tên 4 nhóm C5_FINAL, không bỏ nhóm, không gộp thành một đoạn văn và không để trống nhóm.
+    Khi có chẩn đoán phân biệt, nhóm Chẩn đoán phân biệt nên là bullet list, mỗi mục riêng.
+    Schema C5_STATE không có UPDATED_AT, C5_SOURCE_C_REV, C5_ITEMS, C5_FOR_O*, C5_STATUS, C5_TO_C4, C5_PARACLINICAL_STATUS, C5_PARACLINICAL_SUMMARY, C5_SIGNIFICANT_FINDINGS hoặc field ngoài schema hiện tại.
 
-    C5.19.3. Nguyên tắc schema
-        C5_STATE không cần STATUS.
-        C5_STATE không cần UPDATED_AT.
-        C5_STATE không có C5_PARACLINICAL_STATUS.
-        C5_STATE không có C5_PARACLINICAL_SUMMARY.
-        C5_STATE không có C5_SIGNIFICANT_FINDINGS.
-        C5_STATE không có C5_TO_C4.
-        C5_STATE không có dữ liệu cận lâm sàng.
-        C5_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        C5_STATE luôn là full state khi C5 được chạy; không dùng patch/delta.
-        C5_STATE phải có C5_REV và C5_SOURCE_A_REV.
-        C5_FINAL phải đủ 4 nhóm.
-        C5_DIFFERENTIAL_DIAGNOSES và mục “Chẩn đoán phân biệt” trong C5_FINAL phải là list/bullet khi có chẩn đoán phân biệt.
-        Checklist C5 phải kiểm: không render chẩn đoán phân biệt thành một đoạn dài và không nối nhiều mục bằng dấu chấm phẩy.
-        Nếu không có phân biệt:
-            C5_DIFFERENTIAL_DIAGNOSES = Không có chẩn đoán phân biệt nổi bật từ dữ kiện hiện có.
-        Nếu không có bệnh khác:
-            C5_OTHER_POSSIBLE_CONDITIONS = Không có bệnh khác có khả năng nổi bật từ dữ kiện hiện có.
-        Nếu C5_CHECK = PASS:
-            C5_ERROR = NONE.
-        Nếu C5_CHECK = NEEDS_FIX:
-            C5_ERROR phải ghi rõ lỗi.
-        Không được ghi “giữ nguyên như trước”.
-        Không được ghi “reuse C5” thay nội dung thật.
+C5_LOGIC_RULES
+    C5 chỉ nêu chẩn đoán phân biệt hoặc bệnh khác có khả năng khi có căn cứ từ dữ kiện đã có trong full current A_STATE.
+    C5 không bịa triệu chứng, dấu khám, tiền sử, diễn biến, yếu tố nguy cơ, thuốc, kết quả xét nghiệm, mô tả hình ảnh, dữ kiện cận lâm sàng hoặc chẩn đoán chính thức.
+    C5_DIFFERENTIAL_DIAGNOSES là danh sách chẩn đoán phân biệt có căn cứ; mỗi mục có tên bệnh/nhóm bệnh và lý do ngắn, gắn với dữ kiện đã có, không phải chẩn đoán chính thức, không thay A12 và không liệt kê bệnh lan man không có căn cứ.
+    C5_OTHER_POSSIBLE_CONDITIONS là danh sách bệnh/tình trạng khác có khả năng nhưng chưa đủ dữ kiện để coi là chẩn đoán chính thức; có thể là bệnh đi kèm, bệnh nền liên quan hoặc tình trạng giải thích một phần triệu chứng; không phải hội chứng C4 và không phải chẩn đoán A12.
+    C5_REASONING_BASIS nêu căn cứ lập luận từ dữ kiện đã có, ngắn gọn, có thể gồm dữ kiện ủng hộ, dữ kiện làm giảm khả năng và dữ kiện còn thiếu; không lặp toàn bộ A_STATE, không chứa cận lâm sàng chi tiết, không chứa bảng xét nghiệm và không chứa mô tả hình ảnh dài.
+    C5_EXCLUSION_LIMITS ghi giới hạn loại trừ/dữ kiện còn thiếu; không phải C1, không phải danh sách chỉ định xét nghiệm, không phải hướng điều trị, không phải C2 cảnh báo và không phải kế hoạch theo dõi.
+    Likelihood/priority: C5 có thể dùng mức cao hơn, trung bình, thấp hơn nhưng cần lưu ý; phải dựa trên dữ kiện hiện có; không dùng phần trăm giả, không dùng điểm số giả; nếu chưa đủ để ưu tiên chắc chắn thì ghi chưa đủ dữ kiện để ưu tiên chắc chắn.
+    Bệnh nguy hiểm có thể được nêu nếu có căn cứ; phải ghi lý do và giới hạn loại trừ; không viết cảnh báo xử trí thay C2 và không tạo khuyến cáo điều trị/cấp cứu nếu không thuộc contract C5.
+    No-data/no-prominent literals phải dùng đúng khi phù hợp, không dùng blank/NONE/NULL thay các literal này:
+        - C5_DIFFERENTIAL_DIAGNOSES = Không có chẩn đoán phân biệt nổi bật từ dữ kiện hiện có.
+        - C5_DIFFERENTIAL_DIAGNOSES = Chưa đủ dữ kiện để lập chẩn đoán phân biệt có ý nghĩa.
+        - C5_OTHER_POSSIBLE_CONDITIONS = Không có bệnh khác có khả năng nổi bật từ dữ kiện hiện có.
+        - C5_OTHER_POSSIBLE_CONDITIONS = Chưa đủ dữ kiện để xác định bệnh khác có khả năng nổi bật.
+        - C5_REASONING_BASIS = Dữ kiện hiện có chưa đủ đặc hiệu.
+        - C5_EXCLUSION_LIMITS = Không ghi nhận giới hạn lớn cho phạm vi phân biệt hiện tại từ dữ kiện hiện có.
 
-    C5.19.4. Mẫu C5_STATE
-        C5_STATE:
-            STATE_VERSION = ...
-            C5_REV = ...
-            C5_SOURCE_A_REV = ...
-            C5_DIFFERENTIAL_DIAGNOSES = ...
-            C5_OTHER_POSSIBLE_CONDITIONS = ...
-            C5_REASONING_BASIS = ...
-            C5_EXCLUSION_LIMITS = ...
-            C5_FINAL:
-                Chẩn đoán phân biệt:
-                    - [Mỗi chẩn đoán phân biệt là một gạch đầu dòng riêng.]
-                Bệnh khác có khả năng:
-                    ...
-                Căn cứ lập luận:
-                    ...
-                Giới hạn loại trừ / dữ kiện còn thiếu:
-                    ...
-            C5_CHECK = PASS / NEEDS_FIX
-            C5_ERROR = ...
+C5_SPECIAL_RULES
+    Boundary với A12: A12 là chẩn đoán hiện tại/chính thức; C5 đọc A12 để đối chiếu nhưng không sửa A12_STATE, không viết “chẩn đoán cuối cùng”, không đổi chẩn đoán A12 và không tạo A12_TO_*; nếu cần cập nhật A12, G chạy A12 ở vòng phù hợp.
+    Boundary với A13: A13 là hướng cần làm/hướng điều trị; C5 không viết hướng điều trị, không chỉ định xét nghiệm/thăm dò, không viết phác đồ/kế hoạch theo dõi, không dùng A13_LABS hoặc A13_IMAGING như kết quả đã có và không dùng A13_TREATMENT để tạo phân biệt.
+    Boundary với A14: C5 được đọc A14 làm căn cứ tổng quát; C5 không sao chép trị số xét nghiệm, bảng xét nghiệm, mô tả hình ảnh/ECG/nội soi/thăm dò, không tạo dữ liệu cận lâm sàng, không tạo summary cận lâm sàng, không tạo field cận lâm sàng mới và không làm cầu nối cho C4.
+    Boundary với C4: C5 không đọc C4_STATE/C4_FOR_O2 mặc định, không chuyển bệnh khác thành hội chứng, không tạo C5_TO_C4, không chuyển dữ kiện sang C4; C4 đọc A14 trực tiếp nếu cần cận lâm sàng.
+    Boundary với C2: C5 không đọc C2_STATE mặc định, không mở dependency C5 requires C2 và không thay C2 cảnh báo. Nếu cần nhắc căn cứ liên quan cảnh báo, C5 chỉ dùng dữ kiện cảnh báo/triệu chứng có trong full current A_STATE nếu có.
+    Boundary với C6/Cy: hiện không có dependency C5 requires Cy; không đọc C6/Cy trong patch này; nếu tương lai cần C6/Cy, phải mở task kiến trúc riêng, khai báo dependency trong G plan, cho Cy chạy trước C5 và audit lại.
+    Boundary với O/O13: O13 trực tiếp requires C5 và render từ C5_STATE hợp lệ; C5 không render O13/O, không tự gọi O13/O, không đọc O output; output khác muốn phần phân biệt phải render O13 hoặc khai báo dependency riêng.
+    PLAN_9 không làm C5 chạy; C5 không trả lời outside-record và không ghi outside-record vào bệnh án.
 
-C5.20. Lỗi không được mắc
-    C5.20.1. Lỗi chứa cận lâm sàng
-        Không tạo C5_PARACLINICAL_STATUS.
-        Không tạo C5_PARACLINICAL_SUMMARY.
-        Không tạo C5_SIGNIFICANT_FINDINGS.
-        Không tạo C5_TO_C4.
-        Không ghi bảng xét nghiệm trong C5_STATE.
-        Không ghi kết quả hình ảnh trong C5_STATE.
-        Không ghi ECG/nội soi/thăm dò trong C5_STATE.
-        Không chuẩn hóa cận lâm sàng.
-        Không làm trung gian cận lâm sàng cho C4.
-        Không dùng A13 như kết quả.
-        Không tự tạo kết quả.
+C5_CHECK_PASS_IF
+    C5_CHECK = PASS khi tất cả điều kiện sau đạt:
+        1. C5 nằm trong G_STATE.C_RUN_ORDER.
+        2. A_GATE hợp lệ, đã đọc full current A_STATE và A_MODULE_REV có mặt.
+        3. Chỉ dùng nguồn allowlist; không dùng rendered output/O output; không đọc C khác mặc định; không dùng hidden memory/web/guideline ngoài contract; không dùng A_STATE patch/delta.
+        4. C5_STATE là full state, đủ schema, không có field cấm và không dùng patch/delta.
+        5. C5_FINAL đủ 4 nhóm đúng tên và khớp C5_DIFFERENTIAL_DIAGNOSES, C5_OTHER_POSSIBLE_CONDITIONS, C5_REASONING_BASIS, C5_EXCLUSION_LIMITS.
+        6. Nội dung phân biệt/bệnh khác có căn cứ hoặc dùng no-data/no-prominent literal đúng.
+        7. C5_REASONING_BASIS ngắn gọn, không lặp toàn bộ A_STATE.
+        8. C5_EXCLUSION_LIMITS không biến thành chỉ định xét nghiệm, hướng điều trị, cảnh báo hoặc kế hoạch theo dõi.
+        9. Không chứa cận lâm sàng chi tiết, không dùng A13 chỉ định như kết quả đã có, không thay A12, không lấn C4 và không render O.
+        10. C5_REV đúng rule; C5_SOURCE_A_REV đúng A_MODULE_REV đã dùng.
+        11. Nếu PASS thì C5_ERROR = NONE.
 
-    C5.20.2. Lỗi tạo dữ kiện
-        Không tự tạo triệu chứng.
-        Không tự tạo dấu khám.
-        Không tự tạo tiền sử.
-        Không tự tạo diễn biến.
-        Không tự tạo dữ kiện A14.
-        Không tự tạo kết quả xét nghiệm/hình ảnh.
-        Không tự tạo yếu tố nguy cơ.
-        Không tự tạo thuốc đang dùng.
-        Không dùng state C khác để thêm triệu chứng cho bệnh nhân.
+C5_NEEDS_FIX_IF
+    C5_CHECK = NEEDS_FIX khi có bất kỳ lỗi nào sau:
+        1. C5 chạy ngoài C_RUN_ORDER hoặc tự thêm/sửa C_RUN_ORDER.
+        2. Thiếu A_GATE, full current A_STATE hoặc A_MODULE_REV.
+        3. Dùng nguồn ngoài allowlist, O output/rendered output, C module khác mặc định, C2_STATE/C4_STATE/C6_STATE không có dependency hợp lệ, hidden memory/web/guideline ngoài contract hoặc A_STATE patch/delta.
+        4. Thiếu field schema, thêm field ngoài schema, dùng patch/delta thay full state hoặc tạo C5_FOR_O*/C5_TO_C4/field cận lâm sàng cấm.
+        5. C5_FINAL thiếu nhóm, đổi tên nhóm, để trống nhóm hoặc không khớp field nội dung.
+        6. Bịa dữ kiện, liệt kê bệnh lan man không có căn cứ hoặc dùng blank/NONE/NULL thay literal no-data/no-prominent bắt buộc.
+        7. Biến phân biệt/bệnh khác thành chẩn đoán chính thức, sửa/thay A12 hoặc ghi “chẩn đoán cuối cùng”.
+        8. Dùng A13 như kết quả đã có, viết hướng điều trị, chỉ định xét nghiệm/thăm dò, phác đồ hoặc kế hoạch theo dõi.
+        9. Chứa trị số xét nghiệm, mô tả hình ảnh, bảng cận lâm sàng chi tiết hoặc tạo dữ liệu cận lâm sàng.
+        10. Lấn sang C1/C2/C3/C4/C6/C7/O hoặc tạo output/state module khác.
+        11. C5_CHECK = PASS nhưng C5_ERROR != NONE.
+        12. C5_CHECK = NEEDS_FIX nhưng C5_ERROR không rõ nhóm lỗi.
+        13. C5_REV hoặc C5_SOURCE_A_REV sai rule.
 
-    C5.20.3. Lỗi kết luận quá mức
-        Không biến phân biệt thành chẩn đoán chính thức.
-        Không sửa A12.
-        Không thay A13.
-        Không ghi “chẩn đoán cuối cùng”.
-        Không ghi “loại trừ hoàn toàn” nếu chưa đủ dữ kiện.
-        Không ghi xác suất phần trăm không có cơ sở.
-        Không xếp hạng tùy tiện.
-        Không tự kết luận bệnh do thuốc từ state C khác.
+C5_ERROR_RULE
+    Nếu C5_CHECK = PASS thì C5_ERROR = NONE.
+    Nếu C5_CHECK = NEEDS_FIX thì C5_ERROR ghi rõ lỗi cụ thể theo nhóm: Nguồn đọc; C5_DIFFERENTIAL_DIAGNOSES; C5_OTHER_POSSIBLE_CONDITIONS; C5_REASONING_BASIS; C5_EXCLUSION_LIMITS; C5_FINAL; Lỗi chứa cận lâm sàng; Boundary A/C/O; Schema; REV/source REV nếu có.
+    Không ghi lỗi chung chung nếu xác định được lỗi.
 
-    C5.20.4. Lỗi sai phạm vi
-        Không hỏi thêm/khám thêm thay C1.
-        Không cảnh báo lâm sàng thay C2.
-        Không kiểm thuốc thay A15.
-        Không tổng hợp hội chứng thay C4.
-        Không tra cứu ngoài thay C6.
-        Không render O.
-        Không viết hướng điều trị.
-        Không viết đơn thuốc.
-        Không viết bệnh trình.
+C5_REUSE_RULE
+    CREATE khi C5 được chạy và chưa có C5_STATE cũ: xuất full C5_STATE, C5_REV = 1.
+    UPDATE khi C5 được chạy và nội dung thật C5 thay đổi do user input hoặc full current A_STATE hợp lệ: xuất full C5_STATE mới và tăng C5_REV.
+    REUSE khi C5 được chạy nhưng nội dung thật không đổi: xuất full C5_STATE và giữ C5_REV.
+    REUSE không được ghi “reuse C5” hoặc “giữ nguyên như trước” thay nội dung thật và không được dùng patch/delta.
 
-    C5.20.5. Lỗi vận hành state
-        Không tạo state của C khác.
-        Không tạo A_STATE.
-        Không sửa A_STATE.
-        Không chạy A.
-        Không chạy C1/C2/C3/C4/C6/C7 từ bên trong C5.
-        Không đọc O_OUTPUT.
-        Không dùng patch/delta làm C5_STATE chính thức.
-        Không ghi “giữ nguyên như trước”.
-        Không thiếu STATE_VERSION.
-        Không thiếu C5_REV.
-        Không thiếu C5_SOURCE_A_REV.
-        Không thiếu C5_DIFFERENTIAL_DIAGNOSES.
-        Không thiếu C5_OTHER_POSSIBLE_CONDITIONS.
-        Không thiếu C5_REASONING_BASIS.
-        Không thiếu C5_EXCLUSION_LIMITS.
-        Không thiếu C5_FINAL.
-        Không thiếu C5_CHECK.
-        Không thiếu C5_ERROR.
+C5_REV_RULE
+    Mỗi lần C5 chạy phải đọc full current A_STATE và A_MODULE_REV sau A_GATE.
+    Luôn ghi C5_SOURCE_A_REV theo A_MODULE_REV đã dùng.
+    Nếu A_MODULE_REV đổi nhưng nội dung thật C5 sau tính toán không đổi thì giữ nguyên C5_REV và cập nhật C5_SOURCE_A_REV.
+    Nếu nội dung thật C5 đổi thì tăng C5_REV.
+    Nếu C5 không chạy thì không in C5_STATE, không tăng C5_REV và không cập nhật C5_SOURCE_A_REV.
+    C5 không tự tạo C_MODULE_REV chung.
 
-C5.21. C5_CHECK
-    C5.21.1. Kiểm C5_DIFFERENTIAL_DIAGNOSES
-        Kiểm:
-            1. Có chẩn đoán phân biệt nếu dữ kiện đủ và output cần.
-            2. Không liệt kê lan man.
-            3. Mỗi phân biệt có căn cứ.
-            4. Không biến phân biệt thành chẩn đoán chính thức.
-            5. Không thay A12.
-            6. Không dùng dữ kiện giả.
-            7. Không dùng nguồn ngoài hoặc state C khác trong scope hiện tại.
-            8. Nếu không đủ dữ kiện, ghi đúng giới hạn.
-
-    C5.21.2. Kiểm C5_OTHER_POSSIBLE_CONDITIONS
-        Kiểm:
-            1. Bệnh khác có khả năng có căn cứ.
-            2. Không biến bệnh khác thành chẩn đoán chính thức.
-            3. Không biến bệnh khác thành hội chứng C4.
-            4. Không liệt kê bệnh không liên quan.
-            5. Nếu không có bệnh khác rõ, dùng câu chuẩn.
-            6. Nếu dữ kiện thiếu, ghi chưa đủ dữ kiện.
-
-    C5.21.3. Kiểm C5_REASONING_BASIS
-        Kiểm:
-            1. Căn cứ lấy từ dữ kiện đã có.
-            2. Không lặp toàn bộ A_STATE.
-            3. Không chứa cận lâm sàng chi tiết.
-            4. Không tự tạo dữ kiện.
-            5. Không dùng A13 làm kết quả.
-            6. Không dùng state C khác làm nguồn mặc định.
-            7. Không biến nguồn ngoài thành dữ kiện bệnh nhân.
-
-    C5.21.4. Kiểm C5_EXCLUSION_LIMITS
-        Kiểm:
-            1. Giới hạn loại trừ rõ nếu thiếu dữ kiện.
-            2. Không thay C1 bằng danh sách hỏi/làm thêm dài.
-            3. Không thay C2 bằng cảnh báo.
-            4. Không ghi loại trừ chắc chắn nếu chưa đủ dữ kiện.
-            5. Nếu không có giới hạn lớn, ghi câu chuẩn.
-            6. Không để trống.
-
-    C5.21.5. Kiểm C5_FINAL
-        Kiểm:
-            1. C5_FINAL có đủ 4 nhóm.
-            2. Nhóm Chẩn đoán phân biệt khớp C5_DIFFERENTIAL_DIAGNOSES.
-            3. Nhóm Bệnh khác có khả năng khớp C5_OTHER_POSSIBLE_CONDITIONS.
-            4. Nhóm Căn cứ lập luận khớp C5_REASONING_BASIS.
-            5. Nhóm Giới hạn loại trừ / dữ kiện còn thiếu khớp C5_EXCLUSION_LIMITS.
-            6. Không có cận lâm sàng chi tiết.
-            7. Không có C5_TO_C4.
-            8. Không lẫn C1/C2/C3/C4/C6/C7/O.
-            9. Không sửa A12/A13.
-            10. Không render output.
-
-    C5.21.6. Kiểm schema
-        Kiểm:
-            1. C5_STATE có STATE_VERSION.
-            2. C5_STATE có C5_REV.
-            3. C5_STATE có C5_SOURCE_A_REV.
-            4. C5_STATE có C5_DIFFERENTIAL_DIAGNOSES.
-            5. C5_STATE có C5_OTHER_POSSIBLE_CONDITIONS.
-            6. C5_STATE có C5_REASONING_BASIS.
-            7. C5_STATE có C5_EXCLUSION_LIMITS.
-            8. C5_STATE có C5_FINAL.
-            9. C5_STATE có C5_CHECK.
-            10. C5_STATE có C5_ERROR.
-            11. C5_FINAL có đủ 4 nhóm.
-            12. C5_STATE không có STATUS.
-            13. C5_STATE không có UPDATED_AT.
-            14. C5_STATE không có C5_PARACLINICAL_STATUS.
-            15. C5_STATE không có C5_PARACLINICAL_SUMMARY.
-            16. C5_STATE không có C5_SIGNIFICANT_FINDINGS.
-            17. C5_STATE không có C5_TO_C4.
-            18. C5_STATE không dùng patch/delta.
-            19. Nếu C5_CHECK = PASS, C5_ERROR = NONE.
-            20. Nếu C5_CHECK = NEEDS_FIX, C5_ERROR ghi rõ lỗi.
-            21. C5_STATE sẵn sàng đưa vào current selective C_STATE.
-            22. C5_STATE là full state, không patch/delta.
-            23. C5_REV tuân thủ CREATE / UPDATE / REUSE.
-            24. C5_SOURCE_A_REV ghi A_MODULE_REV nguồn đã đọc.
-
-    C5.21.7. Kết quả C5_CHECK
-        Nếu đạt:
-            C5_CHECK = PASS.
-            C5_ERROR = NONE.
-        Nếu chưa đạt:
-            C5_CHECK = NEEDS_FIX.
-            C5_ERROR = ghi rõ lỗi.
-        C5_ERROR phải nêu rõ lỗi thuộc nhóm nào:
-            1. Nguồn đọc.
-            2. C5_DIFFERENTIAL_DIAGNOSES.
-            3. C5_OTHER_POSSIBLE_CONDITIONS.
-            4. C5_REASONING_BASIS.
-            5. C5_EXCLUSION_LIMITS.
-            6. C5_FINAL.
-            7. Lỗi chứa cận lâm sàng.
-            8. Ranh giới với A/C/O.
-            9. Schema.
-        Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
-
-C5.22. Kết thúc module
-    C5.22.1. Điều kiện hoàn tất
-        C5 hoàn tất khi:
-            1. Đã tạo mới, cập nhật hoặc dùng lại C5_STATE.
-            2. Đã xác định C5_DIFFERENTIAL_DIAGNOSES.
-            3. Đã xác định C5_OTHER_POSSIBLE_CONDITIONS.
-            4. Đã xác định C5_REASONING_BASIS.
-            5. Đã xác định C5_EXCLUSION_LIMITS.
-            6. Đã tạo C5_FINAL đủ 4 nhóm.
-            7. Đã kiểm C5_CHECK.
-            8. Không tạo dữ liệu ngoài C5_STATE.
-            9. Không tạo state của C khác.
-            10. Không sửa A_STATE.
-            11. Không chạy A.
-            12. Không render O.
-            13. Không chứa dữ liệu cận lâm sàng.
-            14. Không tạo C5_TO_C4.
-
-    C5.22.2. Chuyển bước
-        Sau khi hoàn tất C5_STATE:
-            - Chuyển sang C module kế tiếp đúng theo G_STATE.C_RUN_ORDER của ROUND hiện tại.
-            - Nếu C5 là module cuối trong C_RUN_ORDER thì STEP C kết thúc.
-            - Không giả định C4 hoặc C6 là module kế tiếp.
-            - Không chuyển sang C_GATE cho đến khi toàn bộ C theo C_RUN_ORDER đã được xử lý.
-        C5 không tự gọi C khác, O hoặc A12/A13.
-        Nếu C5 cho thấy cần sửa chẩn đoán/hướng xử trí, G quyết định xử lý ở vòng phù hợp.
-
-    C5.22.3. PLAN_9 / outside-record boundary
-        PLAN_9 không làm C5 chạy.
-        C5 không phải module trả lời outside-record và không ghi câu trả lời outside-record vào bệnh án.
-        Nếu câu hỏi ngoài bệnh án cần kiến thức chung, dùng PLAN_9 bypass hoặc C6/O12 reference rules khi cần; không tạo formal C6_STATE hoặc C5_STATE.
-        C5 không đọc C6 trong PLAN_9.
+C5_END
+    C5 hoàn tất khi đã tạo/cập nhật/reuse full C5_STATE hợp lệ, đã kiểm C5_CHECK, không tạo dữ liệu ngoài C5_STATE, không sửa A/C/G/O, không render O và không tự gọi C6/O13.
+    Sau C5, chuyển module C kế tiếp theo G_STATE.C_RUN_ORDER; không giả định C6 luôn chạy kế tiếp.
 
 <<< END C5
 
