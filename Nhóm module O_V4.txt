@@ -463,130 +463,77 @@ O3_END
 ####################################################################################################
 
 O4 — BỆNH TRÌNH ĐIỀU TRỊ
-Version: BA S-G-A-C-O v3
-Update: 11/06/2026 GMT+7 — strict render-only C7_FOR_O4
+Version: BA S-G-A-C-O V4 compact allowlist
+Update: 27/06/2026 GMT+7 — strict render-only C7_FOR_O4
 
-O4.0. READ LOCK
-    Khi audit, patch, final review hoặc sử dụng/render O4, AI/Codex phải đọc toàn bộ O4 từ O4.0 đến mục cuối cùng của O4.
-    Không được chỉ đọc một đoạn giữa module, chỉ đọc nguồn dữ liệu, chỉ đọc ví dụ, chỉ đọc checklist, chỉ đọc lỗi cấm hoặc chỉ đọc diff.
-    Không được patch một mục nếu chưa kiểm tra ảnh hưởng tới các mục còn lại trong O4.
-    Nếu chưa đọc đủ toàn bộ O4 thì phải báo UNCLEAR và không được kết luận PASS/FAIL.
-    O4 là module renderer-only thuộc layer O; O4 không tạo/sửa G_STATE, A_STATE, C_STATE hoặc C7_STATE và không tự chạy C7.
-    O4 chỉ render khi nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER của ROUND hiện tại.
-    O4 chỉ render nguyên C7_STATE.C7_FOR_O4 đã được C7 tạo hoàn chỉnh; O4 không tự tính, không tự thêm, không tự tách, không tự sửa và không tự bù.
+O4_ROLE
+    O4 render phần “BỆNH TRÌNH ĐIỀU TRỊ”.
+    O4 thuộc layer O và là renderer-only: chỉ trình bày nguyên bệnh trình theo ngày từ C7_STATE.C7_FOR_O4.
+    O4 không tạo dữ liệu lâm sàng mới, không tự viết/suy luận bệnh trình, không làm nặng lên hoặc nhẹ đi diễn biến và không thay C7.
+    O4 không phải O3 tổng kết bệnh án/ra viện, O5 gợi ý thuốc, O6 đơn thuốc, O8 bệnh án chi tiết, O10/O11 cảnh báo hoặc module source A/C/G.
+    O4_OUTPUT nếu có là rendered text, không phải state, không là source cho A/C/O khác và không có REV riêng.
+    O4 không tạo O4_STATE, O4_REV, O4_FINAL, O4_SOURCE_REV hoặc lifecycle state riêng.
 
-O4.1. Mục tiêu
-    O4 là module render BỆNH TRÌNH ĐIỀU TRỊ.
-    O4 phục vụ xuất bệnh trình theo từng ngày điều trị cho bác sĩ.
-    O4 là module render/output, không phải module tạo dữ liệu lâm sàng.
-    O4 không tạo dữ liệu lâm sàng mới, không tự suy luận bệnh trình, không làm nặng lên hoặc nhẹ đi diễn biến và không thay C7.
-    O4 không sửa A_STATE, C_STATE hoặc C7_STATE.
-    O4 không tự chạy C7, không tự chạy C và không tự gọi O khác.
-    O4 chỉ hoạt động khi có trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER của ROUND hiện tại và đã đến lượt render theo O_RENDER_ORDER.
-    O4 chỉ render nguyên dữ liệu bệnh trình đã được C7 suy luận/chốt và định dạng sẵn trong C7_STATE.C7_FOR_O4.
-
-O4.2. Nguồn dữ liệu được phép
-    O4 chỉ được đọc nguồn mapping rõ sau:
+O4_ALLOWED_SOURCE
+    O4 chỉ được đọc các nguồn sau:
         1. G_STATE của ROUND hiện tại:
-            - Chỉ để kiểm O4 nằm trong O_RENDER_LIST/O_RENDER_ORDER và metadata điều phối cần thiết.
-            - Không lấy dữ kiện bệnh án từ G_STATE.
+            - Chỉ để kiểm O4 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER, đã đến lượt render theo G_STATE.O_RENDER_ORDER và metadata điều phối cần thiết.
+            - Không dùng G_STATE làm dữ kiện bệnh án.
         2. A_GATE mới nhất:
-            - Chỉ để kiểm A_STATE hợp lệ nếu O4 contract cần đối chiếu A_GATE.
+            - Chỉ để kiểm hợp lệ nếu contract cần.
+            - Không đọc A1-A14 để tự tạo hoặc tự tính ngày bệnh trình.
         3. C_GATE mới nhất:
             - Để kiểm C_STATE/C7_STATE hợp lệ.
         4. Full current C_STATE mới nhất:
-            - Chỉ để truy cập C7_STATE/C7_FOR_O4 nếu C7 đã chạy formal và hợp lệ.
+            - Chỉ để truy cập C7_STATE nếu C7 đã chạy formal và hợp lệ.
         5. C7_STATE.C7_FOR_O4:
-            - Đây là nguồn chính và bắt buộc cho toàn bộ nội dung bệnh trình theo ngày.
-            - Field này phải là text/list hoàn chỉnh đã định dạng sẵn cho O4, gồm tiêu đề từng ngày có dd/mm/yyyy, đúng 6 dòng chính bắt đầu bằng "-" cho mỗi ngày, block ĐIỂM BỆNH nếu C7 tạo, block ra viện/chuyển viện/xin ra viện nếu C7 tạo.
-            - O4 render nguyên field này theo thứ tự; O4 không tự tạo thêm nội dung.
-        6. C7_STATE.C7_FINAL nếu contract C7 hiện hành dùng để chốt hoặc đối chiếu nội dung O4:
-            - Chỉ dùng để kiểm nguồn C7 đã chốt và không chứa no-data leak trước khi render.
-            - Không dùng C7_FINAL để bù, viết lại hoặc thay C7_FOR_O4.
-        7. C7 metadata hợp lệ nếu cần:
-            - C7_CHECK = PASS là điều kiện bắt buộc trước render O4.
-            - C7_CHECK/C7_ERROR chỉ để kiểm hợp lệ, không render vào bệnh trình.
-            - C7_REV/C7_SOURCE_A_REV nếu hệ cần kiểm consistency, không render vào bệnh trình.
-    O4 không đọc A1/A14 để tính ngày, kể cả khi C7_FOR_O4 thiếu ngày dd/mm/yyyy.
-    Nếu O4 cần đối chiếu trạng thái kết thúc điều trị thì câu trạng thái xuất thật vẫn phải là câu đã được C7 tích hợp/chốt trong C7_FOR_O4.
+            - Nguồn chính và bắt buộc cho toàn bộ nội dung bệnh trình theo ngày.
+            - Phải là render-ready source đã được C7 tạo/chốt/định dạng sẵn, gồm tiêu đề từng ngày có dd/mm/yyyy, đúng 6 dòng chính bắt đầu bằng “-”, block ĐIỂM BỆNH nếu C7 tạo và block ra viện/chuyển viện/xin ra viện nếu C7 tạo.
+        6. C7_STATE.C7_FINAL:
+            - Chỉ dùng để kiểm nguồn C7 đã chốt và không có no-data leak trước khi render.
+            - Không dùng để bù, viết lại hoặc thay C7_FOR_O4.
+        7. C7 metadata nếu cần: C7_CHECK, C7_ERROR, C7_REV, C7_SOURCE_A_REV.
+            - Chỉ dùng để kiểm hợp lệ/consistency; không render vào bệnh trình.
+    O4 không được đọc/dùng raw user input, hidden memory/trí nhớ ẩn, O_OUTPUT cũ, O4_OUTPUT cũ, rendered output cũ, O3_OUTPUT, O5_OUTPUT, O6_OUTPUT, O5/O6 đơn thuốc, A_STATE_PATCH, C_STATE_PATCH, A_STATE ngoài mapping O4, C_STATE ngoài mapping O4, A14_FOR_O4 làm nguồn bệnh trình chính, A1-A14 để tự tạo/tự tính ngày nếu C7_FOR_O4 thiếu, A15_STATE để tự thêm thuốc/đơn thuốc, A13_LABS/A13_IMAGING để thêm xét nghiệm/chẩn đoán hình ảnh, A13_TREATMENT để thêm hướng điều trị, C7_STATE nếu C7 chưa chạy formal hoặc C_GATE không hợp lệ, A_STATE để bù bệnh trình khi C7 source bẩn/thiếu, web/guideline/source ngoài, metadata kỹ thuật để render thành nội dung bệnh trình hoặc PLAN_9 context như formal state.
 
-O4.3. Nguồn dữ liệu không được dùng
-    O4 không được đọc/dùng:
-        1. Raw input của user để tự viết bệnh trình.
-        2. Hidden memory / trí nhớ ẩn.
-        3. O_OUTPUT cũ, O4_OUTPUT cũ hoặc bất kỳ rendered output cũ nào.
-        4. A_STATE_PATCH làm nguồn chính.
-        5. C_STATE_PATCH làm nguồn chính.
-        6. A_STATE ngoài mapping O4.
-        7. C_STATE ngoài mapping O4.
-        8. A14_FOR_O4 làm nguồn bệnh trình chính.
-        9. A1-A14 để tự tạo hoặc tự tính ngày bệnh trình nếu C7_FOR_O4 thiếu.
-        10. A15_STATE để tự thêm thuốc/đơn thuốc.
-        11. A13_LABS/A13_IMAGING để thêm xét nghiệm/chẩn đoán hình ảnh.
-        12. O3_OUTPUT hoặc tổng kết ra viện.
-        13. O5/O6_OUTPUT hoặc đơn thuốc.
-        14. C7_STATE nếu C7 chưa chạy formal hoặc C_GATE không hợp lệ.
-        15. A_STATE để bù bệnh trình khi C7 source bẩn hoặc thiếu.
-        16. Web/guideline/source ngoài nếu hệ thống không có contract.
-        17. Metadata kỹ thuật để render thành nội dung bệnh trình.
-        18. PLAN_9 context như formal state.
+O4_ALLOWED_ACTION
+    O4 được RUN/render chỉ khi đồng thời:
+        1. O4 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER.
+        2. Đã đến lượt theo G_STATE.O_RENDER_ORDER.
+        3. C_GATE = PASS.
+        4. C7 đã chạy formal.
+        5. C7_CHECK = PASS.
+        6. C7_FOR_O4 có mặt, hợp lệ và render-ready.
+        7. C7_FOR_O4 qua no-data guard.
+        8. C7_FOR_O4 qua schema ngày/6 dòng/bullet guard.
+        9. C7_FOR_O4 qua treatment leak guard.
+        10. A_GATE có thể được kiểm nếu contract hiện hành cần, nhưng không dùng A để bù bệnh trình.
+    O4 SKIP khi O4 không nằm trong render plan hoặc chưa đến lượt:
+        - Không output.
+        - Không tạo/cập nhật O4_OUTPUT.
+        - Không in “O4_OUTPUT = SKIP”.
+        - Không tự thêm O4 vào render plan.
+    O4 BLOCKED/NEEDS_FIX khi thiếu hoặc sai điều kiện RUN, C_GATE không PASS, C7 chưa chạy formal, C7_CHECK không PASS, C7_FOR_O4 thiếu/không render-ready/có no-data leak/sai schema ngày-6 dòng-bullet/có legacy one-line day header/có treatment-theo dõi-thuốc-dặn dò leak bị cấm, hoặc output không exact-copy line-for-line từ C7_FOR_O4.
+    O4 không tự chạy C, không tự chạy C7, không tự gọi O khác, không tự thêm C7 vào C_RUN_ORDER và không tự sửa C_RUN_ORDER/O_RENDER_LIST/O_RENDER_ORDER.
+    Khi BLOCKED/NEEDS_FIX, O4 không tự bịa, không tự sửa C7, không tự chạy C7, không tự thêm/tính ngày, không tự thêm triệu chứng/trạng thái kết thúc/ĐIỂM BỆNH/câu ra viện/“Chủ nhiệm khoa”/“RA VIỆN”, không tự tách đoạn văn thành bullet, không hợp thức hóa no-data placeholder, không tự tạo fallback bệnh trình; phải route về C7 và nêu rõ C7 là source cần sửa/chạy lại.
 
-O4.4. Vai trò strict renderer-only
-    O4 nằm trong lớp O của BA S-G-A-C-O v3.
-    O4 là module render/output, chỉ trình bày nguyên dữ liệu bệnh trình đã có từ C7.
-    O4 chỉ chạy khi nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER và đã đến lượt theo O_RENDER_ORDER.
-    O4 không tự chạy C7, không tự thêm C7 vào C_RUN_ORDER và không tự sửa C_RUN_ORDER.
-    O4 không sửa A_STATE, C_STATE hoặc C7_STATE.
-    O4 không tạo bệnh trình mới và không tự suy luận bệnh trình thay C7.
-    O4 không tự tính ngày dd/mm/yyyy.
-    O4 không tự tạo ngày từ A1/A14.
-    O4 không tự chọn ngày điểm bệnh.
-    O4 không tự thêm block ĐIỂM BỆNH.
-    O4 không tự thêm block ra viện/chuyển viện/xin ra viện.
-    O4 không tự thêm "RA VIỆN".
-    O4 không tự thêm "Chủ nhiệm khoa".
-    O4 không tự thêm gạch đầu dòng.
-    O4 không tự tách đoạn văn thành gạch đầu dòng.
-    O4 không tự sửa câu bệnh trình.
-    O4 không tự viết lại nội dung C7.
-    O4 không tự bỏ ngày, không tự bỏ block ĐIỂM BỆNH và không tự bỏ block ra viện.
-    Nếu thiếu nguồn, O4 báo BLOCKED/NEEDS_FIX và yêu cầu quay lại C7.
-    Nếu nguồn sai schema, mâu thuẫn hoặc không phù hợp format O4, O4 không tự sửa mà yêu cầu chạy lại C7.
-    O4_OUTPUT là rendered text, không phải state và không là nguồn cho A/C/O khác.
+O4_ALLOWED_WRITE
+    O4 chỉ được ghi/render:
+        1. O4_OUTPUT hoặc rendered text nếu contract dùng field này.
+        2. O4_RENDER_CHECK = PASS / NEEDS_FIX / BLOCKED nếu hệ thống dùng internal check.
+    O4 không render metadata check/error vào bệnh án thường quy.
+    O4 không được ghi O4_STATE, O4_REV, O4_FINAL, G_STATE, A_STATE, C_STATE, C7_STATE, O1-O3, O5-O13, A1-A15, C1-C7 hoặc S/G.
+    Không thêm field O4_ERROR như schema output riêng; O4_ERROR_RULE chỉ là rule mô tả lỗi.
 
-O4.5. Điều kiện RUN / SKIP / BLOCKED
-    RUN khi đồng thời đạt:
-        1. O4 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER của ROUND hiện tại.
-        2. Đã đến lượt O4 theo G_STATE.O_RENDER_ORDER.
-        3. A_GATE = PASS nếu contract cần kiểm A_GATE.
-        4. C_GATE = PASS.
-        5. C7 đã chạy formal trước O4 do O4 requires C7.
-        6. C7_CHECK = PASS.
-        7. Full current C_STATE/C7_STATE hợp lệ và có C7_FOR_O4 hợp lệ.
-        8. C7_FOR_O4 đã là nguồn hoàn chỉnh, xuống dòng/gạch đầu dòng, không phải đoạn văn thô.
-        9. Mọi field C7 dùng cho O4 output thường quy, gồm C7_STATE, C7_CHECK, C7_FOR_O4 và C7_FINAL nếu được dùng, đã qua no-data guard.
-    SKIP khi O4 không nằm trong O_RENDER_LIST/O_RENDER_ORDER:
-        1. Không render O4.
-        2. Không tạo, cập nhật hoặc in O4_OUTPUT dạng SKIP.
-        3. Không tự thêm O4 vào output list.
-    BLOCKED/NEEDS_FIX khi thiếu hoặc sai bất kỳ điều kiện RUN nào, khi C_GATE không PASS, khi C7_CHECK không PASS, khi C7_STATE/C7_FOR_O4/C7_FINAL được dùng không hợp lệ, khi C7_FOR_O4 thiếu dd/mm/yyyy từng ngày, khi dữ liệu không đủ để đáp ứng format O4, hoặc khi bất kỳ source C7 dùng cho output thường quy chứa no-data leak.
-    User request, A_STATE thay đổi, A_MODULE_REV thay đổi hoặc C7_STATE thay đổi không tự kích hoạt O4.
-
-O4.6. Mapping C7_FOR_O4 sang output bệnh trình
-    Bệnh trình điều trị theo ngày chỉ lấy từ C7_STATE.C7_FOR_O4.
-    O4 render nguyên C7_FOR_O4 theo thứ tự C7 cung cấp.
-    O4 giữ đúng toàn bộ tiêu đề ngày, ngày dd/mm/yyyy, xuống dòng, dấu gạch đầu dòng, block ĐIỂM BỆNH và block ra viện/chuyển viện/xin ra viện do C7 cung cấp.
-    O4 không tự thay đổi số ngày điều trị.
-    O4 không tự thêm hoặc bỏ ngày điều trị.
-    O4 không tự viết lại nội dung y khoa của sáu dòng bệnh trình.
-    O4 không tự thêm/bỏ triệu chứng, thuốc, xét nghiệm, chẩn đoán hình ảnh hoặc hướng điều trị.
-    O4 không tự thêm gạch đầu dòng và không tự tách đoạn văn thành bullet.
-    O4 không tự thêm "ĐIỂM BỆNH", "Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện.", "Chủ nhiệm khoa", "Chủ nhiệm khoa." hoặc "RA VIỆN".
-    Nếu C7_FOR_O4 có 3 ngày, O4 in đúng 3 ngày.
-    Nếu C7_FOR_O4 có ngày cuối là ngày ra viện/chuyển viện/xin ra viện, O4 vẫn in nguyên ngày đó như C7 đã chốt và không render tổng kết ra viện thay O3.
-
-O4.7. Quy tắc format C7 source bắt buộc
-    Trước khi render, O4 phải kiểm C7_FOR_O4 có đúng format từng ngày:
+O4_RENDER_SCHEMA
+    O4 output thật là phần “BỆNH TRÌNH ĐIỀU TRỊ”.
+    Nếu hệ thống hiện hành yêu cầu tiêu đề, giữ literal:
+        BỆNH TRÌNH ĐIỀU TRỊ
+    Nội dung bệnh trình xuất thật phải là nguyên C7_STATE.C7_FOR_O4.
+    Nếu contract packaging hiện hành yêu cầu code block thì dùng một code block text riêng; nội dung trong code block vẫn phải exact-copy C7_FOR_O4 và không thêm/sửa nội dung bên trong code block.
+    Không thêm heading/footing nếu contract hiện hành không yêu cầu.
+    Không thêm footer hành chính, ký tên, “RA VIỆN”, “Chủ nhiệm khoa”, đơn thuốc, tư vấn, tái khám, hướng dùng thuốc hoặc metadata kỹ thuật ngoài những gì đã nằm sẵn trong C7_FOR_O4.
+    Mỗi ngày trong C7_FOR_O4 phải theo schema do C7 tạo:
         Ngày điều trị thứ [n] ([dd/mm/yyyy])
         - [Dòng bệnh trình 1]
         - [Dòng bệnh trình 2]
@@ -594,251 +541,100 @@ O4.7. Quy tắc format C7 source bắt buộc
         - [Dòng bệnh trình 4]
         - [Dòng bệnh trình 5]
         - [Dòng bệnh trình 6]
-    Mỗi ngày phải có tiêu đề ngày điều trị nằm trong C7 source và có ngày dd/mm/yyyy thật; nếu C7 source dùng cấu trúc nội bộ thì date_ddmmyyyy của từng ngày phải đã được in vào tiêu đề trước khi O4 render.
-    Không chấp nhận tiêu đề chỉ có "Ngày điều trị thứ [n]" mà thiếu "([dd/mm/yyyy])".
-    Không chấp nhận placeholder "[dd/mm/yyyy]".
-    Không chấp nhận chữ "dd/mm/yyyy nếu có" làm format output thật.
-    Mỗi ngày phải có đúng 6 dòng chính bắt đầu bằng dấu "-".
-    Nội dung mỗi ngày phải là dạng xuống dòng/gạch đầu dòng; không chấp nhận đoạn văn thay cho bệnh trình dạng dòng.
-    Nếu C7 source thiếu/sai bất kỳ điểm nào ở mục này, O4_RENDER_CHECK = NEEDS_FIX hoặc BLOCKED và O4 không render bản hoàn chỉnh.
+    Bắt buộc có ngày thật dd/mm/yyyy; không dùng placeholder “[dd/mm/yyyy]”, không dùng “dd/mm/yyyy nếu có”, không dùng đoạn văn thay bullet và không dùng legacy one-line day header.
+    O4 không tự tạo, không sửa, không bổ sung schema này; nếu C7_FOR_O4 không đạt schema thì O4 BLOCKED/NEEDS_FIX và route về C7.
 
-O4.8. Quy tắc 6 dòng bệnh trình chính
-    Mỗi ngày điều trị phải có đúng 6 dòng nội dung chính do C7 tạo sẵn.
-    Mỗi dòng chính phải bắt đầu bằng dấu "-" trong C7_FOR_O4.
-    O4 không tự thêm dấu "-".
-    O4 không tự tách đoạn văn thành 6 dòng.
-    O4 không dùng đánh số 1, 2, 3, 4, 5, 6 trong nội dung xuất thật nếu C7 không cung cấp.
-    O4 không giữ hoặc tự tạo nhãn nội bộ như "Toàn thân:", "Triệu chứng chính:", "Huyết động:".
-    Nếu một ngày trong C7_FOR_O4 không đủ đúng 6 dòng chính hoặc có dòng chính không bắt đầu bằng "-", O4_RENDER_CHECK = NEEDS_FIX hoặc BLOCKED và yêu cầu sửa/chạy lại C7.
+O4_LOGIC_RULES
+    C7_FOR_O4 là render-ready source.
+    O4 phải render exact-copy line-for-line từ C7_FOR_O4.
+    Phần bệnh trình extracted từ O4, sau khi bỏ heading/packaging hợp lệ nếu có, phải khớp 100% với C7_FOR_O4, gồm heading ngày, thứ tự ngày, số dòng, bullet, dấu câu, wording, blank line có nghĩa, nội dung lâm sàng, block ĐIỂM BỆNH nếu C7 có và discharge block nếu C7 có.
+    O4 không rewrite, không làm mượt, không chuẩn hóa y văn, không sửa dấu câu/bullet, không thêm/bỏ dòng, không đổi thứ tự ngày, không tách đoạn văn thành bullet, không gộp bullet thành đoạn văn, không thêm/bỏ ngày, không tính ngày từ A1/A14, không tạo bệnh trình từ raw input, không dùng output cũ và không dùng A/C/O khác để bù bệnh trình.
+    Nếu source thiếu/sai: O4 BLOCKED/NEEDS_FIX, route về C7, không fallback sang A_STATE/A14/raw input/hidden memory/output cũ.
 
-O4.9. Quy tắc render block ĐIỂM BỆNH
-    O4 chỉ render block ĐIỂM BỆNH nếu block này đã nằm sẵn trong C7_FOR_O4.
-    O4 không tự xác định ngày điểm bệnh, không tự tính ngày thứ 3, không tự thêm block ĐIỂM BỆNH và không tự sửa nội dung block ĐIỂM BỆNH.
-    Nếu C7 source có block ĐIỂM BỆNH thì O4 render nguyên block đúng vị trí C7 cung cấp.
-    Nội dung block ĐIỂM BỆNH hợp lệ do C7 tạo là:
-        ĐIỂM BỆNH
-        Nhất trí với chẩn đoán và điều trị
-        Chủ nhiệm khoa
-    Nếu user/C7 contract yêu cầu ngày điểm bệnh nhưng C7_FOR_O4 thiếu block ĐIỂM BỆNH, O4_RENDER_CHECK = NEEDS_FIX hoặc BLOCKED và yêu cầu sửa/chạy lại C7.
+O4_SPECIAL_RULES
+    ĐIỂM BỆNH:
+        - Chỉ render nếu block “ĐIỂM BỆNH” đã nằm sẵn trong C7_FOR_O4.
+        - O4 không tự xác định ngày điểm bệnh, không tự tính thứ, không tự chọn thứ Tư, không tự thêm/sửa/xóa ĐIỂM BỆNH.
+        - Block ĐIỂM BỆNH hợp lệ do C7 tạo gồm đúng literal:
+            ĐIỂM BỆNH
+            Nhất trí với chẩn đoán và điều trị
+            Chủ nhiệm khoa
+    Ra viện / chuyển viện / xin ra viện:
+        - Chỉ render nếu block đã nằm sẵn trong C7_FOR_O4.
+        - O4 không tự tạo ngày ra viện, ngày chuyển viện, xin ra viện, tên bệnh viện chuyển đến, câu ra viện, “RA VIỆN” hoặc “Chủ nhiệm khoa”.
+        - O4 không dùng A14 để tạo tình trạng kết thúc, không dùng O3 để tạo discharge block và không dùng C7_DISCHARGE_CONDITION để thay C7_FOR_O4.
+        - Block ra viện thường quy hợp lệ do C7 tạo, nếu có, giữ literal:
+            Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện.
+            Chủ nhiệm khoa.
+    No-data guard:
+        - Trước khi render, O4 phải kiểm no-data guard trên C7 source dùng cho output thường quy, gồm C7_STATE, C7_CHECK, C7_FOR_O4, C7_FINAL nếu được dùng và field C7 khác được contract dùng để dựng bệnh trình.
+        - No-data leak gồm các biến thể viết hoa/thường và dấu câu của: “chưa có dữ kiện”, “chưa ghi nhận dữ kiện”, “chưa có dữ liệu”, “trong dữ liệu cung cấp”, “chưa ghi nhận bất thường rõ”, “Huyết động chưa có dữ kiện”, “Đại tiểu tiện chưa ghi nhận”, “Chưa ghi nhận dữ kiện dị ứng thuốc”.
+        - Nếu C7 source có no-data leak thì O4_RENDER_CHECK = NEEDS_FIX/BLOCKED, không render O4 hoàn chỉnh và yêu cầu sửa/chạy lại C7.
+        - Không tự thay no-data bằng “Mạch, huyết áp ổn định.”, “Ăn ngủ được.”, “Đại tiểu tiện bình thường.” hoặc fallback bệnh trình ổn định.
+    Treatment leak:
+        - Cấm leak điều trị/theo dõi/thuốc/dặn dò trong C7_FOR_O4 hoặc extracted O4 theo contract hiện hành.
+        - Giữ các nhóm token/cụm bị cấm hiện có, gồm: “tiếp tục điều trị”, “duy trì điều trị”, “điều trị duy trì”, “tiếp tục thuốc”, “theo dõi đáp ứng”, “theo dõi đáp ứng điều trị”, “điều trị nội khoa”, “thuốc”, “chỉ định”, “tư vấn”, “tái khám”, “dặn dò”, “đơn thuốc”, “hướng dùng thuốc”, “chuẩn bị đánh giá ra viện”, “đủ điều kiện ra viện”.
+        - Không mở rộng cấm thành cấm mọi chữ “điều trị” nếu chữ đó thuộc heading/literal hợp lệ như “BỆNH TRÌNH ĐIỀU TRỊ” hoặc block “Nhất trí với chẩn đoán và điều trị”.
+    Legacy one-line:
+        - Cấm legacy one-line day header như “Ngày [0-9]+ -”, “Ngày [0-9]+:”, “Ngày điều trị thứ ...:” có nội dung cùng dòng hoặc ngày một dòng đoạn văn dài.
+    Metadata:
+        - Không render metadata kỹ thuật, gồm STATE_VERSION, ROUND_ID, RUN_MODE, Ax_REV, Cx_REV, Ox_REV nếu có, UPDATED_AT, A_CHECK/A_ERROR, C_CHECK/C_ERROR, O_CHECK/O_ERROR, CREATE/UPDATE/REUSE, A_MODULE_REV, C_MODULE_REV, O4_RENDER_CHECK.
 
-O4.10. Quy tắc render block ra viện / chuyển viện / xin ra viện
-    O4 chỉ render block ra viện/chuyển viện/xin ra viện nếu block này đã nằm sẵn trong C7_FOR_O4.
-    O4 không tự tạo ngày ra viện, ngày chuyển viện, ngày xin ra viện hoặc tên bệnh viện chuyển đến.
-    O4 không tự thêm câu ra viện.
-    O4 không tự sửa câu ra viện.
-    O4 không tự thêm "Chủ nhiệm khoa" hoặc "Chủ nhiệm khoa." ngoài block C7 đã tạo.
-    O4 không tự thêm heading "RA VIỆN".
-    Nội dung block ra viện thường quy hợp lệ do C7 tạo là:
-        Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện.
-        Chủ nhiệm khoa.
-    Nếu ca có ra viện nhưng C7_FOR_O4 thiếu block ra viện trong ngày ra viện, O4_RENDER_CHECK = NEEDS_FIX hoặc BLOCKED và yêu cầu sửa/chạy lại C7.
+O4_CHECK_PASS_IF
+    PASS khi tất cả điều kiện sau đúng:
+        1. O4 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt render.
+        2. C_GATE = PASS.
+        3. C7 đã chạy formal.
+        4. C7_CHECK = PASS.
+        5. C7_FOR_O4 tồn tại, hợp lệ, render-ready.
+        6. C7_FOR_O4 đúng schema “Ngày điều trị thứ [n] ([dd/mm/yyyy])”, có ngày thật dd/mm/yyyy, không placeholder, mỗi ngày đúng 6 dòng chính và mỗi dòng chính bắt đầu bằng “-”.
+        7. Không có legacy one-line day header.
+        8. C7 source dùng cho O4 không có no-data leak.
+        9. Output exact-copy line-for-line từ C7_FOR_O4 sau khi bỏ heading/packaging hợp lệ nếu có.
+        10. Nếu có ĐIỂM BỆNH, block đó đã nằm trong C7_FOR_O4 và exact-copy từ C7.
+        11. Nếu có ra viện/chuyển viện/xin ra viện, block đó đã nằm trong C7_FOR_O4 và exact-copy từ C7.
+        12. Không có treatment/theo dõi/thuốc/dặn dò leak bị cấm.
+        13. Không dùng nguồn ngoài allowlist, không tự sửa/bù C7 và không render metadata kỹ thuật.
+    Nếu đạt: O4_RENDER_CHECK = PASS nếu hệ thống dùng check.
 
-O4.11. No-data / BLOCKED / NEEDS_FIX
-    Trước khi render, O4 phải kiểm no-data guard trên mọi source C7 dùng cho output thường quy: C7_STATE, C7_CHECK, C7_FOR_O4, C7_FINAL nếu được dùng và mọi field C7 khác được contract hiện hành dùng để dựng bệnh trình.
-    Cụm no-data leak phải chặn gồm các biến thể viết hoa/thường và dấu câu của: “chưa có dữ kiện”, “chưa ghi nhận dữ kiện”, “chưa có dữ liệu”, “trong dữ liệu cung cấp”, “chưa ghi nhận bất thường rõ”, “Huyết động chưa có dữ kiện”, “Đại tiểu tiện chưa ghi nhận”, “Chưa ghi nhận dữ kiện dị ứng thuốc”.
-    Nếu phát hiện no-data leak trong C7 source, O4_RENDER_CHECK = NEEDS_FIX hoặc BLOCKED; O4 không render BỆNH TRÌNH ĐIỀU TRỊ hoàn chỉnh và phải báo rõ source cần sửa/chạy lại là C7.
-    O4 không được tự sửa C7_STATE, không tự chạy C7, không dùng A_STATE, raw input, hidden memory, output cũ hoặc fallback lâm sàng để bù source bẩn.
-    O4 không được tự thay no-data bằng “Mạch, huyết áp ổn định.”, “Ăn ngủ được.”, “Đại tiểu tiện bình thường.” hoặc bất kỳ bệnh trình ổn định nào.
-    O4 không render bản hoàn chỉnh nếu:
-        1. O4 không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        2. C_GATE không PASS.
-        3. C7_STATE/C7_FOR_O4 chưa có hoặc không hợp lệ.
-        4. C7_CHECK không PASS.
-        5. C7_FOR_O4 thiếu ngày điều trị.
-        6. C7_FOR_O4 thiếu thứ tự ngày điều trị.
-        7. C7_FOR_O4 thiếu dd/mm/yyyy ở bất kỳ ngày nào.
-        8. C7_FOR_O4 dùng placeholder ngày.
-        9. C7_FOR_O4 là đoạn văn thay cho dạng xuống dòng/gạch đầu dòng.
-        10. Một ngày không đủ đúng 6 dòng chính.
-        11. Dòng chính không bắt đầu bằng "-".
-        12. Có yêu cầu/ngày điểm bệnh nhưng C7_FOR_O4 thiếu block ĐIỂM BỆNH.
-        13. Có ngày ra viện/chuyển viện/xin ra viện nhưng C7_FOR_O4 thiếu block tương ứng.
-        14. Câu trạng thái kết thúc điều trị chưa được C7 tích hợp/chốt trong C7_FOR_O4.
-        15. Dữ liệu C7_FOR_O4 mâu thuẫn hoặc không phù hợp format O4.
-        16. C7_STATE, C7_FOR_O4, C7_FINAL nếu được dùng hoặc field C7 dùng cho O4 output thường quy chứa no-data leak.
-        17. Sau khi render, extracted_O4_DAILY_COURSE là phần nội dung bệnh trình nằm dưới heading “BỆNH TRÌNH ĐIỀU TRỊ” không khớp 100% line-for-line với C7_STATE.C7_FOR_O4, gồm khác tiêu đề ngày, thứ tự ngày, số dòng, bullet, dấu câu, wording, blank-line có nghĩa hoặc nội dung lâm sàng.
-        18. O4 output hoặc C7_FOR_O4 có legacy one-line day header như “Ngày [0-9]+ -”, “Ngày [0-9]+:”, “Ngày điều trị thứ ...:” dạng colon rồi có nội dung cùng dòng, hoặc bất kỳ ngày nào chỉ là một dòng đoạn văn dài thay vì tiêu đề ngày + 6 dòng bullet từ C7.
-        19. C7_FOR_O4 hoặc extracted_O4_DAILY_COURSE chứa token điều trị/theo dõi bị cấm trong bệnh trình: “tiếp tục điều trị”, “duy trì điều trị”, “điều trị duy trì”, “tiếp tục thuốc”, “theo dõi đáp ứng”, “theo dõi đáp ứng điều trị”, “điều trị nội khoa”, “thuốc”, “chỉ định”, “tư vấn”, “tái khám”, “dặn dò”, “đơn thuốc”, “hướng dùng thuốc”, “chuẩn bị đánh giá ra viện”, “đủ điều kiện ra viện”.
-    O4_RENDER_CHECK phải dùng ERR-O4-FOR-O4-NOT-EXACT-C7 khi extracted_O4_DAILY_COURSE khác C7_FOR_O4; ERR-O4-FOR-O4-LEGACY-ONE-LINE khi có legacy one-line day header hoặc ngày một dòng; ERR-O4-FOR-O4-TREATMENT-LEAK khi C7 source hoặc extracted O4 bệnh trình chứa token điều trị/theo dõi bị cấm.
-    Nếu C7_FOR_O4 thiếu, sai format, có treatment leak hoặc C7_CHECK không PASS thì O4 BLOCKED; O4 không fallback sang A_STATE, A14, raw input, hidden memory hoặc output cũ để tự tạo bệnh trình, không tự tách đoạn văn thành 6 dòng, không tự chuyển “Ngày 1 - dd/mm/yyyy: ...” thành format mới và phải yêu cầu sửa/chạy lại C7.
-    Khi BLOCKED/NEEDS_FIX:
-        1. O4 không tự bịa.
-        2. O4 không tự sửa C7.
-        3. O4 không tự thêm ngày.
-        4. O4 không tự tính ngày.
-        5. O4 không tự thêm triệu chứng.
-        6. O4 không tự thêm trạng thái kết thúc.
-        7. O4 không tự thêm ĐIỂM BỆNH.
-        8. O4 không tự thêm câu ra viện.
-        9. O4 không tự thêm "Chủ nhiệm khoa".
-        10. O4 không tự thêm "RA VIỆN".
-        11. O4 không tự tách đoạn văn thành bullet.
-        12. O4 không hợp thức hóa no-data placeholder.
-        13. O4 không tự tạo fallback bệnh trình để thay nguồn bẩn.
-        14. O4 yêu cầu quay lại C7 và nêu rõ C7 là source cần sửa/chạy lại.
+O4_NEEDS_FIX_IF
+    SKIP, không phải NEEDS_FIX, khi O4 không nằm trong render plan hoặc chưa đến lượt.
+    NEEDS_FIX/BLOCKED khi:
+        1. O4 được yêu cầu render nhưng không đủ điều kiện RUN.
+        2. C_GATE không PASS, C7 chưa chạy formal hoặc C7_CHECK không PASS.
+        3. C7_FOR_O4 thiếu, không hợp lệ hoặc không render-ready.
+        4. Thiếu ngày, thiếu thứ tự ngày, thiếu dd/mm/yyyy hoặc có placeholder ngày.
+        5. Ngày không đúng 6 dòng chính hoặc dòng chính không bắt đầu bằng “-”.
+        6. Có ĐIỂM BỆNH/ra viện/chuyển viện/xin ra viện được yêu cầu nhưng C7_FOR_O4 thiếu block tương ứng.
+        7. C7 source chứa no-data leak.
+        8. Output không exact-copy.
+        9. Có legacy one-line day header.
+        10. Có treatment/theo dõi/thuốc/dặn dò leak bị cấm.
+        11. O4 tự thêm/bỏ/sửa ngày/bullet/nội dung.
+        12. O4 dùng raw input, hidden memory, A/O output cũ, A14, A15, A13 labs-imaging, O3, O5 hoặc O6 để bù source.
+        13. O4 render metadata kỹ thuật.
 
-O4.12. Metadata không được render
-    O4 không được render các metadata kỹ thuật sau vào bệnh trình:
-        1. STATE_VERSION.
-        2. ROUND_ID.
-        3. RUN_MODE.
-        4. Ax_REV.
-        5. Cx_REV.
-        6. Ox_REV nếu có.
-        7. UPDATED_AT.
-        8. A_CHECK / A_ERROR.
-        9. C_CHECK / C_ERROR.
-        10. O_CHECK / O_ERROR.
-        11. CREATE / UPDATE / REUSE.
-        12. A_MODULE_REV.
-        13. C_MODULE_REV.
-        14. O4_RENDER_CHECK.
+O4_ERROR_RULE
+    Giữ error codes hiện có:
+        - ERR-O4-FOR-O4-NOT-EXACT-C7: extracted O4 daily course khác C7_FOR_O4.
+        - ERR-O4-FOR-O4-LEGACY-ONE-LINE: có legacy one-line day header hoặc ngày một dòng đoạn văn dài.
+        - ERR-O4-FOR-O4-TREATMENT-LEAK: C7_FOR_O4 hoặc extracted O4 chứa token/cụm điều trị/theo dõi/thuốc/dặn dò bị cấm.
+    Với lỗi source/schema/no-data: O4_RENDER_CHECK = NEEDS_FIX/BLOCKED; source cần sửa/chạy lại là C7; không render O4 hoàn chỉnh; không tự fill bằng nguồn cấm.
+    Nếu PASS: O4_RENDER_CHECK = PASS nếu hệ thống dùng; không render check/error metadata trong bệnh trình thường quy.
+    Không thêm field O4_ERROR nếu contract hiện tại không có field output riêng này.
 
-O4.13. Ranh giới O4 với O khác và A/C/C7
-    O4 không thay:
-        1. O1 — khám sơ bộ.
-        2. O2 — tóm tắt bệnh án.
-        3. O3 — tổng kết bệnh án / ra viện.
-        4. O5/O6 — thuốc/đơn thuốc.
-        5. O7 — hội chẩn.
-        6. O8 — bệnh án chi tiết.
-        7. O9 — hỏi thêm/khám thêm/cần làm thêm.
-        8. O10 — cảnh báo lâm sàng.
-        9. O11 — cảnh báo thuốc.
-        10. O12 — render C6.
-        11. O13 — render C5.
-    O4 không thay A1-A15.
-    O4 không thay C1-C6.
-    O4 không thay C7.
-    O4 không tự gọi C7.
-    O4 không dùng O4 để sửa lỗi A/C/C7.
-    O4 không đưa tổng kết ra viện thay O3.
-    O4 không đưa đơn thuốc, xét nghiệm, chẩn đoán hình ảnh hoặc hướng điều trị vào bệnh trình.
-    O4 không render footer hành chính, ký tên hoặc heading "RA VIỆN" ngoài C7_FOR_O4.
+O4_REUSE_RULE
+    O4 không có lifecycle CREATE/UPDATE/REUSE riêng.
+    Không reuse output cũ.
+    Không dùng O4_OUTPUT cũ hoặc rendered output cũ làm source.
+    Khi G plan O4, render từ current allowed sources.
+    O4_OUTPUT không là nguồn cho A/C/O khác.
+    Không ghi “reuse O4”.
+    Không tạo O4_REV.
 
-O4.14. Chuẩn đầu ra O4
-    Tiêu đề tổng của O4 nếu hệ thống yêu cầu tiêu đề:
-        BỆNH TRÌNH ĐIỀU TRỊ
-    Nội dung bệnh trình xuất thật là nguyên C7_FOR_O4 đã được C7 tạo.
-    O4 output thật có thể nằm trong một code block text riêng nếu contract packaging hiện hành yêu cầu; nội dung trong code block là nguyên C7_FOR_O4.
-    O4 không thêm heading/footing ngoài C7_FOR_O4 nếu contract hiện hành không yêu cầu.
-    O4 không thêm footer hành chính cuối bệnh trình.
-    O4 không thêm ký tên ngoài các block C7 đã tạo.
-    O4 không thêm "RA VIỆN" heading.
-    O4 không thêm "Chủ nhiệm khoa" ngoài block C7 đã tạo.
-    Mẫu nguồn C7 hợp lệ để O4 render nguyên:
-        Ngày điều trị thứ 1 (03/06/2026)
-        - Tỉnh, tiếp xúc tốt.
-        - Đau bụng giảm.
-        - Không nôn, không sốt.
-        - Mạch, huyết áp ổn định.
-        - Ăn ngủ được.
-        - Đại tiểu tiện bình thường.
-
-        Ngày điều trị thứ 3 (05/06/2026)
-        - Tỉnh, tiếp xúc tốt.
-        - Triệu chứng chính cải thiện theo điều trị.
-        - Không ghi nhận triệu chứng kèm bất thường mới.
-        - Mạch, huyết áp ổn định.
-        - Ăn ngủ được.
-        - Đại tiểu tiện bình thường.
-
-        ĐIỂM BỆNH
-        Nhất trí với chẩn đoán và điều trị
-        Chủ nhiệm khoa
-
-        Bệnh nhân ổn định. Giải quyết cho bệnh nhân ra viện.
-        Chủ nhiệm khoa.
-    Ví dụ FAIL exact-copy / legacy one-line:
-        C7_FOR_O4 đúng:
-            Ngày điều trị thứ 1 (16/06/2026)
-            - Bệnh nhân tỉnh, tiếp xúc tốt.
-            - Đau vùng cột sống thắt lưng còn nhiều, đau lan chân phải còn, tê bì hai chân còn.
-            - Vận động cột sống thắt lưng hạn chế.
-            - Huyết động ổn định.
-            - Ăn uống còn kém, ngủ còn kém.
-            - Đại tiểu tiện bình thường.
-        O4 render sai:
-            Ngày 1 - 16/06/2026: Bệnh nhân vào viện vì đau vùng cột sống thắt lưng...
-        Kết luận: O4_RENDER_CHECK = NEEDS_FIX/BLOCKED với ERR-O4-FOR-O4-NOT-EXACT-C7 và ERR-O4-FOR-O4-LEGACY-ONE-LINE; O4 không tự chuyển format và phải yêu cầu sửa/chạy lại C7 nếu source C7 sai.
-    Ví dụ FAIL treatment leak:
-        Nếu C7_FOR_O4 hoặc extracted_O4_DAILY_COURSE có “Ngày 2 - 17/06/2026: Bệnh nhân còn đau..., tiếp tục điều trị...”, “tiếp tục thuốc” hoặc “theo dõi đáp ứng” thì O4_RENDER_CHECK = NEEDS_FIX/BLOCKED với ERR-O4-FOR-O4-TREATMENT-LEAK; O4 không tự sửa và source cần sửa là C7_FOR_O4.
-    Ví dụ chỉ minh họa format; không sao chép dữ kiện ví dụ vào ca thật.
-    Output thật không in dòng "[Khung code ngày n]", "[BẮT ĐẦU KHUNG CODE TEXT NGÀY n]", "[KẾT THÚC KHUNG CODE TEXT NGÀY n]" hoặc placeholder.
-
-O4.15. Checklist trước khi chốt O4
-    Trước khi chốt O4, phải kiểm:
-        1. Đã đọc đủ O4 theo READ LOCK.
-        2. O4 nằm trong O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt O4.
-        3. C_GATE PASS.
-        4. C7_STATE.C7_FOR_O4 hợp lệ.
-        5. C7_CHECK = PASS.
-        6. C7_FOR_O4 có đủ số ngày.
-        7. Mỗi ngày có tiêu đề "Ngày điều trị thứ [n] ([dd/mm/yyyy])".
-        8. Mỗi ngày có dd/mm/yyyy thật.
-        9. Không còn format "dd/mm/yyyy nếu có" cho output thật.
-        10. Mỗi ngày có đúng 6 dòng chính.
-        11. Mỗi dòng chính bắt đầu bằng "-".
-        12. C7_FOR_O4 có dạng xuống dòng/gạch đầu dòng.
-        13. C7_FOR_O4 không phải đoạn văn.
-        14. Nếu có ngày điểm bệnh, block ĐIỂM BỆNH đã nằm trong C7_FOR_O4 và O4 chỉ render nguyên block.
-        15. Nếu có ngày ra viện/chuyển viện/xin ra viện, block tương ứng đã nằm trong C7_FOR_O4 và O4 chỉ render nguyên block.
-        16. O4 không tự thêm gì ngoài C7_FOR_O4.
-        17. O4 không tự tính ngày.
-        18. O4 không tự thêm gạch đầu dòng.
-        19. O4 không tự tách đoạn văn thành bullet.
-        20. O4 không tự thêm ĐIỂM BỆNH.
-        21. O4 không tự thêm câu ra viện.
-        22. O4 không tự thêm "Chủ nhiệm khoa".
-        23. O4 không tự thêm "RA VIỆN".
-        24. Không render footer hành chính ngoài C7 source.
-        25. C7_STATE, C7_FOR_O4, C7_FINAL nếu được dùng và field C7 dùng cho output không chứa no-data leak.
-        26. Không dùng A14_FOR_O4 làm nguồn bệnh trình chính.
-        27. Không đọc A1-A14 để tự tạo/tự tính bệnh trình.
-        28. Không đọc A15 để thêm thuốc/đơn thuốc.
-        29. Không tự tạo bệnh trình.
-        30. Không sửa A/C/C7.
-        31. Không render metadata.
-        32. Không biến O4 thành O khác.
-        33. extracted_O4_DAILY_COURSE khớp 100% line-for-line với C7_FOR_O4 sau khi bỏ đúng heading/packaging được phép; không khác tiêu đề ngày, thứ tự ngày, số dòng, bullet, dấu câu, wording, blank-line có nghĩa hoặc nội dung lâm sàng.
-        34. Không có legacy one-line day header “Ngày [0-9]+ -”, “Ngày [0-9]+:”, “Ngày điều trị thứ ...:” dạng colon rồi nội dung cùng dòng, hoặc ngày một dòng đoạn văn dài trong C7 source hay O4 output.
-        35. Không có token điều trị/theo dõi bị cấm trong C7_FOR_O4 hoặc extracted_O4_DAILY_COURSE; nếu có thì O4_RENDER_CHECK = NEEDS_FIX/BLOCKED với ERR-O4-FOR-O4-TREATMENT-LEAK và source cần sửa là C7_FOR_O4.
-    Nếu đạt: O4_RENDER_CHECK = PASS. Nếu lỗi: O4_RENDER_CHECK = NEEDS_FIX hoặc BLOCKED và ghi rõ lỗi; không render metadata này vào bệnh trình.
-    Nếu output không exact-copy line-for-line với C7_FOR_O4 thì không được xuất O4 hoàn chỉnh, kể cả khi nội dung y khoa có vẻ tương đương.
-
-O4.16. Các lỗi không được mắc
-    Không được:
-        1. Bỏ qua READ LOCK.
-        2. Audit, patch, final review hoặc sử dụng/render O4 khi chưa đọc đủ O4.
-        3. Render O4 khi không nằm trong O_RENDER_LIST/O_RENDER_ORDER hoặc chưa đến lượt O4.
-        4. Tự chạy C7, tự thêm C7 vào C_RUN_ORDER hoặc tự sửa C7_STATE.
-        5. Sửa A_STATE, C_STATE hoặc C7_STATE.
-        6. Dùng raw input, hidden memory, output cũ hoặc patch làm nguồn bệnh trình.
-        7. Dùng A14_FOR_O4 làm nguồn bệnh trình chính.
-        8. Đọc A1-A14 để tự tạo hoặc tự tính ngày bệnh trình.
-        9. Đọc A15 để thêm thuốc/đơn thuốc.
-        10. Tự viết bệnh trình hoặc tự suy luận bệnh trình thay C7.
-        11. Không render nếu C7_FOR_O4 thiếu dd/mm/yyyy ở bất kỳ ngày nào.
-        12. Không render nếu C7_FOR_O4 là đoạn văn.
-        13. Không render nếu ngày bệnh trình thiếu 6 dòng chính.
-        14. Không render nếu dòng chính không bắt đầu bằng "-".
-        15. Không tự thêm ĐIỂM BỆNH.
-        16. Không tự thêm câu ra viện.
-        17. Không tự thêm "Chủ nhiệm khoa".
-        18. Không tự thêm "RA VIỆN".
-        19. Không tự tính ngày.
-        20. Không tự tách đoạn văn thành bullet.
-        21. Không tự sửa C7.
-        22. Không hợp thức hóa no-data placeholder trong C7 source thành bệnh trình ổn định.
-        23. Không tự tạo fallback bệnh trình để thay C7 source bẩn.
-        24. Không render BỆNH TRÌNH ĐIỀU TRỊ hoàn chỉnh khi C7 source chứa no-data leak.
-        25. Không tự tạo ngày ra viện, ngày chuyển viện hoặc ngày xin ra viện.
-        26. Không tự tạo tên bệnh viện chuyển đến.
-        27. Không tự thêm thuốc, xét nghiệm, chẩn đoán hình ảnh hoặc hướng điều trị.
-        28. Không làm nặng lên hoặc nhẹ đi diễn biến.
-        29. Không xuất O3 trong O4 hoặc render tổng kết ra viện thay O3.
-        30. Không render metadata kỹ thuật vào bệnh trình.
-        31. Không render formal O4 hoặc tạo formal O4_OUTPUT trong PLAN_9 ngoài bệnh án.
+O4_END
+    Sau O4, hệ thống render O tiếp theo theo G_STATE.O_RENDER_ORDER.
+    O4 không tự chạy O5, không gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O4
 
