@@ -740,84 +740,78 @@ O5_END
 ####################################################################################################
 
 O6 — ĐƠN THUỐC
-Version: BA S-G-A-C-O v3
-Update: 10/06/2026 GMT+7 — sync A15 schema mới, bỏ đọc module A ngoài A1-A15
+Version: BA S-G-A-C-O V4
+Update: 28/06/2026 GMT+7 — compact allowlist contract, giữ nguyên logic render O6
 
-O6.0. READ LOCK
-    Khi audit, patch, final review hoặc sử dụng/render O6, AI/Codex phải đọc toàn bộ O6 từ O6.0 đến marker “<<< END O6”.
-    Không được chỉ đọc một đoạn giữa module, nguồn dữ liệu, ví dụ, checklist, lỗi cấm hoặc diff.
-    Không được patch một mục nếu chưa kiểm tra ảnh hưởng tới các mục còn lại trong O6.
-    Nếu chưa đọc đủ toàn bộ O6 thì phải kết luận UNCLEAR, không được kết luận PASS/FAIL.
-    O6 chỉ render khi nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER của ROUND hiện tại và đã đến lượt theo G_STATE.O_RENDER_ORDER.
+O6_ROLE
+    O6 là strict renderer/output selective thuộc layer O cho `ĐƠN THUỐC`, chỉ render từ current allowed state của ROUND hiện tại; source canonical là `A15_STATE`.
+    O6 không phải A15 tạo/chốt thuốc, O5 gợi ý thuốc/nhóm thuốc, C3 kiểm/cảnh báo an toàn thuốc, O11 cảnh báo thuốc/theo dõi, C6/O12 tra cứu kiến thức hoặc A/C/G source module.
+    O6 không tạo `O6_STATE`, `O6_REV`, `O6_FINAL`, lifecycle state riêng hoặc schema state mới; O6 output/rendered text nếu có không phải state nguồn, không là source cho A/C/O khác và không được reuse như nguồn lâm sàng.
 
-O6.1. Mục tiêu
-    O6 là module render ĐƠN THUỐC từ A15 schema mới.
-    O6 không chọn thuốc, không kê thuốc mới, không tự thêm/bỏ/sửa thuốc, không đổi liều, đường dùng, số lần dùng, số ngày hoặc số lượng.
-    O6 không tự kiểm an toàn thuốc thay A15/C3, không tự tra cứu liều, không dùng C6 trực tiếp, không dùng O5_OUTPUT và không dùng A13_TREATMENT làm đơn thuốc cuối.
-    O6 chỉ render thuốc/đơn thuốc đã được A15 tạo hợp lệ; C3 nếu đã chạy chỉ cung cấp cảnh báo/lưu ý theo dõi, không cấp quyền kê đơn theo contract C3 hiện hành.
-    O6 không sửa G_STATE, A_STATE, A15_STATE, C_STATE hoặc C3_STATE và không tự chạy/gọi A15, C3 hoặc O khác.
+O6_ALLOWED_SOURCE
+    O6 chỉ được đọc:
+        1. `G_STATE` ROUND hiện tại: chỉ kiểm O6 có trong `O_RENDER_LIST`/`O_RENDER_ORDER`, đã đến lượt và metadata điều phối cần thiết; không dùng làm dữ kiện bệnh án và không render metadata G_STATE.
+        2. `A_GATE` mới nhất: chỉ kiểm `A_GATE = PASS` hoặc `A_GATE_STATUS = PASS` theo contract hiện hành và full current A_STATE hợp lệ; không render A_GATE và không dùng làm dữ liệu thuốc.
+        3. Full current `A_STATE`: chỉ truy cập `A15_STATE` và A14 field allowlist để đối chiếu; không dùng A_STATE ngoài mapping O6 để tự dựng thuốc/đơn thuốc.
+        4. `A15_STATE`: `A15_CHECK`, `A15_HAS_MEDICATION`, `A15_MEDICATION_LIST`, `A15_PRESCRIPTION_FOR_O`, `A15_SAFETY_NOTE`.
+        5. `A14_STATE` nếu cần đối chiếu dữ kiện đã được A15 dùng: chỉ `A14_AGE`, `A14_SEX`, `A14_DISCHARGE_DATE`, `A14_LABS_RESULT`, `A14_IMAGING_RESULT`, `A14_OTHER_PARACLINICAL_RESULT`, `A14_SUMMARY_FOR_O`; không đọc cân nặng/chiều cao và không tạo thuốc/đơn thuốc từ A14.
+        6. `C3_STATE` optional khi C3 đã được G plan hoặc O6 cần hiển thị lưu ý theo dõi: chỉ `C3_SOURCE_MEDICATION_FROM_A15`, `C3_ADVERSE_EFFECT_WARNINGS`, `C3_MONITORING_POINTS`, `C3_PATIENT_ADVICE`, `C3_CHECK`; nếu đọc C3 thì `C3_CHECK = PASS`; C3 chỉ cảnh báo/lưu ý, không cấp quyền kê đơn.
+    Cấm đọc/dùng raw user input, hidden memory, `O_OUTPUT`/`O6_OUTPUT`/rendered output cũ, patch/delta, `O5_OUTPUT`, `O11_OUTPUT`, `C6_STATE` trực tiếp, web/guideline/source ngoài, `A13_TREATMENT` làm đơn thuốc cuối, A14 để tạo thuốc/đơn thuốc, A15 legacy/bản nháp nội bộ không phải field canonical hiện hành hoặc metadata kỹ thuật làm nội dung thuốc.
 
-O6.2. Nguồn dữ liệu được phép
-    O6 chỉ được đọc nguồn mapping rõ:
-        1. G_STATE của ROUND hiện tại: chỉ để kiểm O6 nằm trong O_RENDER_LIST/O_RENDER_ORDER và thứ tự render; không render metadata G_STATE.
-        2. A_GATE mới nhất: chỉ để kiểm full current A_STATE hợp lệ.
-        3. Full current A_STATE mới nhất: chỉ để truy cập A15_STATE và các field A14/A15 được khai báo rõ.
-        4. A15_STATE.A15_HAS_MEDICATION: nếu = NO, O6 không render đơn thuốc, không tự tạo thuốc và không render NONE/NOT_APPLICABLE; nếu = YES, O6 kiểm A15_MEDICATION_LIST / A15_PRESCRIPTION_FOR_O.
-        5. A15_STATE.A15_MEDICATION_LIST: danh sách thuốc cụ thể user cung cấp hoặc thuốc cụ thể được tạo hợp lệ theo A15.
-        6. A15_STATE.A15_PRESCRIPTION_FOR_O: nguồn đơn thuốc cụ thể được phép render/đưa sang O khi A15_CHECK = PASS và đủ dữ kiện; hoặc câu no-prescription sạch do A15 chốt khi chưa có yêu cầu kê đơn cụ thể / dữ kiện chưa đủ để lập đơn hợp lệ.
-        7. A15_STATE.A15_SAFETY_NOTE: lưu ý an toàn thuốc do A15 chốt; O6 có thể hiển thị nếu contract yêu cầu.
-        8. A14_STATE field hợp lệ nếu cần đối chiếu dữ kiện đã được A15 dùng: chỉ đọc A14_AGE, A14_SEX, A14_DISCHARGE_DATE, A14_LABS_RESULT, A14_IMAGING_RESULT, A14_OTHER_PARACLINICAL_RESULT hoặc A14_SUMMARY_FOR_O; không đọc cân nặng/chiều cao từ A14.
-        9. C3_STATE nếu C3 đã được G plan hoặc O6 cần hiển thị lưu ý theo dõi: chỉ đọc C3_SOURCE_MEDICATION_FROM_A15, C3_ADVERSE_EFFECT_WARNINGS, C3_MONITORING_POINTS, C3_PATIENT_ADVICE, C3_CHECK; nếu đọc C3_STATE thì C3_CHECK phải = PASS.
-    A_MODULE_REV/RUN_MODE không phải nguồn render O6; nếu nhắc tới thì chỉ nằm trong nhóm metadata cấm render.
+O6_ALLOWED_ACTION
+    RUN khi O6 có trong `G_STATE.O_RENDER_LIST` hoặc `G_STATE.O_RENDER_ORDER`, đã đến lượt, A_GATE PASS, full current A_STATE hợp lệ, `A15_STATE` tồn tại, `A15_CHECK = PASS`, và nếu đọc C3 thì `C3_CHECK = PASS`.
+    SKIP im lặng khi không nằm trong render plan hoặc chưa đến lượt: không output, không tạo/cập nhật `O6_OUTPUT`, không in `O6_OUTPUT = SKIP`, không tự thêm O6 vào render plan.
+    BLOCKED/NEEDS_FIX khi thiếu điều kiện RUN, A_GATE/A_STATE/A15/C3 fail, dùng nguồn cấm, source mâu thuẫn, đơn thuốc cụ thể thiếu cấu trúc tối thiểu hoặc output chứa thuốc/liều/đường dùng/số ngày/số lượng do O6 tự bù/tự tạo.
+    Khi BLOCKED/NEEDS_FIX, O6 không tự bịa, sửa A15/C3/G_STATE, chạy A15/C3, gọi O5/O11/O khác hoặc fallback sang raw input/hidden memory/output cũ/C6/web/guideline.
+    O6 không tự chọn/kê/thêm/bỏ/sửa thuốc, đổi liều/đường dùng/số lần/ngày/số ngày/số lượng, tự kiểm an toàn thay A15/C3, tự tra cứu liều, dùng C6/web, tự chạy/gọi A15/C3/O khác hoặc sửa A/C/G/O state.
 
-O6.3. Nguồn dữ liệu không được dùng
-    O6 không được đọc hoặc dùng raw input, hidden memory, O_OUTPUT cũ, O6_OUTPUT cũ, patch/delta, C6_STATE trực tiếp, A13_TREATMENT làm đơn thuốc cuối, A14_STATE để tạo thuốc hoặc đơn thuốc, module A ngoài A1-A15, O5_OUTPUT, O11_OUTPUT, memory, web/guideline/source ngoài nếu không có contract, metadata kỹ thuật hoặc field A15 legacy/bản nháp nội bộ làm source of truth.
+O6_ALLOWED_WRITE
+    O6 chỉ được ghi/render O6 rendered text hoặc `O6_OUTPUT` nếu hệ thống dùng field này, `O6_CHECK`/`O6_RENDER_CHECK` nếu framework nội bộ dùng, và lý do BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
+    Contract hiện tại chưa định nghĩa schema write chính thức cho `O6_CHECK`/`O6_RENDER_CHECK`; không render metadata check/error vào output thường quy.
+    O6 không ghi/tạo/sửa `O6_STATE`, `O6_REV`, `O6_FINAL`, G_STATE, A_STATE, A15_STATE, C_STATE, C3_STATE, O5, O11, O module khác, A module khác, C module khác hoặc S/G.
 
-O6.4. Điều kiện RUN / SKIP / BLOCKED
-    O6 RUN khi O6 nằm trong O_RENDER_LIST/O_RENDER_ORDER, đã đến lượt, A_GATE PASS, full current A_STATE hợp lệ, A15_STATE tồn tại, A15_CHECK = PASS và nếu đọc C3_STATE thì C3_CHECK = PASS.
-    Khi A15_HAS_MEDICATION = YES và A15_PRESCRIPTION_FOR_O có đơn thuốc cụ thể, đơn thuốc chỉ được render nếu đủ cấu trúc tối thiểu.
-    Khi A15_HAS_MEDICATION = YES nhưng A15_PRESCRIPTION_FOR_O là câu no-prescription sạch do A15 chốt, ví dụ “Không xuất đơn thuốc vì chưa có thuốc/không có yêu cầu kê đơn cụ thể.” hoặc “Không xuất đơn thuốc cụ thể vì user chưa yêu cầu kê đơn cụ thể và dữ kiện thuốc chưa đủ để lập đơn điều trị/ra viện hợp lệ.”, O6 RUN để render phần “Chưa xuất đơn thuốc cụ thể...” theo A15_PRESCRIPTION_FOR_O, render “Thuốc đã được ghi nhận từ user” từ A15_MEDICATION_LIST nếu có và render “Lưu ý an toàn” từ A15_SAFETY_NOTE nếu có.
-    O6 SKIP khi O6 không nằm trong O_RENDER_LIST/O_RENDER_ORDER; không render SKIP output nếu hệ thống không yêu cầu.
-    O6 BLOCKED/NEEDS_FIX khi thiếu A15_STATE, A15_CHECK != PASS, A15_HAS_MEDICATION = YES nhưng thiếu A15_MEDICATION_LIST hoặc A15_PRESCRIPTION_FOR_O hợp lệ, A15_PRESCRIPTION_FOR_O mâu thuẫn với A15_HAS_MEDICATION/A15_MEDICATION_LIST, đơn thuốc cụ thể thiếu cấu trúc tối thiểu, C3_STATE được dùng nhưng C3_CHECK != PASS, hoặc dữ liệu nguồn mâu thuẫn/không phù hợp format O6.
-    O6 không BLOCKED chỉ vì không có đơn thuốc cụ thể nếu A15 đã cung cấp câu no-prescription hợp lệ trong A15_PRESCRIPTION_FOR_O.
-    Khi BLOCKED/NEEDS_FIX, O6 không render đơn thuốc, không tự sửa đơn, không tự thêm thuốc, không tự đổi liều và không tự chạy A15/C3.
+O6_RENDER_SCHEMA
+    O6 không tự thêm heading, code block, bảng hoặc literal format bắt buộc vì contract hiện tại chưa định nghĩa heading/code block/table bắt buộc.
+    Nhánh đơn thuốc cụ thể: render từ `A15_PRESCRIPTION_FOR_O` khi `A15_HAS_MEDICATION = YES`, `A15_CHECK = PASS`, `A15_PRESCRIPTION_FOR_O` là đơn thuốc cụ thể và mỗi thuốc đủ tên thuốc, liều dùng, đường dùng, số lần/ngày, số ngày.
+    Field tùy chọn nếu A15 có: hàm lượng, dạng dùng, thời điểm dùng, số lượng, ghi chú; nếu thiếu field tối thiểu thì BLOCKED/NEEDS_FIX, không tự bù/tính số lượng/thêm cách dùng.
+    Nhánh no-prescription sạch: nếu `A15_PRESCRIPTION_FOR_O` là câu no-prescription sạch do A15 chốt, O6 render đúng ý nghĩa chưa xuất đơn thuốc cụ thể, không BLOCKED vì thiếu cấu trúc tối thiểu, có thể render medication record từ `A15_MEDICATION_LIST` và `A15_SAFETY_NOTE` nếu có; medication record là thuốc đã ghi nhận từ user, không phải đơn thuốc mới.
+    Nhánh C3 hợp lệ: nếu C3 hợp lệ và được dùng, có thể hiển thị `C3_ADVERSE_EFFECT_WARNINGS`, `C3_MONITORING_POINTS`, `C3_PATIENT_ADVICE`; không biến C3 thành quyền kê đơn/kết luận an toàn.
+    Không render metadata kỹ thuật, check/error, REV, STATE_VERSION, ROUND_ID, RUN_MODE, CREATE/UPDATE/REUSE, module rev, output cũ, debug text, `NONE` hoặc `NOT_APPLICABLE` khi `A15_HAS_MEDICATION = NO`.
 
-O6.5. Mapping dữ liệu
-    Đơn thuốc cụ thể ưu tiên lấy từ A15_PRESCRIPTION_FOR_O nếu có và đủ cấu trúc tối thiểu.
-    Nếu A15_PRESCRIPTION_FOR_O là câu no-prescription sạch, O6 render đúng ý nghĩa chưa xuất đơn thuốc cụ thể theo câu đó, không tự tạo đơn và không yêu cầu đủ cấu trúc tối thiểu của đơn thuốc.
-    Khi no-prescription sạch và A15_MEDICATION_LIST có thuốc user cung cấp, O6 được render mục “Thuốc đã được ghi nhận từ user” từ A15_MEDICATION_LIST; đây là medication record, không phải đơn thuốc mới.
-    Tên thuốc, hàm lượng, dạng dùng, liều dùng, đường dùng, số lần/ngày, thời điểm dùng, số ngày, số lượng và ghi chú chỉ lấy từ A15_PRESCRIPTION_FOR_O hoặc A15_MEDICATION_LIST; O6 không tự bù trường thiếu.
-    Lưu ý an toàn thuốc ưu tiên A15_SAFETY_NOTE; nếu C3 đã chạy hợp lệ, có thể hiển thị thêm C3_ADVERSE_EFFECT_WARNINGS, C3_MONITORING_POINTS hoặc C3_PATIENT_ADVICE.
-    Dặn dò chỉ lấy từ A15_SAFETY_NOTE hoặc C3_PATIENT_ADVICE nếu có; không tự tạo dặn dò.
+O6_LOGIC_RULES
+    Nếu `A15_HAS_MEDICATION = NO`: không render đơn thuốc, không tự tạo thuốc, không render `NONE/NOT_APPLICABLE` và xử lý theo no-medication/no-prescription logic hiện hành.
+    Nếu `A15_HAS_MEDICATION = YES` và `A15_PRESCRIPTION_FOR_O` là đơn thuốc cụ thể đủ tối thiểu: render từ `A15_PRESCRIPTION_FOR_O`, không tự sửa nội dung.
+    Nếu `A15_HAS_MEDICATION = YES` và `A15_PRESCRIPTION_FOR_O` là no-prescription sạch: render đúng ý nghĩa chưa xuất đơn, có thể render medication record từ `A15_MEDICATION_LIST`, có thể render `A15_SAFETY_NOTE`, không áp dụng cấu trúc tối thiểu để chặn nhánh này.
+    Nếu `A15_HAS_MEDICATION = YES` nhưng `A15_PRESCRIPTION_FOR_O` không phải đơn thuốc cụ thể hợp lệ và không phải no-prescription sạch: BLOCKED/NEEDS_FIX.
+    Tên thuốc, hàm lượng, dạng dùng, liều, đường dùng, số lần, thời điểm, số ngày, số lượng, ghi chú chỉ lấy từ `A15_PRESCRIPTION_FOR_O` hoặc `A15_MEDICATION_LIST`; O6 không tự bù thiếu.
+    Dặn dò/lưu ý chỉ lấy từ `A15_SAFETY_NOTE` hoặc `C3_PATIENT_ADVICE` nếu có; O6 không tự tạo.
 
-O6.6. Quy tắc chọn nguồn A15
-    A15_STATE là nguồn chính cho đơn thuốc cụ thể của O6.
-    Nếu A15_HAS_MEDICATION = NO, O6 không render đơn thuốc, không tự tạo thuốc và không render NONE/NOT_APPLICABLE hoặc sentinel kỹ thuật.
-    Nếu A15_HAS_MEDICATION = YES và A15_PRESCRIPTION_FOR_O có đơn thuốc cụ thể đủ cấu trúc tối thiểu, render từ A15_PRESCRIPTION_FOR_O.
-    Nếu A15_HAS_MEDICATION = YES nhưng A15_PRESCRIPTION_FOR_O là câu no-prescription sạch, O6 không tự tạo đơn thuốc, không tự thêm số ngày/liều/thuốc mới, không tự đổi thuốc user cung cấp và không BLOCKED chỉ vì chưa có đơn thuốc cụ thể.
-    Trong trường hợp no-prescription sạch, O6 được render phần “Chưa xuất đơn thuốc cụ thể...” theo A15_PRESCRIPTION_FOR_O, render “Thuốc đã được ghi nhận từ user” từ A15_MEDICATION_LIST nếu có và render “Lưu ý an toàn” từ A15_SAFETY_NOTE nếu có; O6_CHECK = PASS nếu các nguồn này hợp lệ và không mâu thuẫn.
-    Nếu A15_HAS_MEDICATION = YES nhưng A15_PRESCRIPTION_FOR_O không phải đơn thuốc cụ thể hợp lệ và cũng không phải câu no-prescription sạch, O6 BLOCKED/NEEDS_FIX.
-    A15_SAFETY_NOTE có thể được hiển thị như lưu ý an toàn nếu O6 contract yêu cầu.
-    O6 không dùng A13_TREATMENT để thay A15_PRESCRIPTION_FOR_O hoặc A15_MEDICATION_LIST, không dùng A14 để tạo thuốc và không dùng O5_OUTPUT để tạo danh sách thuốc.
+O6_SPECIAL_RULES
+    A15 canonical: A15 tạo/chốt thuốc/đơn thuốc; O6 chỉ render, không sửa A15 và không dùng A15 legacy/bản nháp nội bộ làm source of truth nếu không phải field canonical hiện hành.
+    O5/O11: O5 chỉ là gợi ý thuốc/nhóm thuốc; O6 không dùng `O5_OUTPUT`, không biến O5 gợi ý thành đơn thuốc cuối và không dùng `O11_OUTPUT` làm source.
+    C3: không cấp quyền kê đơn, chỉ warning/monitoring/advice nếu hợp lệ; nếu đọc C3 thì `C3_CHECK = PASS`; O6 không tự chạy C3, không tự sửa đơn theo C3, không tự kết luận thuốc an toàn.
+    A13/A14/C6/web: không dùng `A13_TREATMENT` làm đơn thuốc cuối; A14 chỉ đối chiếu field được khai báo; không dùng A14/C6_STATE/web/guideline để tạo thuốc/liều/cách dùng.
+    Output/source reuse: không dùng output cũ, `O6_OUTPUT` cũ, rendered output cũ, patch/delta hoặc hidden memory.
 
-O6.7. Quan hệ với C3
-    C3_STATE không phải nguồn cấp quyền O6 theo contract C3 hiện hành.
-    Nếu C3 đã được G plan và O6 đọc C3_STATE để hiển thị lưu ý theo dõi, C3_CHECK phải = PASS.
-    Nếu C3 không được G plan, O6 không tự chạy C3, không tự gọi C3 và không tự kết luận thêm về an toàn thuốc ngoài A15_SAFETY_NOTE.
-    O6 không tự loại thuốc, không tự sửa đơn và không tự thêm cảnh báo ngoài A15/C3 hợp lệ.
+O6_CHECK_PASS_IF
+    PASS khi O6 nằm trong `G_STATE.O_RENDER_LIST/O_RENDER_ORDER`, đã đến lượt, A_GATE PASS, full current A_STATE hợp lệ, `A15_STATE` tồn tại, `A15_CHECK` PASS, nếu đọc C3 thì `C3_CHECK` PASS, chỉ dùng nguồn allowlist, không tự tạo/bù thuốc/liều/đường dùng/số ngày/số lượng, không dùng O5/O11/O6 output cũ, không dùng raw input/hidden memory/C6/web và không render metadata kỹ thuật.
+    Nhánh đơn thuốc cụ thể đủ tên thuốc, liều dùng, đường dùng, số lần/ngày, số ngày; nhánh no-prescription sạch có câu no-prescription từ A15 hợp lệ và medication record/safety note nếu render không mâu thuẫn.
 
-O6.8. Cấu trúc tối thiểu của đơn thuốc
-    Mỗi thuốc trong đơn thuốc cụ thể phải có tối thiểu: tên thuốc, liều dùng, đường dùng, số lần/ngày và số ngày.
-    Field tùy chọn gồm hàm lượng, dạng dùng, thời điểm dùng, số lượng và ghi chú.
-    Nếu xuất đơn thuốc cụ thể mà thiếu bất kỳ field tối thiểu nào, O6 BLOCKED/NEEDS_FIX; O6 không tự bù field còn thiếu và không tự tính số lượng nếu A15 không có.
-    Quy tắc cấu trúc tối thiểu của đơn thuốc không áp dụng để chặn trường hợp A15_PRESCRIPTION_FOR_O là câu no-prescription sạch và O6 chỉ render medication record/lưu ý an toàn từ A15.
+O6_NEEDS_FIX_IF
+    NEEDS_FIX/BLOCKED khi O6 được plan nhưng thiếu điều kiện RUN, A_GATE chưa PASS, full current A_STATE không hợp lệ, thiếu `A15_STATE`, `A15_CHECK` không PASS, `A15_HAS_MEDICATION = YES` nhưng thiếu `A15_MEDICATION_LIST` hoặc thiếu/không hợp lệ/mâu thuẫn `A15_PRESCRIPTION_FOR_O`, đơn thuốc cụ thể thiếu tên thuốc/liều dùng/đường dùng/số lần/ngày/số ngày, C3 được đọc nhưng `C3_CHECK` không PASS, source mâu thuẫn/không phù hợp format O6, dùng O5_OUTPUT/O11_OUTPUT/O6_OUTPUT cũ/rendered output cũ/raw input/hidden memory/C6/web/guideline/A13_TREATMENT/A14 để tạo thuốc hoặc đơn thuốc, tự bù thiếu thuốc/liều/đường dùng/số lượng, tự sửa state nguồn, tự chạy A15/C3/O khác hoặc render metadata kỹ thuật.
 
-O6.9. Metadata không được render
-    O6 không được render metadata kỹ thuật: STATE_VERSION, ROUND_ID, RUN_MODE, Ax_REV, Cx_REV, Ox_REV nếu có, UPDATED_AT, A_CHECK, A_ERROR, C_CHECK, C_ERROR, O_CHECK, O_ERROR, CREATE, UPDATE, REUSE, A_MODULE_REV, C_MODULE_REV, O6_RENDER_CHECK hoặc G_STATE metadata kỹ thuật.
+O6_ERROR_RULE
+    Khi NEEDS_FIX/BLOCKED, O6 không render đơn thuốc, không tự sửa đơn/thêm thuốc/đổi liều, không tự chạy A15/C3 và không tự gọi O khác.
+    Nếu hệ thống cần lỗi/check nội bộ, ghi lý do theo framework nhưng không render lỗi/check metadata vào output thường quy.
+    Lỗi phải nêu source cần sửa: A15 nếu thiếu/sai đơn thuốc hoặc no-prescription, C3 nếu cảnh báo/lưu ý cần hiển thị nhưng C3 không PASS, G render plan nếu O6 chưa được plan hoặc chưa đến lượt, A_GATE/A_STATE nếu nguồn A chưa hợp lệ.
 
-O6.10. Checklist và lỗi cấm
-    Trước khi chốt O6 phải kiểm: đã đọc đủ O6; O6 nằm trong O_RENDER_LIST/O_RENDER_ORDER; A_GATE PASS; full current A_STATE hợp lệ; A15_STATE tồn tại; A15_CHECK = PASS; nếu A15_HAS_MEDICATION = NO thì không render đơn thuốc và không tự tạo thuốc; nếu A15_HAS_MEDICATION = YES thì đơn thuốc cụ thể hoặc no-prescription sạch lấy đúng từ A15_PRESCRIPTION_FOR_O; medication record lấy đúng từ A15_MEDICATION_LIST; A15_SAFETY_NOTE được dùng đúng nếu render lưu ý an toàn; nếu dùng C3_STATE thì C3_CHECK = PASS; không dùng O5_OUTPUT, A13_TREATMENT, A14 để tạo thuốc, C6_STATE trực tiếp hoặc module A ngoài A1-A15; đơn thuốc cụ thể đủ field tối thiểu khi xuất dạng đơn thuốc; không tự tạo/thêm/bỏ/sửa/đổi thuốc; không render metadata.
-    Không được render đơn thuốc khi A15_HAS_MEDICATION = NO; không BLOCKED sai khi A15_HAS_MEDICATION = YES và A15_PRESCRIPTION_FOR_O là câu no-prescription sạch hợp lệ; không tự sinh thuốc từ A13_TREATMENT; không lấy thuốc từ A14; không dùng output cũ để sửa đơn; không tự kiểm an toàn thuốc thay A15/C3.
+O6_REUSE_RULE
+    O6 không có lifecycle CREATE/UPDATE/REUSE state riêng theo contract hiện tại.
+    Không reuse rendered output cũ, `O_OUTPUT` cũ hoặc `O6_OUTPUT` cũ; khi G plan O6, render từ current allowed state của ROUND hiện tại.
+    Nếu hệ thống có REUSE nội bộ, REUSE chỉ là metadata điều phối, không làm nguồn nội dung và không render thường quy; không ghi “reuse O6” và không tạo `O6_REV`.
+
+O6_END
+    Sau O6, hệ thống render O tiếp theo theo `G_STATE.O_RENDER_ORDER`; O6 không tự chạy O7, không gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O6
 
