@@ -641,288 +641,98 @@ O4_END
 ####################################################################################################
 
 O5 — GỢI Ý THUỐC / NHÓM THUỐC
-Version: BA S-G-A-C-O v3
-Update: 10/06/2026 GMT+7 — chuẩn hóa cấu trúc O5 renderer-only theo BA S-G-A-C-O v3
+Version: BA S-G-A-C-O V4 compact allowlist
+Update: 28/06/2026 GMT+7 — compact O5 renderer-only, giữ boundary A15/C3/O6 và schema 6 mục
 
-O5.0. READ LOCK
-    Khi audit, patch, final review hoặc sử dụng/render O5, AI/Codex phải đọc toàn bộ O5 từ O5.0 đến mục cuối cùng trước marker <<< END O5.
-    Không được chỉ đọc một đoạn giữa module, chỉ đọc nguồn dữ liệu, chỉ đọc ví dụ, chỉ đọc checklist, chỉ đọc lỗi cấm hoặc chỉ đọc diff.
-    Không được patch một mục nếu chưa kiểm tra ảnh hưởng tới các mục còn lại trong O5.
-    Nếu chưa đọc đủ toàn bộ O5 thì phải kết luận UNCLEAR, không được kết luận PASS/FAIL.
-    O5 chỉ render khi O5 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER của ROUND hiện tại và đã đến lượt theo G_STATE.O_RENDER_ORDER.
-    READ LOCK này không cho phép O5 tự chạy A/C/O khác, không tự sửa state và không tự chọn output.
+O5_ROLE
+    O5 là strict renderer/output selective thuộc layer O cho `GỢI Ý THUỐC / NHÓM THUỐC`.
+    O5 chỉ trình bày gợi ý thuốc / nhóm thuốc đã có từ `A15_STATE` hợp lệ; O5 không tạo dữ liệu lâm sàng mới, không tự chọn thuốc, không tự kê đơn và không thay A15/O6/C3.
+    O5 có thể hiển thị cảnh báo/lưu ý an toàn thuốc đã có từ C3 hợp lệ, nhưng không tự kiểm an toàn thuốc, không tự kết luận thuốc an toàn và không tự cho phép O6.
+    O5 không phải O6 đơn thuốc, O11 cảnh báo thuốc/theo dõi, A15 tạo thuốc/gợi ý thuốc, C3 cảnh báo an toàn thuốc, C6/O12 tra cứu kiến thức, hoặc A/C/G source module.
+    O5 không tạo `O5_STATE`, `O5_REV`, `O5_FINAL`, lifecycle state riêng hoặc schema state mới.
+    `O5_OUTPUT` nếu có chỉ là rendered output, không phải state nguồn, không là source cho A/C/O khác và không được reuse như nguồn lâm sàng.
 
-O5.1. Mục tiêu
-    O5 là module render/output thuộc lớp O cho “GỢI Ý THUỐC / NHÓM THUỐC”.
-    O5 hiển thị nhóm thuốc hoặc thuốc có thể cân nhắc do A15 tạo trong A15_STATE hợp lệ.
-    O5 chỉ render dữ liệu đã có từ nguồn hợp lệ theo mapping rõ; O5 không tạo dữ liệu lâm sàng mới.
-    O5 không phải đơn thuốc cuối và không thay O6.
-    O5 không tự kê đơn, không tự chọn thuốc, không tự thêm thuốc ngoài A15, không tự sửa thuốc và không tự đổi thuốc/liều/đường dùng/số ngày/số lượng.
-    O5 không tự kiểm an toàn thuốc thay C3, không tự kết luận thuốc an toàn và không tự cho phép O6.
-    O5 chỉ hiển thị cảnh báo/lưu ý an toàn thuốc từ C3 nếu C3 đã chạy hợp lệ hoặc có C3_STATE hợp lệ theo hệ thống và có dữ liệu cảnh báo/lưu ý cần hiển thị.
-    O5 không tự gọi C3, không tự chạy C3, không dùng C6 trực tiếp và không render metadata kỹ thuật vào output thường quy.
-    O5 chỉ hoạt động khi có trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER và đã đến lượt render theo ROUND hiện tại.
+O5_ALLOWED_SOURCE
+    O5 chỉ được đọc:
+        1. `G_STATE` ROUND hiện tại: chỉ để kiểm O5 nằm trong `O_RENDER_LIST`/`O_RENDER_ORDER`, đã đến lượt render và metadata điều phối cần thiết; không dùng G_STATE làm nguồn tạo thuốc và không render metadata G_STATE.
+        2. `A_GATE` mới nhất: chỉ để kiểm A_GATE PASS / full current A_STATE hợp lệ; không render A_GATE và không dùng A_GATE làm dữ liệu thuốc.
+        3. Full current `A_STATE` mới nhất: chỉ để truy cập `A15_STATE`; không dùng A_STATE ngoài mapping O5 để tự dựng thuốc.
+        4. `A15_STATE`: nguồn chính cho gợi ý thuốc / nhóm thuốc, với các field mapping rõ:
+            - `A15_MEDICATION_GROUPS` hoặc field tương đương hiện hành cho `Nhóm thuốc có thể cân nhắc`.
+            - `A15_MEDICATION_SUGGESTIONS` hoặc field tương đương hiện hành cho `Thuốc gợi ý nếu có`.
+            - `A15_MEDICATION_SELECTION` nếu field hiện hành đang dùng như thuốc được cân nhắc/gợi ý, không phải đơn thuốc cuối.
+            - Field A15 legacy nháp đơn thuốc nếu hệ thống hiện hành có và O5 cần hiển thị nháp gợi ý, chỉ khi field đó là nháp gợi ý, không phải đơn thuốc cuối.
+            - Field A15 mục tiêu điều trị / điều kiện đối chiếu nếu A15 có field mapping rõ.
+        5. `C3_STATE` / `C3_FINAL` / field cảnh báo thuốc tương đương: chỉ khi C3 đã chạy trong `C_RUN_ORDER` hoặc có C3_STATE hợp lệ theo hệ thống; chỉ để hiển thị cảnh báo/lưu ý đã có.
+    O5 không được đọc/dùng raw user input, hidden memory, O_OUTPUT/O5_OUTPUT/O6_OUTPUT/O11 output/rendered output cũ, A_STATE_PATCH, C_STATE_PATCH, A12_STATE/A13_STATE làm nguồn thường quy, `A13_STATE.A13_TREATMENT` như danh sách thuốc cụ thể nếu A15 chưa tạo, A15 ngoài field mapping rõ, C4_STATE, C5_STATE, C6_STATE trực tiếp, O11 output để dựng cảnh báo, web/guideline/source ngoài nếu không có contract, hoặc metadata kỹ thuật để render thành nội dung thuốc.
+    O5 không dùng C3 để tự kiểm an toàn thuốc, tự sửa thuốc, tự kết luận thuốc an toàn, tự cho phép O6 hoặc tự tạo thuốc mới.
 
-O5.2. Nguồn dữ liệu được phép
-    O5 chỉ được đọc nguồn mapping rõ sau:
-        1. G_STATE của ROUND hiện tại:
-            - Chỉ để kiểm O5 nằm trong O_RENDER_LIST/O_RENDER_ORDER và xác định thứ tự render.
-            - Không dùng G_STATE làm nguồn tạo thuốc.
-            - Không render metadata G_STATE vào output thường quy.
-        2. A_GATE mới nhất:
-            - Chỉ để kiểm full current A_STATE hợp lệ.
-            - Không render A_GATE vào output.
-        3. Full current A_STATE mới nhất:
-            - Chỉ để truy cập A15_STATE và các field A15 được mapping rõ trong O5.
-        4. A15_STATE:
-            - Nguồn chính cho gợi ý thuốc / nhóm thuốc.
-        5. A15_STATE.A15_MEDICATION_GROUPS hoặc field tương đương hiện hành:
-            - Nguồn cho “Nhóm thuốc có thể cân nhắc”.
-        6. A15_STATE.A15_MEDICATION_SUGGESTIONS hoặc field tương đương hiện hành:
-            - Nguồn cho “Thuốc gợi ý nếu có”.
-        7. A15_STATE.A15_MEDICATION_SELECTION nếu là field hiện hành đang dùng:
-            - Đây là field tương đương thuốc được A15 cân nhắc/gợi ý.
-            - Không render như đơn thuốc cuối.
-            - Không dùng để vượt O6.
-        8. A15_STATE.field A15 legacy nháp đơn thuốc nếu hệ thống hiện hành có và O5 cần hiển thị nháp gợi ý:
-            - Chỉ dùng khi được khai báo là nháp gợi ý, không phải đơn thuốc cuối.
-            - Không render như đơn thuốc chính thức.
-            - Không dùng để vượt O6.
-        9. C3_STATE / C3_FINAL / field cảnh báo thuốc tương đương:
-            - Chỉ được đọc khi C3 đã chạy trong C_RUN_ORDER hoặc có C3_STATE hợp lệ theo hệ thống.
-            - Chỉ dùng để hiển thị lưu ý an toàn/cảnh báo thuốc đã có.
-            - Không dùng để O5 tự kiểm thuốc.
-            - Không dùng để O5 tự sửa thuốc.
-            - Không dùng để O5 tự kết luận thuốc an toàn.
-            - Không dùng để O5 tự cho phép O6.
-    O5 không khai báo A12_STATE/A13_STATE là nguồn đọc thường quy. Nếu tương lai cần A12/A13 làm bối cảnh, phải khai báo field và mục đích cụ thể trong O5, không được dùng A13_STATE.A13_TREATMENT như danh sách thuốc cụ thể nếu A15 chưa tạo.
-    O5 không giữ A_MODULE_REV/RUN_MODE như nguồn render nội dung O5; nếu các metadata này được nhắc tới thì chỉ nằm trong quy tắc cấm render metadata kỹ thuật.
-
-O5.3. Nguồn dữ liệu không được dùng
-    O5 không được đọc/dùng:
-        1. Raw input để tự chọn thuốc, tự tạo thuốc, tự tạo nhóm thuốc, tự tạo liều, tự tạo đường dùng, tự tạo số ngày hoặc tự tạo số lượng.
-        2. Hidden memory, trí nhớ ẩn, memory dài hạn hoặc dữ liệu ca bệnh khác.
-        3. O_OUTPUT cũ, O5_OUTPUT cũ, O6_OUTPUT cũ hoặc bất kỳ rendered output cũ nào làm nguồn lâm sàng.
-        4. A_STATE_PATCH làm nguồn chính hoặc nguồn thay thế full current A_STATE hợp lệ.
-        5. C_STATE_PATCH làm nguồn chính hoặc nguồn thay thế C3_STATE/C3_FINAL hợp lệ.
-        6. A13_TREATMENT hoặc A13_STATE.A13_TREATMENT như danh sách thuốc cụ thể nếu A15 chưa tạo.
-        7. A15 ngoài các field được mapping rõ ở O5.2 và O5.7.
-        8. C3 để tự sửa thuốc, tự đổi thuốc, tự kết luận thuốc an toàn hoặc tự cho phép O6.
-        9. C6_STATE trực tiếp để lấy thuốc/liều hoặc dựng gợi ý thuốc.
-        10. C4_STATE hoặc C5_STATE để dựng thuốc/gợi ý thuốc.
-        11. O11 output để tự sửa gợi ý thuốc.
-        12. Web/guideline/source ngoài nếu hệ thống không có contract rõ cho O5.
-        13. Metadata kỹ thuật để render thành nội dung gợi ý thuốc.
-
-O5.4. Vai trò của O5 trong hệ thống
-    O5 nằm trong lớp O và là module render/output selective.
-    O5 chỉ trình bày gợi ý thuốc / nhóm thuốc đã có từ A15_STATE hợp lệ.
-    O5 chỉ chạy khi nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER và đã đến lượt theo G_STATE.O_RENDER_ORDER.
-    O5 không tự chạy A, A_GATE, A15, C, C_GATE, C3 hoặc O khác.
-    O5 không sửa G_STATE, A_STATE, A15_STATE, C_STATE hoặc Cx_STATE.
-    O5 không tạo dữ liệu lâm sàng mới, không chọn thuốc, không kê đơn và không thay O6.
-    O5 không tự kiểm an toàn thuốc thay C3, không tự kết luận thuốc an toàn và không tự cho phép O6.
-    Nếu thiếu nguồn, O5 báo BLOCKED/NEEDS_FIX hoặc lý do chặn theo contract; O5 không tự bù dữ liệu.
-    Nếu nguồn sai schema, mâu thuẫn hoặc không phù hợp format O5, O5 không tự sửa mà yêu cầu chạy lại/sửa module nguồn theo điều phối hệ thống.
-
-O5.5. Điều kiện RUN / SKIP / BLOCKED
-    RUN khi:
-        1. O5 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER của ROUND hiện tại.
-        2. Đã đến lượt O5 theo G_STATE.O_RENDER_ORDER.
-        3. A_GATE PASS / A_GATE_STATUS = PASS.
+O5_ALLOWED_ACTION
+    RUN/render chỉ khi đồng thời:
+        1. O5 nằm trong `G_STATE.O_RENDER_LIST` hoặc `G_STATE.O_RENDER_ORDER`.
+        2. Đã đến lượt theo `G_STATE.O_RENDER_ORDER`.
+        3. `A_GATE = PASS` hoặc `A_GATE_STATUS = PASS` theo contract hiện hành.
         4. Full current A_STATE hợp lệ.
-        5. A15_STATE tồn tại và đúng schema cần render.
-        6. A15_CHECK = PASS nếu field này có trong hệ thống.
-        7. A15 có gợi ý thuốc hoặc nhóm thuốc hợp lệ theo field mapping ở O5.2/O5.7.
-    SKIP khi:
-        1. O5 không nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER.
-        2. Khi SKIP, O5 không render, không tạo/cập nhật O5_OUTPUT và không in SKIP output nếu hệ thống không yêu cầu.
-    BLOCKED/NEEDS_FIX khi:
-        1. O5 được plan nhưng chưa đến lượt render.
-        2. A_GATE chưa PASS hoặc full current A_STATE không hợp lệ.
-        3. Thiếu A15_STATE, A15_STATE sai schema hoặc A15_CHECK = NEEDS_FIX nếu có.
-        4. A15 chưa tạo gợi ý thuốc / nhóm thuốc hoặc thiếu field A15 cần render.
-        5. C3 có lỗi nghiêm trọng ảnh hưởng phần cảnh báo/lưu ý mà O5 cần hiển thị.
-        6. Nguồn bắt buộc chưa hợp lệ, dữ liệu mâu thuẫn hoặc không phù hợp format O5.
-    Khi BLOCKED/NEEDS_FIX, O5 không tự tạo gợi ý thuốc, không tự bù thuốc, không tự sửa A15/C3, không tự kết luận an toàn và không tự cho phép O6; O5 chỉ báo lý do chặn nếu hệ thống yêu cầu.
+        5. `A15_STATE` tồn tại và đúng schema cần render.
+        6. `A15_CHECK = PASS` nếu field này có trong hệ thống.
+        7. A15 có ít nhất một nguồn hợp lệ cho gợi ý thuốc / nhóm thuốc theo mapping O5.
+        8. Nếu dùng C3, C3 hợp lệ và chỉ hiển thị cảnh báo/lưu ý đã có.
+    SKIP khi O5 không nằm trong render plan hoặc chưa đến lượt render; khi SKIP, O5 không output, không tạo/cập nhật O5_OUTPUT, không in `O5_OUTPUT = SKIP` và không tự thêm O5 vào render plan.
+    BLOCKED/NEEDS_FIX khi thiếu/sai điều kiện RUN, O5 được yêu cầu render nhưng chưa đến lượt, A_GATE chưa PASS, full current A_STATE không hợp lệ, thiếu/sai schema A15_STATE, `A15_CHECK = NEEDS_FIX` nếu có, A15 chưa tạo gợi ý thuốc/nhóm thuốc cần render, C3 bắt buộc cho phần cảnh báo/lưu ý nhưng lỗi nghiêm trọng/không hợp lệ, output lẫn đơn thuốc/liều/đường dùng/tần suất/số ngày/số lượng do O5 tự tạo, hoặc output dùng nguồn cấm.
+    Khi BLOCKED/NEEDS_FIX, O5 không tự bịa, không tự sửa/chạy A15, không tự chạy C3, không tự gọi O6, không tự thêm O5/O6 vào render plan, không tự sửa G_STATE và không fallback sang raw input, hidden memory, output cũ hoặc web/guideline.
 
-O5.6. Quy tắc selective render và quan hệ với G_STATE
-    User request trực tiếp chỉ là lý do để G cân nhắc đưa O5 vào O_RENDER_LIST/O_RENDER_ORDER; user request không làm O5 tự render.
-    A_STATE, A15_STATE, C3_STATE hoặc bất kỳ state nào thay đổi không tự kích hoạt O5 nếu G không plan O5 trong ROUND hiện tại.
-    O5 không tự thêm mình hoặc module O khác vào O_RENDER_LIST/O_RENDER_ORDER.
-    O5 không tự chọn output và không tự điều phối STEP O.
-    Sau khi O5 render hợp lệ, hệ thống tiếp tục theo G_STATE.O_RENDER_ORDER; O5 không giả định mình là output đầu tiên hoặc cuối cùng.
+O5_ALLOWED_WRITE
+    O5 chỉ được ghi/render `O5_OUTPUT` hoặc rendered text khi RUN hợp lệ, lý do BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu, và `O5_RENDER_CHECK` nếu hệ thống dùng internal metadata.
+    O5 không render metadata check/error vào output thường quy.
+    O5 không được ghi `O5_STATE`, `O5_REV`, `O5_FINAL`, G_STATE, A_STATE, A15_STATE, C_STATE, C3_STATE, O1-O4, O6-O13, A1-A15, C1-C7 hoặc S/G.
 
-O5.7. Mapping dữ liệu nguồn sang output
-    O5 mapping dữ liệu như sau:
-        1. “Nhóm thuốc có thể cân nhắc”:
-            - Lấy từ A15_MEDICATION_GROUPS hoặc field A15 tương đương đã khai báo.
-        2. “Thuốc gợi ý nếu có”:
-            - Lấy từ A15_MEDICATION_SUGGESTIONS hoặc A15_MEDICATION_SELECTION nếu field này đang là field tương đương trong file hiện hành.
-            - Không gọi là đơn thuốc cuối và không dùng để vượt O6.
-        3. “Mục tiêu điều trị”:
-            - Chỉ lấy từ A15 nếu A15 có field mục tiêu điều trị được mapping rõ.
-            - Không tự suy luận từ A13 nếu A15 không tham chiếu rõ.
-        4. “Điều kiện / dữ kiện cần đối chiếu”:
-            - Lấy từ A15 nếu có field rõ.
-            - Lấy từ C3 nếu C3 đã chạy hợp lệ và có cảnh báo/lưu ý liên quan cần hiển thị.
-            - Không tự tạo dữ kiện cần đối chiếu.
-        5. “Lưu ý an toàn thuốc”:
-            - Lấy từ C3_STATE/C3_FINAL/field cảnh báo thuốc tương đương nếu C3 đã chạy hợp lệ hoặc có C3_STATE hợp lệ theo hệ thống.
-            - Nếu C3 chưa chạy hoặc chưa có dữ liệu hợp lệ, O5 không tự kết luận thuốc an toàn.
-            - O5 không tự sửa thuốc theo C3.
-        6. “Ghi chú”:
-            - O5 phải thể hiện khi phù hợp rằng đây là gợi ý thuốc / nhóm thuốc, không phải đơn thuốc cuối nếu chưa có O6 hợp lệ.
-    Nếu thiếu dữ liệu optional, O5 xử lý theo contract no-data; nếu thiếu dữ liệu bắt buộc, O5 BLOCKED/NEEDS_FIX.
+O5_RENDER_SCHEMA
+    Heading literal: `GỢI Ý THUỐC / NHÓM THUỐC`.
+    Contract hiện tại không bắt buộc code block `text`; không thêm bắt buộc code block mới.
+    Output chuẩn gồm đúng 6 mục:
+        1. `Nhóm thuốc có thể cân nhắc:` render từ `A15_MEDICATION_GROUPS` hoặc field tương đương hiện hành; không tự tạo nhóm thuốc.
+        2. `Thuốc gợi ý nếu có:` render từ `A15_MEDICATION_SUGGESTIONS` hoặc `A15_MEDICATION_SELECTION` nếu field này là gợi ý/cân nhắc; không biến thành đơn thuốc cuối và không tự thêm thuốc ngoài A15.
+        3. `Mục tiêu điều trị:` render từ field A15 mapping rõ nếu có; không tự suy luận từ A13 nếu A15 chưa tạo/mapping không rõ.
+        4. `Điều kiện / dữ kiện cần đối chiếu:` render từ A15 hoặc C3 hợp lệ nếu có; không tự tạo dữ kiện đối chiếu.
+        5. `Lưu ý an toàn thuốc:` render cảnh báo/lưu ý đã có từ C3 hợp lệ nếu có; nếu C3 chưa có hoặc không được plan, không tự kết luận an toàn.
+        6. `Ghi chú:` giữ literal/ý nghĩa bắt buộc: `Đây là gợi ý thuốc / nhóm thuốc, không phải đơn thuốc cuối nếu chưa có O6 hợp lệ.`
+    Không render metadata kỹ thuật, `O5_RENDER_CHECK`, `O5_ERROR`, STATE_VERSION, ROUND_ID, RUN_MODE, A/C/O REV, A_CHECK/C_CHECK/O_CHECK, CREATE/UPDATE/REUSE, A_MODULE_REV/C_MODULE_REV, output cũ hoặc debug text.
 
-O5.8. Quy tắc render gợi ý thuốc / nhóm thuốc
-    O5 chỉ render nội dung đã có trong A15_STATE hợp lệ theo mapping O5.7.
-    O5 không tự thêm thuốc, nhóm thuốc, liều, đường dùng, tần suất, số ngày, số lượng, cảnh báo hoặc dữ kiện không có trong nguồn hợp lệ.
-    O5 không tự hoàn thiện output thuốc bằng suy đoán ngoài state hợp lệ.
-    O5 không biến câu hỏi kiến thức thuốc ngoài bệnh án thành O5_OUTPUT formal.
-    O5 không dùng nhãn gây hiểu nhầm như “Thuốc được chọn” nếu không giải thích rõ đó chỉ là thuốc được A15 cân nhắc/gợi ý và chưa phải đơn thuốc cuối.
+O5_LOGIC_RULES
+    O5 render từ current allowed state, không render từ output cũ.
+    O5 chỉ trình bày nội dung do A15 đã tạo trong field mapping rõ; không tự tạo nội dung thuốc, không tự chọn thuốc, không tự sửa thuốc và không tự kê đơn.
+    Nếu C3 hợp lệ có cảnh báo/lưu ý, O5 có thể hiển thị cảnh báo/lưu ý đó trong mục 5 nhưng không rewrite C3 thành kết luận an toàn, không biến C3 thành đơn thuốc và không tự quyết định “được dùng thuốc” hoặc “không có chống chỉ định”.
+    Nếu A15 thiếu hoặc sai, O5 BLOCKED/NEEDS_FIX; không dùng A13_TREATMENT, raw input, C6/web, O6/O11/output cũ để bù.
+    Nếu O5 không nằm trong render plan, O5 SKIP, không output và không tự thêm vào render plan.
 
-O5.9. Quy tắc hiển thị C3 nếu có
-    O5 không có quyền tự chạy C3 và không tự gọi C3.
-    O5 chỉ đọc C3_STATE/C3_FINAL/field cảnh báo thuốc tương đương khi C3 đã chạy trong C_RUN_ORDER hoặc có C3_STATE hợp lệ theo hệ thống.
-    Dữ liệu C3 trong O5 chỉ được render như lưu ý an toàn/cảnh báo thuốc đã có.
-    O5 không dùng C3 để tự kiểm thuốc, tự sửa thuốc, tự đổi thuốc/liều, tự kết luận “an toàn”, tự kết luận “không có chống chỉ định” hoặc tự cho phép O6.
-    Nếu C3 chưa có hoặc chưa hợp lệ, O5 không tự kết luận an toàn; O5 có thể ghi thiếu dữ kiện/cảnh báo chưa có theo contract hoặc BLOCKED nếu cảnh báo C3 là bắt buộc cho ca đó.
+O5_SPECIAL_RULES
+    Boundary với A15: A15 tạo thuốc/gợi ý thuốc/nhóm thuốc; O5 chỉ render nội dung A15 đã tạo, không sửa A15, không tự thêm thuốc ngoài A15 và không dùng A15 ngoài field mapping rõ.
+    Boundary với O6: O6 là module đơn thuốc cụ thể; O5 không phải đơn thuốc cuối, không render đơn thuốc hoàn chỉnh, không tự gọi/cho phép O6 và không dùng O6_OUTPUT cũ làm nguồn.
+    Boundary với C3: C3 quản lý cảnh báo/lưu ý an toàn thuốc; O5 chỉ hiển thị cảnh báo/lưu ý C3 đã có nếu C3 hợp lệ, không tự kiểm tương tác/chống chỉ định/an toàn thuốc, không tự sửa thuốc theo C3 và không tự kết luận thuốc an toàn.
+    Boundary với O11: O11 render cảnh báo thuốc/theo dõi nếu contract O11 yêu cầu; O5 không thay O11 và không dùng O11 output cũ làm nguồn.
+    Boundary với C6/O12: C6/O12 là tra cứu/nguồn kiến thức nếu hệ thống có; O5 không đọc C6/O12 trực tiếp để tạo thuốc/liều nếu contract O5 không khai báo rõ và không dùng web/guideline ngoài để dựng gợi ý.
+    Boundary với A12/A13: O5 không khai báo A12/A13 là nguồn thường quy, không dùng `A13_TREATMENT` như danh sách thuốc cụ thể nếu A15 chưa tạo và không dùng A12 diagnosis để tự tạo thuốc nếu A15 chưa tạo.
+    O5 không tự thêm hoặc tự tạo thuốc, nhóm thuốc, hoạt chất, biệt dược, liều, đường dùng, tần suất/số lần, số ngày, số lượng, hướng dẫn dùng thuốc hoặc đơn thuốc hoàn chỉnh.
 
-O5.10. Quy tắc không biến O5 thành đơn thuốc
-    O5 là gợi ý thuốc / nhóm thuốc, không phải đơn thuốc cuối.
-    O5 không render như đơn thuốc chính thức và không thay O6.
-    O5 không tự kê đơn, không tự tạo thuốc cụ thể ngoài A15, không tự thêm liều, không tự thêm đường dùng, không tự thêm tần suất, không tự tạo số ngày dùng và không tự tạo số lượng thuốc.
-    Nếu A15 có nháp gợi ý hoặc lựa chọn thuốc, O5 chỉ render dưới trạng thái gợi ý/cân nhắc, không xác nhận đây là thuốc đã kê.
-    O5 không tự cho phép O6 và không dùng O5_OUTPUT làm điều kiện để O6 chạy.
+O5_CHECK_PASS_IF
+    PASS khi O5 nằm trong `G_STATE.O_RENDER_LIST/O_RENDER_ORDER`, đã đến lượt render, A_GATE PASS, full current A_STATE hợp lệ, A15_STATE tồn tại/đúng schema, A15_CHECK PASS nếu field này có, có ít nhất một nguồn A15 hợp lệ cho gợi ý thuốc/nhóm thuốc, chỉ dùng nguồn allowlist, C3 nếu dùng thì hợp lệ và chỉ hiển thị cảnh báo/lưu ý đã có, output đúng heading và đúng 6 mục, ghi chú không phải đơn thuốc cuối được giữ, không có thuốc/liều/đường dùng/tần suất/số ngày/số lượng do O5 tự tạo, không render đơn thuốc cuối, không lấn O6/A15/C3/O11/C6/O12, không dùng A13_TREATMENT thay A15, không dùng raw input/hidden memory/output cũ/web và không render metadata kỹ thuật.
 
-O5.11. No-data / BLOCKED / NEEDS_FIX
-    O5 không render bản gợi ý hoàn chỉnh nếu:
-        1. O5 không nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER.
-        2. A_GATE không PASS.
-        3. Full current A_STATE không hợp lệ.
-        4. Thiếu A15_STATE.
-        5. A15 không có gợi ý thuốc / nhóm thuốc.
-        6. A15_CHECK = NEEDS_FIX nếu có.
-        7. Field A15 cần render bị thiếu.
-        8. Nguồn C3 cần hiển thị nhưng C3 lỗi nghiêm trọng hoặc không hợp lệ.
-    Khi BLOCKED/NEEDS_FIX, O5 không tự tạo gợi ý thuốc, không tự sửa A15, không tự sửa C3, không tự kết luận thuốc an toàn và không tự cho phép O6.
+O5_NEEDS_FIX_IF
+    NEEDS_FIX/BLOCKED khi O5 được plan nhưng chưa đến lượt, O5 được yêu cầu render nhưng thiếu điều kiện RUN, A_GATE chưa PASS, full current A_STATE không hợp lệ, thiếu/sai schema A15_STATE, A15_CHECK NEEDS_FIX nếu có, A15 chưa tạo gợi ý thuốc/nhóm thuốc hoặc thiếu field cần render, C3 bắt buộc cho phần cảnh báo/lưu ý nhưng lỗi nghiêm trọng/không hợp lệ, output sai heading hoặc sai 6 mục, thiếu ghi chú không phải đơn thuốc cuối, output chứa thuốc/liều/đường dùng/tần suất/số ngày/số lượng/đơn thuốc chính thức do O5 tự tạo, O5 dùng A13_TREATMENT thay A15, dùng C6/O12/web/guideline trực tiếp để dựng thuốc, dùng O6_OUTPUT/O11 output/rendered output cũ, dùng raw input/hidden memory, sửa state nguồn, tự gọi O6/tự sửa render plan hoặc render metadata kỹ thuật.
 
-O5.12. Metadata không được render
-    O5 không được render các metadata kỹ thuật sau vào output thường quy:
-        1. STATE_VERSION.
-        2. ROUND_ID.
-        3. RUN_MODE.
-        4. Ax_REV.
-        5. Cx_REV.
-        6. Ox_REV nếu có.
-        7. UPDATED_AT.
-        8. A_CHECK / A_ERROR.
-        9. C_CHECK / C_ERROR.
-        10. O_CHECK / O_ERROR.
-        11. CREATE / UPDATE / REUSE.
-        12. A_MODULE_REV.
-        13. C_MODULE_REV.
-        14. O5_RENDER_CHECK.
-        15. G_STATE metadata kỹ thuật.
-    Metadata chỉ được dùng nội bộ theo contract để kiểm điều kiện nếu được phép; không được biến metadata thành nội dung gợi ý thuốc.
+O5_ERROR_RULE
+    Nếu vi phạm nguồn allowed, schema output, boundary A15/C3/O6/O11/C6/O12 hoặc tự tạo/sửa thuốc, O5 phải ERROR/NEEDS_FIX theo cơ chế hệ thống và không tự sửa bằng suy đoán.
+    Lỗi phải nêu rõ source cần sửa: A15 nếu thiếu/sai gợi ý thuốc/nhóm thuốc; C3 nếu thiếu/sai cảnh báo/lưu ý cần hiển thị; G render plan nếu O5 chưa được plan hoặc chưa đến lượt; A_GATE/A_STATE nếu source A chưa hợp lệ.
+    Không render `O5_RENDER_CHECK`, `O5_ERROR` hoặc metadata kỹ thuật vào output thường quy.
 
-O5.13. Ranh giới O5 với A15/C3/O6/O11/C6/O12
-    O5 không thay A15 — module tạo thuốc/gợi ý thuốc.
-    O5 không thay C3 — module kiểm an toàn thuốc.
-    O5 không thay O6 — module đơn thuốc cụ thể.
-    O5 không thay O11 — module cảnh báo thuốc/theo dõi.
-    O5 không thay C6/O12 — module tra cứu thuốc/nguồn kiến thức thuốc.
-    O5 không tự gọi C3, không tự chạy C3, không tự gọi O6 và không tự cho phép O6.
-    O5 không dùng C6_STATE trực tiếp để lấy thuốc/liều.
-    O5 không dùng O6_OUTPUT cũ hoặc O11 output để tạo/sửa gợi ý thuốc.
-    O5 không biến gợi ý thuốc thành đơn thuốc và không biến cảnh báo/lưu ý thành O11.
+O5_REUSE_RULE
+    O5 không có lifecycle CREATE/UPDATE/REUSE state riêng.
+    Không reuse `O5_OUTPUT` cũ, `O6_OUTPUT` cũ, `O_OUTPUT` cũ hoặc rendered output cũ; khi G plan O5, render từ current allowed state.
+    Nếu hệ thống có lifecycle REUSE nội bộ, REUSE chỉ là metadata điều phối, không làm nguồn nội dung và không render thường quy; không ghi “reuse O5” và không tạo O5_REV.
 
-O5.14. Chuẩn đầu ra O5
-    Output O5 phải là gợi ý thuốc / nhóm thuốc, không phải đơn thuốc.
-    Cấu trúc chuẩn:
-        GỢI Ý THUỐC / NHÓM THUỐC
-
-        1. Nhóm thuốc có thể cân nhắc:
-            <render từ A15_MEDICATION_GROUPS hoặc field tương đương>
-
-        2. Thuốc gợi ý nếu có:
-            <render từ A15_MEDICATION_SUGGESTIONS hoặc A15_MEDICATION_SELECTION nếu được mapping là gợi ý/cân nhắc>
-
-        3. Mục tiêu điều trị:
-            <render từ field A15 được mapping rõ nếu có; không tự suy luận>
-
-        4. Điều kiện / dữ kiện cần đối chiếu:
-            <render từ A15 hoặc C3 hợp lệ nếu có; không tự tạo>
-
-        5. Lưu ý an toàn thuốc:
-            <render cảnh báo/lưu ý đã có từ C3_STATE/C3_FINAL/field tương đương nếu C3 hợp lệ; nếu C3 chưa có thì không tự kết luận an toàn>
-
-        6. Ghi chú:
-            Đây là gợi ý thuốc / nhóm thuốc, không phải đơn thuốc cuối nếu chưa có O6 hợp lệ.
-    Nguyên tắc output:
-        1. Không render như đơn thuốc cuối.
-        2. Không dùng nhãn “Thuốc được chọn” nếu không giải thích rõ đây chỉ là thuốc được A15 cân nhắc/gợi ý.
-        3. Không thêm cấu trúc đơn thuốc chính thức kiểu liều dùng/đường dùng/số lần/ngày/số ngày/số lượng nếu chưa qua O6.
-        4. Không tự thêm thuốc ngoài A15.
-        5. Không tự thêm liều/số ngày/số lượng.
-        6. Không tự kết luận an toàn.
-        7. Không tự cho phép O6.
-        8. Nếu không có dữ liệu cho mục optional, O5 xử lý theo contract no-data, không bịa.
-
-O5.15. Ví dụ chuẩn hóa nếu cần
-    Ví dụ 1 — Có nhóm thuốc:
-        A15_MEDICATION_GROUPS có nhóm thuốc; O5 render đúng vào mục “Nhóm thuốc có thể cân nhắc”; O5 không tự thêm nhóm thuốc ngoài A15.
-    Ví dụ 2 — Có thuốc gợi ý nhưng chưa phải đơn cuối:
-        A15_MEDICATION_SUGGESTIONS hoặc A15_MEDICATION_SELECTION có thuốc gợi ý/cân nhắc; O5 render vào mục “Thuốc gợi ý nếu có” và ghi rõ đây chưa phải đơn thuốc cuối nếu chưa có O6 hợp lệ.
-    Ví dụ 3 — Có C3 cảnh báo:
-        C3 đã chạy hợp lệ hoặc có C3_STATE hợp lệ và có cảnh báo/lưu ý liên quan; O5 chỉ hiển thị cảnh báo/lưu ý đã có, không tự sửa thuốc và không tự kết luận an toàn.
-    Ví dụ 4 — C3 chưa có:
-        O5 không tự kết luận thuốc an toàn, không ghi “không có cảnh báo” bằng suy đoán và vẫn giữ ghi chú chưa phải đơn thuốc cuối nếu cần.
-    Ví dụ 5 — BLOCKED:
-        Thiếu A15_STATE hoặc A15 chưa tạo gợi ý thuốc/nhóm thuốc; O5 BLOCKED/NEEDS_FIX, không tự tạo gợi ý và không tự chạy A15/C3.
-    Ví dụ 6 — Không được plan:
-        O_RENDER_LIST/O_RENDER_ORDER không có O5; O5 không render, không tạo/cập nhật O5_OUTPUT và không in SKIP output nếu hệ thống không yêu cầu.
-    Ví dụ trong O5 chỉ là ví dụ chuẩn hóa; không sao chép dữ kiện mẫu vào ca thật, không render metadata kỹ thuật và không biến ví dụ thành đơn thuốc.
-
-O5.16. Checklist trước khi chốt O5
-    Trước khi chốt O5, phải kiểm:
-        1. Đã đọc đủ O5 theo READ LOCK.
-        2. O5 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER.
-        3. Đã đến lượt O5 theo G_STATE.O_RENDER_ORDER.
-        4. A_GATE PASS và full current A_STATE hợp lệ.
-        5. A15_STATE tồn tại, đúng schema và A15 có gợi ý thuốc / nhóm thuốc hợp lệ.
-        6. Nguồn đọc đúng O5.2; không dùng nguồn cấm ở O5.3.
-        7. Không tự chọn thuốc, không tự kê đơn và không tự thêm thuốc ngoài A15.
-        8. Không tự đổi thuốc/liều/đường dùng/số ngày/số lượng.
-        9. Không dùng A13_TREATMENT làm danh sách thuốc cụ thể nếu A15 chưa tạo.
-        10. Không dùng C6_STATE trực tiếp.
-        11. C3 nếu có chỉ dùng hiển thị lưu ý/cảnh báo đã chốt/hợp lệ.
-        12. Không dùng C3 để tự sửa thuốc, không tự kết luận an toàn và không tự cho phép O6.
-        13. Output đúng gợi ý thuốc / nhóm thuốc, không phải đơn thuốc cuối và có ghi chú không phải đơn thuốc cuối nếu cần.
-        14. Không render metadata kỹ thuật.
-        15. Không biến O5 thành O6 hoặc O11.
-        16. Nếu thiếu nguồn hoặc dữ liệu sai, O5 BLOCKED/NEEDS_FIX đúng contract và không tự bù dữ liệu.
-
-O5.17. Các lỗi không được mắc
-    O5 không được:
-        1. Bỏ qua READ LOCK.
-        2. Audit/patch/final review/sử dụng/render khi chưa đọc đủ O5.
-        3. Render O5 khi không nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER hoặc chưa đến lượt render.
-        4. Sửa G_STATE/A_STATE/A15_STATE/C_STATE/Cx_STATE hoặc bất kỳ state nguồn nào.
-        5. Tự chạy A, A_GATE, A15, C, C_GATE, C3 hoặc O khác.
-        6. Tự chọn thuốc, tự kê đơn hoặc tự thêm thuốc ngoài A15.
-        7. Tự đổi thuốc, tự đổi liều, tự tạo đường dùng, tự tạo số ngày dùng hoặc tự tạo số lượng thuốc.
-        8. Tự kiểm an toàn thuốc thay C3 hoặc tự kết luận thuốc an toàn.
-        9. Tự cho phép O6 hoặc dùng O5_OUTPUT làm điều kiện để O6 chạy.
-        10. Dùng C3 để tự sửa thuốc, tự đổi thuốc/liều, tự kết luận an toàn hoặc tự cho phép O6.
-        11. Bỏ qua C3 khi C3 đã chạy hợp lệ và có cảnh báo/lưu ý cần hiển thị theo contract O5.
-        12. Dùng C6_STATE trực tiếp để lấy thuốc/liều hoặc dựng gợi ý thuốc.
-        13. Dùng A13_TREATMENT như danh sách thuốc cụ thể nếu A15 chưa tạo.
-        14. Dùng O6_OUTPUT cũ, O11 output, O_OUTPUT cũ hoặc O5_OUTPUT cũ để tạo/sửa gợi ý.
-        15. Biến O5 thành O6, biến O5 thành O11 hoặc render đơn thuốc/cảnh báo thay module khác.
-        16. Render metadata kỹ thuật như STATE_VERSION, ROUND_ID, RUN_MODE, Ax_REV, Cx_REV, UPDATED_AT, A_MODULE_REV, C_MODULE_REV hoặc O5_RENDER_CHECK vào output thường quy.
-        17. Dùng hidden memory, rendered output cũ, patch state, raw input hoặc dữ liệu ngoài state hợp lệ làm nguồn lâm sàng.
+O5_END
+    Giữ marker `<<< END O5`.
+    Sau O5, hệ thống render O tiếp theo theo `G_STATE.O_RENDER_ORDER`; O5 không tự chạy O6, không gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O5
 
