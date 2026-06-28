@@ -1137,423 +1137,95 @@ O9_END
 ####################################################################################################
 
 O10 — CẢNH BÁO LÂM SÀNG
-Version: BA S-G-A-C-O v3
-Update: 10/06/2026 GMT+7 — chuẩn hóa renderer C2, nguồn đọc và boundary O10
+Version: BA S-G-A-C-O V4
+Update: 28/06/2026 GMT+7 — compact allowlist contract, giữ nguyên logic renderer C2
 
-O10.0. READ LOCK
-    Khi audit, patch, final review hoặc sử dụng/render O10, AI/Codex phải đọc toàn bộ O10 từ O10.0 đến marker “<<< END O10”.
-    Không được chỉ đọc một đoạn giữa module.
-    Không được chỉ đọc nguồn dữ liệu.
-    Không được chỉ đọc ví dụ, checklist hoặc lỗi cấm.
-    Không được chỉ đọc diff.
-    Không được patch một mục nếu chưa kiểm tra ảnh hưởng tới các mục còn lại trong O10.
-    Nếu chưa đọc đủ toàn bộ O10 thì phải kết luận UNCLEAR, không được kết luận PASS/FAIL.
-    O10 chỉ render khi nằm trong G_STATE.O_RENDER_LIST / O_RENDER_ORDER và đã đến lượt theo G_STATE.O_RENDER_ORDER.
+O10_READ_LOCK
+    Khi audit, patch, final review hoặc render O10, phải đọc nguyên section từ header `O10 — CẢNH BÁO LÂM SÀNG` đến `<<< END O10`.
+    Không patch O10 chỉ từ diff/trích đoạn/ví dụ và không sửa O9/O11 hoặc section khác khi chỉ xử lý O10.
 
-O10.1. Mục tiêu
-    O10 là module render CẢNH BÁO LÂM SÀNG thuộc lớp O.
-    O10 là renderer của C2.
-    O10 render nội dung do C2 tạo.
-    O10 phục vụ trình bày cảnh báo lâm sàng, dấu hiệu nguy cơ và điểm cần theo dõi đã được C2 chốt.
-    O10 chỉ render cảnh báo lâm sàng từ C2_STATE hợp lệ.
-    O10 không tự xác định nguy cơ.
-    O10 không tự tạo cảnh báo.
-    O10 không tự tạo mức độ cảnh báo.
-    O10 không tự tạo nguy cơ.
-    O10 không tự tạo khuyến nghị.
-    O10 không tự tạo hướng xử trí.
-    O10 không tự tạo chỉ định xét nghiệm hoặc cận lâm sàng.
-    O10 không tự tạo chẩn đoán.
-    O10 không tự tạo chẩn đoán phân biệt.
-    O10 không sửa C2_STATE.
-    O10 không thay C2.
-    O10 không thay A13.
-    O10 không tự chạy C.
-    O10 không tự gọi A/C/O khác.
-    O10 không sửa A_STATE/C_STATE/G_STATE.
-    O10 chỉ hoạt động khi có trong G_STATE.O_RENDER_LIST / O_RENDER_ORDER.
+O10_ROLE
+    O10 là strict renderer thuộc lớp O cho `CẢNH BÁO LÂM SÀNG`.
+    O10 là renderer của C2: chỉ trình bày cảnh báo lâm sàng, mức độ/nguy cơ, dấu hiệu nguy cơ, điểm cần theo dõi/đánh giá lại và khuyến nghị đã được C2 tạo/chốt.
+    O10 không tự xác định hoặc tự tạo cảnh báo lâm sàng, mức độ cảnh báo/nguy cơ, red flags, điểm theo dõi, khuyến nghị, hướng xử trí, chỉ định, xét nghiệm/cận lâm sàng, chẩn đoán, chẩn đoán phân biệt, cảnh báo thuốc hoặc tra cứu nguồn.
+    O10 không phải O9 hỏi thêm/khám thêm/xét nghiệm cần làm, O11 cảnh báo thuốc/an toàn thuốc, O12 tra cứu nguồn, O13 chẩn đoán phân biệt, A13 hướng xử trí/chỉ định hoặc C2 module tạo nội dung.
+    O10_OUTPUT nếu có chỉ là rendered output, không phải state nguồn, không là source cho A/C/O khác và không được reuse như nguồn lâm sàng.
 
-O10.2. Nguồn dữ liệu được phép
-    O10 chỉ được đọc nguồn mapping rõ sau:
-        1. G_STATE của ROUND hiện tại:
-            - Chỉ để kiểm O10 nằm trong O_RENDER_LIST / O_RENDER_ORDER và thứ tự render.
-            - Không dùng G_STATE làm nguồn tạo cảnh báo.
-            - Không render metadata G_STATE vào output.
-        2. C_GATE mới nhất nếu hệ thống có:
-            - Chỉ để kiểm C2_STATE hợp lệ.
-            - Không render C_GATE vào output.
-            - Không dùng C_GATE để tạo cảnh báo.
-        3. C2_STATE:
-            - Nguồn chính và bắt buộc của O10.
-        4. C2_CHECK:
-            - Phải = PASS để O10 render.
-        5. C2_FINAL:
-            - Nguồn tổng hợp cuối nếu C2 đã chốt.
-        6. C2_WARNINGS nếu có:
-            - Nguồn cho mục “Cảnh báo lâm sàng”.
-        7. C2_RISK_LEVEL nếu có:
-            - Nguồn cho mục “Mức độ cảnh báo / nguy cơ”.
-            - O10 không tự tạo mức độ nếu C2 không có.
-        8. C2_RED_FLAGS nếu có:
-            - Nguồn cho mục “Dấu hiệu nguy cơ / dấu hiệu cần chú ý”.
-        9. C2_MONITORING_POINTS nếu có:
-            - Nguồn cho mục “Cần theo dõi / đánh giá lại”.
-        10. C2_RECOMMENDATIONS nếu có:
-            - Nguồn cho mục “Khuyến nghị đã được C2 chốt”.
-            - Chỉ render khuyến nghị đã được C2 chốt.
-            - Không tự tạo hướng xử trí.
-            - Không biến thành A13_TREATMENT.
-        11. C2_ERROR:
-            - Chỉ dùng để ghi lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
-            - Không render vào output thường quy khi C2_CHECK = PASS.
+O10_ALLOWED_SOURCE
+    O10 chỉ được đọc các nguồn sau:
+        1. G_STATE của ROUND hiện tại: chỉ kiểm O10 có trong `O_RENDER_LIST`/`O_RENDER_ORDER`, đã đến lượt render chưa và metadata điều phối cần thiết; không dùng G_STATE làm nguồn tạo cảnh báo và không render metadata G_STATE.
+        2. C_GATE mới nhất nếu hệ thống có: chỉ kiểm C2_STATE hợp lệ; không render C_GATE và không dùng C_GATE để tạo cảnh báo.
+        3. C2_STATE: nguồn chính và bắt buộc của O10.
+        4. C2_CHECK: phải = PASS để O10 render.
+        5. C2_FINAL: nguồn tổng hợp cuối nếu C2 đã chốt.
+        6. C2_WARNINGS nếu có: nguồn cho mục `1. Cảnh báo lâm sàng:`.
+        7. C2_RISK_LEVEL nếu có: nguồn cho mục `2. Mức độ cảnh báo / nguy cơ:`; O10 không tự tạo mức độ nếu C2 không có.
+        8. C2_RED_FLAGS nếu có: nguồn cho mục `3. Dấu hiệu nguy cơ / dấu hiệu cần chú ý:`.
+        9. C2_MONITORING_POINTS nếu có: nguồn cho mục `4. Cần theo dõi / đánh giá lại:`.
+        10. C2_RECOMMENDATIONS nếu có: nguồn cho mục `5. Khuyến nghị đã được C2 chốt:`; không tự tạo hướng xử trí và không biến thành A13_TREATMENT.
+        11. C2_ERROR: chỉ dùng làm lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu; không render C2_ERROR trong output thường quy khi C2_CHECK = PASS.
+    O10 không được đọc/dùng A_STATE/A_GATE để tự tạo cảnh báo; A12 để tạo chẩn đoán; A13/A13_LABS/A13_IMAGING/A13_TREATMENT để tự tạo khuyến nghị, hướng xử trí hoặc chỉ định; A14 để tự tạo cảnh báo; A15 thuốc/đơn thuốc/cảnh báo thuốc; C1_STATE; C3_STATE; C4_STATE; C5_STATE; C6_STATE; C7_STATE; generic C_STATE/Cx_STATE ngoài C2; O_OUTPUT cũ/O10_OUTPUT cũ/rendered output cũ; O1-O9 output; O11-O13 output; raw user input để tự tạo nội dung mới; hidden memory/trí nhớ ẩn; web/guideline/source ngoài; patch/delta; hoặc metadata RUN_MODE/REV làm nguồn nội dung.
+    Nếu cần cảnh báo mới hoặc sửa cảnh báo, phải quay lại C2 theo điều phối hệ thống; O10 không tự gọi hoặc tự chạy C2.
 
-    Không viết nguồn đọc kiểu “các Cx_STATE cần thiết” lấp lửng.
-    Không đọc Cx_STATE rộng.
-    Không đọc A_STATE để tự tạo cảnh báo O10.
-    Nếu cần bối cảnh lâm sàng, bối cảnh đó phải nằm trong C2_STATE/C2_FINAL.
-    Không giữ A_STATE/A_MODULE_REV/A_GATE_STATUS/RUN_MODE như nguồn render O10.
+O10_ALLOWED_ACTION
+    O10 RUN/render khi đồng thời: O10 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER; đã đến lượt theo G_STATE.O_RENDER_ORDER; C2_STATE tồn tại; C2_CHECK = PASS; C2_FINAL hoặc các field C2 tương ứng có nội dung/schema hợp lệ; output đúng schema O10; và chỉ dùng source allowlist.
+    O10 SKIP khi O10 không nằm trong render plan hoặc chưa đến lượt render; khi SKIP không render O10, không tạo/cập nhật O10_OUTPUT, không in `O10_OUTPUT = SKIP` và không tự thêm O10 vào render plan.
+    O10 BLOCKED/NEEDS_FIX khi O10 được yêu cầu render nhưng thiếu điều kiện RUN; thiếu C2_STATE; C2_CHECK != PASS hoặc C2_CHECK = NEEDS_FIX; C2_FINAL thiếu/sai schema; field C2 cần cho mục đang render thiếu/sai schema; C2 chưa tạo nội dung nhưng O10 được yêu cầu; C2_STATE mâu thuẫn hoặc không phù hợp format O10; dùng nguồn cấm; output sai schema; hoặc O10 cố tự tạo/bù cảnh báo, mức độ, khuyến nghị hay hướng xử trí.
+    Khi BLOCKED/NEEDS_FIX, O10 không render bản hoàn chỉnh, không tự tạo cảnh báo/mức độ/nguy cơ/khuyến nghị/hướng xử trí/chỉ định, không tự sửa hoặc chạy C2, không tự chạy A/C/O, không tự sửa A/C/G/O, không fallback sang A/A13/A15/C1/C3-C7/O output cũ/raw/hidden/web và chỉ ghi lý do chặn nếu hệ thống yêu cầu.
 
-O10.3. Nguồn dữ liệu không được dùng
-    O10 không được đọc/dùng:
-        1. Raw input để tự tạo cảnh báo lâm sàng.
-        2. Hidden memory.
-        3. O_OUTPUT cũ / O10_OUTPUT cũ / rendered output cũ.
-        4. A_STATE_PATCH làm nguồn chính.
-        5. C_STATE_PATCH làm nguồn chính.
-        6. A_STATE để tự tạo cảnh báo.
-        7. A12_STATE để tự tạo chẩn đoán.
-        8. A13_STATE để tự tạo hướng xử trí.
-        9. A13_LABS để tự tạo xét nghiệm/cận lâm sàng cần làm.
-        10. A13_IMAGING để tự tạo chẩn đoán hình ảnh/thăm dò cần làm.
-        11. A13_TREATMENT để tự tạo xử trí.
-        12. A15_STATE để tự tạo thuốc hoặc cảnh báo thuốc.
-        13. C1_STATE để tạo hỏi thêm/khám thêm/cần làm thêm.
-        14. C3_STATE để tạo cảnh báo thuốc.
-        15. C4_STATE để tạo hội chứng/tóm tắt.
-        16. C5_STATE để tạo chẩn đoán phân biệt.
-        17. C6_STATE để tự tra cứu hoặc thêm khuyến cáo.
-        18. Cx_STATE ngoài C2.
-        19. O9_OUTPUT để tạo hỏi thêm/cần làm thêm.
-        20. O11_OUTPUT để tạo cảnh báo thuốc.
-        21. O12_OUTPUT để thêm kiến thức/nguồn.
-        22. O13_OUTPUT để thêm chẩn đoán phân biệt.
-        23. Web/guideline/source ngoài nếu không có contract.
-        24. Metadata kỹ thuật để render thành nội dung cảnh báo lâm sàng.
+O10_ALLOWED_WRITE
+    O10 chỉ được ghi/render output thường quy của chính O10 theo schema, O10_OUTPUT nếu framework vận hành dùng field này, O10_RENDER_CHECK nếu framework nội bộ dùng và lý do BLOCKED/NEEDS_FIX nếu framework yêu cầu.
+    O10_OUTPUT là rendered output, không phải state nguồn và không phải source cho A/C/O khác.
+    O10_RENDER_CHECK là metadata kỹ thuật nếu còn dùng; không render O10_RENDER_CHECK vào output thường quy.
+    O10 không được ghi/tạo/sửa O10_STATE, O10_REV, O10_FINAL, O10_ERROR field riêng nếu contract hiện tại không định nghĩa, G_STATE, O_RENDER_LIST, O_RENDER_ORDER, A_STATE, C_STATE, C2_STATE, C1/C3/C4/C5/C6/C7, O module khác hoặc S/G.
+    Khi SKIP, O10 không tạo/cập nhật O10_OUTPUT.
 
-O10.4. Vai trò của O10 trong hệ thống
-    O10 nằm trong lớp O.
-    O10 là module render/output.
-    O10 là renderer của C2.
-    O10 chỉ trình bày nội dung đã có từ C2_STATE hợp lệ.
-    O10 chỉ chạy khi nằm trong O_RENDER_LIST / O_RENDER_ORDER.
-    O10 không tự chạy C.
-    O10 không sửa A_STATE/C_STATE/G_STATE.
-    O10 không tạo dữ liệu lâm sàng mới.
-    O10 không tự tạo cảnh báo.
-    O10 không tự tạo mức độ cảnh báo.
-    O10 không tự tạo nguy cơ.
-    O10 không tự tạo khuyến nghị.
-    O10 không tự tạo hướng xử trí.
-    O10 không tự tạo xét nghiệm/cận lâm sàng.
-    O10 không tự tạo chẩn đoán hoặc chẩn đoán phân biệt.
-    O10 không thay C2.
-    O10 không thay A13.
-    Nếu thiếu C2 hoặc C2 không hợp lệ, O10 BLOCKED/NEEDS_FIX.
-    Nếu nguồn sai hoặc mâu thuẫn, O10 không tự sửa mà yêu cầu chạy lại module nguồn theo điều phối của hệ thống.
+O10_RENDER_SCHEMA
+    O10 render thành block riêng theo contract O hiện tại; O10 không bắt buộc code block `text` riêng nếu contract O10 hiện hành không yêu cầu và không tự thêm code block riêng nếu không cần.
+    Heading literal chuẩn: `CẢNH BÁO LÂM SÀNG`.
+    Thứ tự mục chuẩn, tối đa 6 mục:
+        1. `Cảnh báo lâm sàng:` — lấy từ C2_WARNINGS hoặc phần tương ứng trong C2_FINAL.
+        2. `Mức độ cảnh báo / nguy cơ:` — lấy từ C2_RISK_LEVEL nếu C2 có.
+        3. `Dấu hiệu nguy cơ / dấu hiệu cần chú ý:` — lấy từ C2_RED_FLAGS hoặc phần tương ứng trong C2_FINAL.
+        4. `Cần theo dõi / đánh giá lại:` — lấy từ C2_MONITORING_POINTS nếu có.
+        5. `Khuyến nghị đã được C2 chốt:` — lấy từ C2_RECOMMENDATIONS nếu có.
+        6. `Ghi chú giới hạn:` — lấy từ C2_FINAL nếu C2 có ghi giới hạn/lý do.
+    Nếu C2 không có nội dung cho một mục, O10 không tự thêm mục, không lấp mục trống, không bù từ A/A13/A15/C1/C3-C7/O output và không tự nâng/hạ/sửa nội dung C2.
+    Nếu C2 ghi không có cảnh báo nổi bật, O10 render đúng câu C2 đã chốt, ví dụ `Không có cảnh báo lâm sàng nổi bật từ C2` hoặc câu tương ứng từ C2; không tự thêm cảnh báo/mức độ/red flags/khuyến nghị và không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C2 không chốt câu đó.
+    Khi xuất thật, không in placeholder, tên biến, nhãn kỹ thuật như C2_STATE/C2_FINAL/O10_OUTPUT, metadata, check/error/rev/state hoặc debug text.
 
-O10.5. Điều kiện RUN / SKIP / BLOCKED
-    RUN chỉ khi tất cả đúng:
-        1. O10 nằm trong G_STATE.O_RENDER_LIST / O_RENDER_ORDER.
-        2. Đã đến lượt O10 theo O_RENDER_ORDER.
-        3. C2_STATE tồn tại.
-        4. C2_CHECK = PASS.
-        5. C2_FINAL hoặc các field tương ứng có nội dung/schema hợp lệ.
+O10_LOGIC_RULES
+    O10 render nguyên nội dung C2 đúng vị trí theo mapping O10.
+    O10 không tự tạo cảnh báo, không tự phân tầng nguy cơ nếu C2 không có C2_RISK_LEVEL, không tự tạo dấu hiệu nguy cơ/điểm theo dõi/khuyến nghị nếu C2 không có, không tự biến dữ kiện đã có hoặc kết quả A14 thành cảnh báo, không biến cảnh báo thành y lệnh/chỉ định/hướng điều trị, không biến khuyến nghị C2 thành A13_TREATMENT và không tự tạo chẩn đoán/chẩn đoán phân biệt/cảnh báo thuốc/tra cứu nguồn.
+    Nếu cần bổ sung cảnh báo mới, phải quay lại C2 theo điều phối hệ thống; O10 không tự chạy hoặc tự sửa C2.
 
-    SKIP khi:
-        1. O10 không nằm trong O_RENDER_LIST / O_RENDER_ORDER.
-        2. Không render SKIP output nếu hệ thống không yêu cầu.
-        3. Không tạo/cập nhật O10_OUTPUT khi SKIP.
+O10_SPECIAL_RULES
+    Boundary với C2: C2 tạo nội dung; O10 chỉ render; O10 không thay C2, không sửa C2 và không tự chạy C2.
+    Boundary với A: O10 không đọc A_STATE để tự tạo cảnh báo; không dùng A12 để tạo/sửa chẩn đoán; không dùng A13/A13_LABS/A13_IMAGING/A13_TREATMENT để tự tạo khuyến nghị/hướng xử trí/chỉ định; không biến C2_RECOMMENDATIONS thành A13_TREATMENT; không dùng A14 để tự tạo cảnh báo; không dùng A15 thuốc/đơn thuốc hoặc cảnh báo thuốc.
+    Boundary với C/O khác: O10 không đọc C1/O9 để render hỏi thêm/khám thêm/xét nghiệm cần làm; không thay O9; không đọc C3/O11/A15 để render cảnh báo thuốc/an toàn thuốc; không thay O11; không đọc C6/O12/web/guideline để tra cứu nguồn; không thay O12; không đọc C5/O13/A12 để render chẩn đoán phân biệt/chẩn đoán; không thay O13; không đọc C4 để bù cảnh báo nếu C2 không chốt; không đọc C7/bệnh trình/ra viện để tự tạo cảnh báo; không tự gọi O9/O11/O12/O13.
+    Boundary với output cũ: O10 không đọc O output cũ, O10_OUTPUT cũ, rendered output cũ hoặc O1-O9/O11-O13 output.
+    Metadata: không render metadata kỹ thuật, O10_RENDER_CHECK, O10_ERROR nếu framework có, C2_CHECK, C2_ERROR trong output thường quy khi C2_CHECK PASS, STATE_VERSION, ROUND_ID, RUN_MODE, A/C/O REV, A_CHECK/C_CHECK/O_CHECK, CREATE/UPDATE/REUSE, A_MODULE_REV/C_MODULE_REV, output cũ hoặc debug text.
+    No-warning/no-data: nếu C2 ghi không có cảnh báo nổi bật, O10 render đúng câu C2 đã chốt; nếu C2 chưa tạo nội dung nhưng O10 được yêu cầu, O10 NEEDS_FIX/BLOCKED; không tự bù cảnh báo từ nguồn khác và không nhầm “không có cảnh báo” với “thiếu source”.
 
-    BLOCKED/NEEDS_FIX khi:
-        1. Thiếu C2_STATE.
-        2. C2_CHECK != PASS.
-        3. C2_CHECK = NEEDS_FIX.
-        4. C2_FINAL thiếu hoặc sai schema.
-        5. C2_WARNINGS thiếu schema khi cần.
-        6. C2_RISK_LEVEL thiếu schema khi cần.
-        7. C2_RED_FLAGS thiếu schema khi cần.
-        8. C2_MONITORING_POINTS thiếu schema khi cần.
-        9. C2_RECOMMENDATIONS thiếu schema khi cần.
-        10. C2 chưa tạo nội dung nhưng O10 được yêu cầu.
-        11. C2_STATE mâu thuẫn hoặc không phù hợp format O10.
+O10_CHECK_PASS_IF
+    PASS khi O10 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER, đã đến lượt render, C2_STATE tồn tại, C2_CHECK = PASS, C2_FINAL hoặc các field C2 tương ứng có nội dung/schema hợp lệ, chỉ dùng source allowlist, không dùng A_STATE/A12/A13/A14/A15 để tự tạo cảnh báo, không dùng C1/C3/C4/C5/C6/C7 để bù, không dùng O output cũ/rendered output cũ, không dùng raw input/hidden memory/web, không dùng patch/delta, output đúng heading/schema O10, các mục render đúng từ C2, không tự thêm mục/nội dung ngoài C2, không tự tạo cảnh báo/mức độ/khuyến nghị, không render metadata, nếu C2 ghi không có cảnh báo thì O10 render đúng câu C2 đã chốt, và nếu O10_RENDER_CHECK = PASS thì không có lỗi nội bộ còn mở.
 
-    Khi BLOCKED/NEEDS_FIX:
-        1. Không tự tạo cảnh báo.
-        2. Không tự tạo mức độ cảnh báo.
-        3. Không tự tạo nguy cơ.
-        4. Không tự tạo khuyến nghị.
-        5. Không tự tạo hướng xử trí.
-        6. Không tự sửa C2.
-        7. Không tự chạy C2.
-        8. Chỉ ghi lý do chặn nếu hệ thống yêu cầu.
+O10_NEEDS_FIX_IF
+    NEEDS_FIX/BLOCKED khi O10 được plan nhưng thiếu điều kiện RUN, O10 chưa đến lượt render, thiếu C2_STATE, C2_CHECK != PASS, C2_CHECK = NEEDS_FIX, C2_FINAL thiếu/sai schema, C2_WARNINGS thiếu/sai schema khi cần, C2_RISK_LEVEL thiếu/sai schema khi C2 cần render mức độ, C2_RED_FLAGS thiếu/sai schema khi cần, C2_MONITORING_POINTS thiếu/sai schema khi cần, C2_RECOMMENDATIONS thiếu/sai schema khi cần, C2 chưa tạo nội dung nhưng O10 được yêu cầu, C2_STATE mâu thuẫn hoặc không phù hợp format O10, dùng source ngoài allowlist, dùng A/A12/A13/A14/A15 để tự tạo/bù cảnh báo, dùng C1/C3/C4/C5/C6/C7 để bù, dùng O output cũ/rendered output cũ, dùng raw input/hidden memory/web, dùng patch/delta, output sai schema, O10 tự tạo/bù cảnh báo/mức độ/red flags/theo dõi/khuyến nghị, O10 biến cảnh báo thành y lệnh/hướng điều trị, O10 lẫn cảnh báo thuốc/O11, O10 lẫn tra cứu nguồn/O12, O10 lẫn chẩn đoán phân biệt/O13 hoặc O10 render metadata kỹ thuật.
 
-O10.6. Mapping dữ liệu nguồn sang output
-    O10 mapping:
-        1. Cảnh báo lâm sàng:
-            - Lấy từ C2_WARNINGS hoặc phần tương ứng trong C2_FINAL.
-        2. Mức độ cảnh báo / nguy cơ:
-            - Lấy từ C2_RISK_LEVEL nếu C2 có field rõ.
-            - Nếu C2 không có mức độ, O10 không tự thêm.
-        3. Dấu hiệu nguy cơ / dấu hiệu cần chú ý:
-            - Lấy từ C2_RED_FLAGS hoặc phần tương ứng trong C2_FINAL.
-        4. Cần theo dõi / đánh giá lại:
-            - Lấy từ C2_MONITORING_POINTS nếu có.
-        5. Khuyến nghị đã được C2 chốt:
-            - Lấy từ C2_RECOMMENDATIONS nếu có.
-            - Không tự tạo hướng xử trí.
-            - Không biến thành A13_TREATMENT.
-        6. Ghi chú giới hạn:
-            - Lấy từ C2_FINAL nếu C2 có ghi giới hạn hoặc lý do cảnh báo.
+O10_ERROR_RULE
+    Khi NEEDS_FIX/BLOCKED, O10 không render bản hoàn chỉnh, không tự tạo cảnh báo/mức độ/nguy cơ/khuyến nghị/hướng xử trí/chỉ định, không tự sửa hoặc chạy C2, không tự chạy A/C/O và không fallback sang A/A13/A15/C1/C3-C7/O output cũ/raw/hidden/web.
+    Nếu framework cần lỗi/check nội bộ, ghi lý do chặn theo framework, có thể dùng C2_ERROR làm lý do chặn và không render lỗi/check metadata vào output thường quy.
+    Lỗi phải nêu rõ nguyên nhân như O10 không nằm render plan, thiếu C2_STATE, C2_CHECK không PASS, C2_FINAL hoặc C2 field thiếu/sai schema, C2_STATE mâu thuẫn, dùng nguồn cấm, output sai schema hoặc lẫn O11/O12/O13/A13.
 
-    Không tự thêm mục nếu C2 không có nội dung.
-    Không chuyển A13 hướng xử trí thành cảnh báo.
-    Không chuyển C1 hỏi thêm thành cảnh báo.
-    Không chuyển C3 cảnh báo thuốc thành O10.
-    Không chuyển C5 chẩn đoán phân biệt thành O10.
-    Không chuyển C6 tra cứu thành O10.
+O10_REUSE_RULE
+    O10 không có lifecycle CREATE/UPDATE/REUSE state riêng theo contract hiện tại.
+    Không reuse O output cũ, O10_OUTPUT cũ hoặc rendered output cũ; khi G plan O10, render từ current allowed sources của ROUND hiện tại.
+    Nếu hệ thống có REUSE nội bộ, REUSE chỉ là metadata điều phối, không làm nguồn nội dung và không render thường quy.
+    Không ghi “reuse O10”, không tạo O10_REV và không tạo O10_STATE.
 
-O10.7. Quy tắc render cảnh báo lâm sàng
-    O10 render mục “Cảnh báo lâm sàng” từ C2_WARNINGS hoặc phần tương ứng trong C2_FINAL.
-    O10 giữ nguyên ý nghĩa cảnh báo đã được C2 chốt.
-    O10 không thêm cảnh báo mới.
-    O10 không sửa nội dung C2 để làm cảnh báo mạnh hơn hoặc nhẹ hơn.
-    Nếu C2_WARNINGS không có nội dung và C2_FINAL không có phần tương ứng, O10 không tự lấp mục bằng suy đoán.
-
-O10.8. Quy tắc render mức độ cảnh báo / nguy cơ
-    O10 render mức độ cảnh báo / nguy cơ từ C2_RISK_LEVEL nếu C2 có field rõ.
-    Nếu C2 không có C2_RISK_LEVEL hoặc C2 không chốt mức độ, O10 không tự tạo mức độ.
-    O10 không tự phân tầng nguy cơ.
-    O10 không tự nâng hoặc hạ mức cảnh báo.
-
-O10.9. Quy tắc render dấu hiệu nguy cơ / dấu hiệu cần chú ý
-    O10 render dấu hiệu nguy cơ / dấu hiệu cần chú ý từ C2_RED_FLAGS hoặc phần tương ứng trong C2_FINAL.
-    O10 không tự tạo red flags.
-    O10 không lấy C1_STATE, C3_STATE, C5_STATE, C6_STATE hoặc A13_STATE để bù dấu hiệu nguy cơ.
-
-O10.10. Quy tắc render cần theo dõi / đánh giá lại và khuyến nghị C2
-    O10 render “Cần theo dõi / đánh giá lại” từ C2_MONITORING_POINTS nếu có.
-    O10 render “Khuyến nghị đã được C2 chốt” từ C2_RECOMMENDATIONS nếu có.
-    Khuyến nghị trong O10 chỉ là nội dung đã được C2 chốt để trình bày cảnh báo lâm sàng.
-    O10 không tự tạo hướng xử trí.
-    O10 không biến C2_RECOMMENDATIONS thành A13_TREATMENT.
-    O10 không dùng A13_LABS/A13_IMAGING/A13_TREATMENT để tự tạo khuyến nghị.
-
-O10.11. Quy tắc khi C2 ghi không có cảnh báo nổi bật
-    Nếu C2 ghi không có cảnh báo nổi bật, O10 render đúng câu C2 đã chốt, ví dụ “Không có cảnh báo lâm sàng nổi bật từ C2” hoặc câu tương ứng trong C2_FINAL.
-    O10 không tự thêm cảnh báo.
-    O10 không tự thêm mức độ nguy cơ.
-    O10 không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C2 không chốt câu đó.
-
-O10.12. No-data / BLOCKED / NEEDS_FIX
-    O10 không render bản hoàn chỉnh nếu:
-        1. O10 không nằm trong O_RENDER_LIST / O_RENDER_ORDER.
-        2. Thiếu C2_STATE.
-        3. C2_CHECK != PASS.
-        4. C2_FINAL thiếu hoặc sai schema.
-        5. C2_WARNINGS/C2_RISK_LEVEL/C2_RED_FLAGS/C2_MONITORING_POINTS/C2_RECOMMENDATIONS thiếu schema khi cần.
-        6. C2 chưa tạo nội dung nhưng O10 được yêu cầu.
-        7. C2_STATE mâu thuẫn hoặc không phù hợp format O10.
-
-    Khi BLOCKED:
-        1. Không tự tạo cảnh báo.
-        2. Không tự tạo mức độ cảnh báo.
-        3. Không tự tạo nguy cơ.
-        4. Không tự tạo khuyến nghị.
-        5. Không tự tạo hướng xử trí.
-        6. Không tự sửa C2.
-        7. Không tự chạy C2.
-        8. Không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C2 không chốt câu đó.
-
-O10.13. Metadata không được render
-    O10 không được render:
-        1. STATE_VERSION.
-        2. ROUND_ID.
-        3. RUN_MODE.
-        4. Ax_REV.
-        5. Cx_REV.
-        6. Ox_REV nếu có.
-        7. UPDATED_AT.
-        8. A_CHECK / A_ERROR.
-        9. C_CHECK / C_ERROR.
-        10. O_CHECK / O_ERROR.
-        11. CREATE / UPDATE / REUSE.
-        12. A_MODULE_REV.
-        13. C_MODULE_REV.
-        14. O10_RENDER_CHECK.
-        15. G_STATE metadata kỹ thuật.
-        16. C2 technical metadata.
-
-    Nếu O10_RENDER_CHECK còn dùng:
-        1. O10_RENDER_CHECK chỉ là kiểm nội bộ.
-        2. Không render vào output thường quy.
-        3. Chỉ được hiển thị trong debug/report khi hệ thống yêu cầu.
-
-O10.14. Ranh giới O10
-    O10 không thay:
-        1. C2 — tạo cảnh báo lâm sàng.
-        2. A13 — hướng xử trí / điều trị.
-        3. O9 — hỏi thêm / khám thêm / cần làm thêm.
-        4. O11 — cảnh báo thuốc.
-        5. O12 — render C6 / tra cứu.
-        6. O13 — chẩn đoán phân biệt.
-        7. C1 — hỏi thêm / khám thêm / cần làm thêm.
-        8. C3 — cảnh báo thuốc.
-        9. C5 — chẩn đoán phân biệt.
-        10. C6 — tra cứu / kiến thức ngoài.
-
-    C2 tạo nội dung.
-    O10 chỉ render nội dung.
-    Nếu cần bổ sung cảnh báo mới, phải chạy lại C2 theo điều phối hệ thống.
-    O10 không tự chạy C2.
-    O10 không tự sửa C2.
-    O10 không tự lấy A13/C1/C3/C5/C6 để bù nội dung.
-    O10 không biến thành O9/O11/O12/O13/A13.
-
-O10.15. Chuẩn đầu ra O10
-    O10 render nội dung do C2 tạo.
-
-    Format chuẩn:
-
-        CẢNH BÁO LÂM SÀNG
-
-        1. Cảnh báo lâm sàng:
-            ...
-
-        2. Mức độ cảnh báo / nguy cơ:
-            ...
-
-        3. Dấu hiệu nguy cơ / dấu hiệu cần chú ý:
-            ...
-
-        4. Cần theo dõi / đánh giá lại:
-            ...
-
-        5. Khuyến nghị đã được C2 chốt:
-            ...
-
-        6. Ghi chú giới hạn:
-            ...
-
-    Nếu C2 ghi không có cảnh báo nổi bật:
-        1. O10 render đúng “Không có cảnh báo lâm sàng nổi bật từ C2” hoặc câu tương ứng từ C2.
-        2. Không tự thêm cảnh báo.
-        3. Không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C2 không chốt câu đó.
-
-    Nguyên tắc:
-        1. Không tự thêm mục nếu C2 không có.
-        2. Không tự tạo nội dung để lấp mục trống.
-        3. Không tự sửa nội dung C2.
-        4. Không tự đổi thứ tự nhóm output nếu chuẩn đã khóa.
-        5. Không render metadata kỹ thuật.
-        6. Không render C2_ERROR vào output thường quy khi C2_CHECK = PASS.
-        7. Nếu C2_ERROR được dùng, chỉ dùng cho lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
-
-O10.16. Ví dụ chuẩn hóa nếu cần
-    Ví dụ 1 — C2 có cảnh báo:
-        C2_WARNINGS có cảnh báo.
-        C2_RISK_LEVEL có mức độ nếu C2 chốt.
-        C2_RED_FLAGS có dấu hiệu nguy cơ nếu có.
-        C2_MONITORING_POINTS có điểm theo dõi nếu có.
-        C2_RECOMMENDATIONS có khuyến nghị nếu C2 chốt.
-        O10 render đúng các mục từ C2.
-
-    Ví dụ 2 — C2 ghi không có cảnh báo nổi bật:
-        C2_FINAL = “Không có cảnh báo lâm sàng nổi bật từ C2.”
-        O10 render đúng câu C2 đã chốt.
-        O10 không tự thêm cảnh báo.
-
-    Ví dụ 3 — Thiếu C2_STATE:
-        O10 BLOCKED: thiếu C2_STATE.
-        O10 không tự tạo cảnh báo để thay C2.
-
-    Ví dụ 4 — C2_CHECK lỗi:
-        O10 BLOCKED: C2_CHECK != PASS hoặc C2_CHECK = NEEDS_FIX.
-        O10 không tự chạy C2.
-
-    Ví dụ 5 — C2 thiếu schema:
-        C2_WARNINGS/C2_RISK_LEVEL/C2_RED_FLAGS/C2_MONITORING_POINTS/C2_RECOMMENDATIONS thiếu schema khi cần.
-        O10 BLOCKED/NEEDS_FIX.
-        O10 không tự bù.
-
-    Các ví dụ chỉ minh họa contract:
-        1. Không sao chép dữ kiện mẫu vào ca thật.
-        2. Không render metadata kỹ thuật.
-        3. Không dùng A13/C1/C3/C5/C6 để tự tạo nội dung.
-        4. Không biến O10 thành O9/O11/O12/O13/A13.
-
-O10.17. Checklist trước khi chốt O10
-    Trước khi chốt O10, kiểm tối thiểu:
-        1. Đã đọc đủ O10 theo READ LOCK.
-        2. O10 nằm trong O_RENDER_LIST / O_RENDER_ORDER.
-        3. Đã đến lượt O10 theo O_RENDER_ORDER.
-        4. C2_STATE tồn tại.
-        5. C2_CHECK = PASS.
-        6. C2_FINAL hoặc các field C2 tương ứng có nội dung/schema hợp lệ.
-        7. Nguồn đọc đúng O10.2.
-        8. Không đọc Cx_STATE ngoài C2.
-        9. Không dùng A_STATE/A13 để tự tạo cảnh báo.
-        10. Không dùng A13_LABS/A13_IMAGING/A13_TREATMENT để thay C2.
-        11. Không dùng C1/C3/C5/C6 sai phạm vi.
-        12. Không dùng raw input/hidden memory/output cũ/patch state.
-        13. Output đúng cảnh báo lâm sàng.
-        14. Nếu C2 ghi không có cảnh báo nổi bật, O10 render đúng câu C2.
-        15. Không tự thêm mục nếu C2 không có.
-        16. Không tự tạo cảnh báo.
-        17. Không tự tạo mức độ cảnh báo.
-        18. Không tự tạo nguy cơ.
-        19. Không tự tạo khuyến nghị.
-        20. Không tự tạo hướng xử trí.
-        21. No-data/BLOCKED đúng.
-        22. Không sửa C2.
-        23. Không tự chạy C2.
-        24. Không render metadata.
-        25. Không biến thành O9/O11/O12/O13/A13.
-
-O10.18. Các lỗi không được mắc
-    Không được:
-        1. Bỏ qua READ LOCK.
-        2. Audit/patch/final review/sử dụng khi chưa đọc đủ O10.
-        3. Render O10 khi không nằm trong O_RENDER_LIST / O_RENDER_ORDER.
-        4. Render khi C2 chưa chạy.
-        5. Render khi thiếu C2_STATE.
-        6. Render khi C2_CHECK != PASS.
-        7. Render khi C2_CHECK lỗi.
-        8. Tự tạo cảnh báo.
-        9. Tự tạo mức độ cảnh báo.
-        10. Tự tạo nguy cơ.
-        11. Tự tạo khuyến nghị.
-        12. Tự tạo hướng xử trí.
-        13. Tự tạo xét nghiệm/cận lâm sàng.
-        14. Tự tạo chẩn đoán.
-        15. Tự tạo chẩn đoán phân biệt.
-        16. Dùng A13 thay C2.
-        17. Dùng A13_LABS/A13_IMAGING để tự tạo cận lâm sàng nếu C2 chưa tạo.
-        18. Dùng A13_TREATMENT để tự tạo hướng xử trí.
-        19. Dùng C1 làm hỏi thêm/cần làm trong O10.
-        20. Dùng C3 làm cảnh báo thuốc.
-        21. Dùng C5 làm chẩn đoán phân biệt.
-        22. Dùng C6 trực tiếp để tra cứu/thêm khuyến cáo.
-        23. Dùng raw input.
-        24. Dùng hidden memory.
-        25. Dùng output cũ/rendered output cũ.
-        26. Dùng patch state làm nguồn.
-        27. Biến O10 thành O9.
-        28. Biến O10 thành O11.
-        29. Biến O10 thành O12.
-        30. Biến O10 thành O13.
-        31. Biến O10 thành hướng điều trị A13.
-        32. Sửa nội dung C2 khi render.
-        33. Render metadata kỹ thuật.
+O10_END
+    Sau O10, hệ thống render O tiếp theo theo G_STATE.O_RENDER_ORDER; O10 không tự chạy O11, không gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O10
 
