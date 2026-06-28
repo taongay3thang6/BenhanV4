@@ -1232,442 +1232,128 @@ O10_END
 ####################################################################################################
 
 O11 — CẢNH BÁO THUỐC / AN TOÀN THUỐC
-Version: BA S-G-A-C-O v3
-Update: 10/06/2026 GMT+7 — chuẩn hóa renderer C3 cho cảnh báo thuốc và an toàn thuốc
+Version: BA S-G-A-C-O V4 compact
+Update: 28/06/2026 GMT+7 — compact allowlist contract, giữ nguyên logic renderer C3 cho cảnh báo thuốc/an toàn thuốc
 
-O11.0. READ LOCK
-    Khi audit, patch, final review hoặc sử dụng/render O11, AI/Codex phải đọc toàn bộ O11 từ O11.0 đến marker “<<< END O11”.
-    Không được chỉ đọc một đoạn giữa module.
-    Không được chỉ đọc nguồn dữ liệu.
-    Không được chỉ đọc ví dụ, checklist hoặc lỗi cấm.
-    Không được chỉ đọc diff.
-    Không được patch một mục nếu chưa kiểm tra ảnh hưởng tới các mục còn lại trong O11.
-    Nếu chưa đọc đủ toàn bộ O11 thì phải kết luận UNCLEAR, không được PASS/FAIL.
-    O11 chỉ render khi nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt theo G_STATE.O_RENDER_ORDER của ROUND hiện tại.
+O11_READ_LOCK
+    Khi audit, patch, final review hoặc render O11, phải đọc nguyên section từ header `O11 — CẢNH BÁO THUỐC / AN TOÀN THUỐC` đến `<<< END O11`; không patch dựa trên diff/trích đoạn/ví dụ và không sửa O10/O12 hoặc section khác.
 
-O11.1. Mục tiêu
-    O11 là module render “CẢNH BÁO THUỐC / AN TOÀN THUỐC” thuộc layer O.
-    O11 là renderer của C3.
-    O11 render nội dung do C3 tạo và đã chốt trong C3_STATE/C3_FINAL hợp lệ.
-    O11 phục vụ trình bày cảnh báo thuốc, tương tác thuốc, chống chỉ định/thận trọng, cảnh báo liều, thuốc bị chặn, trạng thái kiểm tra lại, trạng thái cho phép O6 và lưu ý an toàn thuốc đã được C3 chốt.
-    O11 không tự tạo dữ liệu lâm sàng mới.
-    O11 không tự tạo cảnh báo thuốc.
-    O11 không tự kiểm tương tác thuốc.
-    O11 không tự kết luận thuốc an toàn.
-    O11 không tự cho phép O6.
-    O11 không tự chặn O6 nếu C3 chưa chốt.
-    O11 không tự sửa đơn thuốc.
-    O11 không tự thêm, bỏ hoặc đổi thuốc.
-    O11 không tự đổi liều, đường dùng, số ngày hoặc số lượng.
-    O11 không tự chạy C3.
-    O11 không sửa C3_STATE.
-    O11 không thay C3.
-    O11 không thay A15.
-    O11 không thay O5/O6.
-    O11 không dùng C6 trực tiếp để tra cứu thuốc/liều hoặc thêm cảnh báo.
-    O11 không sửa A_STATE/C_STATE/G_STATE.
-    O11 chỉ hoạt động khi có trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER.
+O11_ROLE
+    O11 là strict renderer thuộc lớp O cho phần `CẢNH BÁO THUỐC / AN TOÀN THUỐC`.
+    O11 là renderer của C3: chỉ trình bày cảnh báo/an toàn thuốc đã được C3 tạo và chốt trong C3_STATE/C3_FINAL hợp lệ.
+    O11 không tự xác định hoặc tự tạo cảnh báo thuốc, tương tác thuốc, chống chỉ định/thận trọng, cảnh báo liều/đường dùng/thời gian dùng, thuốc bị chặn, trạng thái cần kiểm tra lại, trạng thái cho phép O6, kết luận thuốc an toàn, lưu ý an toàn thuốc mới, hướng xử trí/chỉ định, chẩn đoán, chẩn đoán phân biệt, cảnh báo lâm sàng hoặc tra cứu nguồn.
+    O11 không tự sửa thuốc, đơn thuốc, liều, đường dùng, thời gian dùng, số ngày, số lượng, A15_STATE, O6 hoặc C3_STATE.
+    O11 không phải O9 hỏi thêm/khám thêm/xét nghiệm cần làm, O10 cảnh báo lâm sàng, O12 tra cứu nguồn, O13 chẩn đoán phân biệt, O5 gợi ý thuốc, O6 đơn thuốc, A15 thuốc/đơn thuốc hoặc C3 module tạo/kiểm tra cảnh báo thuốc.
+    O11_OUTPUT nếu có là rendered output, không phải state nguồn, không là source cho A/C/O khác và không được reuse như nguồn lâm sàng.
 
-O11.2. Nguồn dữ liệu được phép
-    O11 chỉ được đọc nguồn mapping rõ:
+O11_ALLOWED_SOURCE
+    O11 chỉ được đọc các nguồn sau:
         1. G_STATE của ROUND hiện tại:
-            - Chỉ để kiểm O11 nằm trong O_RENDER_LIST/O_RENDER_ORDER và thứ tự render.
-            - Không dùng G_STATE làm nguồn tạo cảnh báo thuốc.
-            - Không render metadata G_STATE vào output.
+            - Chỉ kiểm O11 có nằm trong O_RENDER_LIST/O_RENDER_ORDER không, đã đến lượt render chưa và metadata điều phối cần thiết.
+            - Không dùng G_STATE làm nguồn cảnh báo thuốc và không render metadata G_STATE.
         2. C_GATE mới nhất nếu hệ thống có:
-            - Chỉ để kiểm C3_STATE hợp lệ.
-            - Không render C_GATE vào output.
-            - Không dùng C_GATE để tạo cảnh báo thuốc.
+            - Chỉ kiểm C3_STATE hợp lệ; không render C_GATE và không dùng C_GATE để tạo cảnh báo thuốc.
         3. C3_STATE:
             - Nguồn chính và bắt buộc của O11.
         4. C3_CHECK:
-            - Phải = PASS để O11 render cảnh báo thuốc/an toàn thuốc thường quy.
-            - Nếu C3_CHECK != PASS thì O11 BLOCKED/NEEDS_FIX.
+            - Phải = PASS để O11 render thường quy; nếu không PASS thì O11 BLOCKED/NEEDS_FIX.
         5. C3_FINAL:
             - Nguồn tổng hợp cuối nếu C3 đã chốt.
-        6. C3_WARNINGS nếu có:
-            - Nguồn cho mục “Cảnh báo thuốc”.
-        7. C3_INTERACTIONS nếu có:
-            - Nguồn cho mục “Tương tác thuốc”.
-        8. C3_CONTRAINDICATIONS nếu có:
-            - Nguồn cho mục “Chống chỉ định / thận trọng”.
-        9. C3_DOSE_WARNINGS nếu có:
-            - Nguồn cho mục “Cảnh báo liều / đường dùng / thời gian dùng”.
-        10. C3_BLOCKED_MEDICATIONS nếu có:
-            - Nguồn cho mục “Thuốc bị chặn”.
-        11. C3_RECHECK_REQUIRED nếu có:
-            - Nguồn cho mục “Cần kiểm tra lại”.
-        12. C3_ALLOW_O6 nếu có:
-            - Nguồn cho mục “Trạng thái cho phép O6”.
-            - O11 chỉ render trạng thái đã được C3 chốt, không tự quyết định.
-        13. C3_SAFETY_NOTES hoặc field lưu ý an toàn tương đương nếu có:
-            - Nguồn cho mục “Lưu ý an toàn thuốc”.
-        14. C3_ERROR:
-            - Chỉ dùng để ghi lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
-            - Không render vào output thường quy khi C3_CHECK = PASS.
-        15. A15_STATE nếu O11 hiện hành cần nhắc tên thuốc:
-            - Chỉ được đọc nếu C3 không tự chứa tên thuốc và contract hiện hành cho phép.
-            - Chỉ dùng để đối chiếu tên thuốc đã được C3 kiểm.
-            - Không dùng A15 để tự kiểm tương tác.
-            - Không dùng A15 để tự sửa đơn.
-            - Không dùng A15 để tự tạo cảnh báo.
-            - Không dùng A15 để tự cho phép O6.
-            - Nếu C3_STATE/C3_FINAL đã chứa đủ tên thuốc/cảnh báo, O11 không cần đọc A15.
-    Không viết nguồn đọc kiểu “các Cx_STATE cần thiết” lấp lửng.
-    Không đọc Cx_STATE rộng.
-    Không đọc A_STATE rộng.
-    Nếu cần bối cảnh thuốc/lâm sàng, bối cảnh đó phải nằm trong C3_STATE/C3_FINAL hoặc field C3 tương ứng.
-    Không giữ A_STATE/A_MODULE_REV/A_GATE_STATUS/RUN_MODE như nguồn render O11.
+        6. C3_WARNINGS nếu có: nguồn mục `1. Cảnh báo thuốc:`.
+        7. C3_INTERACTIONS nếu có: nguồn mục `2. Tương tác thuốc:`.
+        8. C3_CONTRAINDICATIONS nếu có: nguồn mục `3. Chống chỉ định / thận trọng:`.
+        9. C3_DOSE_WARNINGS nếu có: nguồn mục `4. Cảnh báo liều / đường dùng / thời gian dùng:`.
+        10. C3_BLOCKED_MEDICATIONS nếu có: nguồn mục `5. Thuốc bị chặn:`.
+        11. C3_RECHECK_REQUIRED nếu có: nguồn mục `6. Cần kiểm tra lại:`.
+        12. C3_ALLOW_O6 nếu có: nguồn mục `7. Trạng thái cho phép O6:`; O11 chỉ render trạng thái C3 chốt, không tự quyết định.
+        13. C3_SAFETY_NOTES hoặc field lưu ý an toàn tương đương nếu có: nguồn mục `8. Lưu ý an toàn thuốc:`.
+        14. C3_ERROR: chỉ dùng làm lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu; không render trong output thường quy khi C3_CHECK = PASS.
+        15. A15_STATE — ngoại lệ hẹp:
+            - Chỉ đọc khi O11 cần nhắc tên thuốc, C3 không tự chứa tên thuốc, contract hiện hành cho phép và chỉ để đối chiếu tên thuốc đã được C3 kiểm.
+            - Không dùng A15_STATE để tự kiểm tương tác, tự tạo cảnh báo, tự sửa đơn/thuốc/liều/đường dùng/số ngày/số lượng, tự cho phép/chặn O6 hoặc tự kết luận thuốc an toàn.
+            - Nếu C3 đã chứa đủ tên thuốc/cảnh báo, O11 không cần đọc A15.
+    O11 không đọc/dùng raw user input, hidden memory/trí nhớ ẩn, web/guideline/source ngoài, output O cũ, O11_OUTPUT cũ, rendered output cũ, A_STATE rộng, A_GATE để tạo cảnh báo, A_STATE_PATCH, C_STATE_PATCH, A13/A13_LABS/A13_IMAGING/A13_TREATMENT, A15 để tự phân tích, O5_OUTPUT, O6_OUTPUT, C1_STATE, C2_STATE, C4_STATE, C5_STATE, C6_STATE, C7_STATE, generic C_STATE hoặc Cx_STATE ngoài C3, O9_OUTPUT, O10_OUTPUT, O12_OUTPUT, O13_OUTPUT hoặc metadata RUN_MODE/REV làm nguồn nội dung.
+    Nếu cần cảnh báo thuốc mới hoặc sửa cảnh báo thuốc, phải quay lại C3 theo điều phối hệ thống; O11 không tự gọi hoặc tự chạy C3.
 
-O11.3. Nguồn dữ liệu không được dùng
-    O11 không được đọc/dùng:
-        1. Raw input để tự tạo cảnh báo thuốc.
-        2. Hidden memory.
-        3. O_OUTPUT cũ / O11_OUTPUT cũ / rendered output cũ.
-        4. A_STATE_PATCH làm nguồn chính.
-        5. C_STATE_PATCH làm nguồn chính.
-        6. A_STATE rộng để tự tạo cảnh báo thuốc.
-        7. A13_STATE để tự tạo hướng xử trí.
-        8. A13_TREATMENT để tự tạo đơn thuốc hoặc cảnh báo thuốc.
-        9. A15_STATE để tự phân tích tương tác nếu C3 chưa tạo.
-        10. A15_STATE để tự sửa đơn thuốc.
-        11. O5_OUTPUT làm nguồn gợi ý thuốc để tự kiểm.
-        12. O6_OUTPUT làm nguồn đơn thuốc để tự kiểm.
-        13. C1_STATE để tạo hỏi thêm/cần làm thêm.
-        14. C2_STATE để tạo cảnh báo lâm sàng.
-        15. C4_STATE để tạo hội chứng/tóm tắt.
-        16. C5_STATE để tạo chẩn đoán phân biệt.
-        17. C6_STATE trực tiếp để tra cứu hoặc thêm cảnh báo thuốc.
-        18. C7_STATE để lấy bệnh trình.
-        19. Cx_STATE ngoài C3.
-        20. O9_OUTPUT để tạo hỏi thêm/cần làm thêm.
-        21. O10_OUTPUT để tạo cảnh báo lâm sàng.
-        22. O12_OUTPUT để thêm kiến thức/nguồn.
-        23. O13_OUTPUT để thêm chẩn đoán phân biệt.
-        24. Web/guideline/source ngoài nếu không có contract.
-        25. Metadata kỹ thuật để render thành nội dung cảnh báo thuốc.
+O11_ALLOWED_ACTION
+    O11 RUN/render khi đồng thời: O11 nằm trong G_STATE.O_RENDER_LIST hoặc G_STATE.O_RENDER_ORDER, đã đến lượt theo G_STATE.O_RENDER_ORDER, C3_STATE tồn tại, C3_CHECK = PASS, C3_FINAL hoặc các field C3 tương ứng có nội dung/schema hợp lệ, output đúng schema O11 và chỉ dùng source allowlist.
+    O11 SKIP khi không nằm trong render plan hoặc chưa đến lượt render: không render O11, không tạo/cập nhật O11_OUTPUT, không in `O11_OUTPUT = SKIP` và không tự thêm O11 vào render plan.
+    O11 BLOCKED/NEEDS_FIX khi được yêu cầu render nhưng thiếu điều kiện RUN, thiếu C3_STATE, C3_CHECK != PASS hoặc = NEEDS_FIX, C3_FINAL/field C3 cần render thiếu hoặc sai schema, C3 chưa tạo nội dung, C3_STATE mâu thuẫn/không phù hợp format O11, dùng nguồn cấm, output sai schema, O11 cố tự tạo/bù cảnh báo thuốc/tương tác/kết luận an toàn/trạng thái O6 hoặc cố tự sửa đơn thuốc/A15/O6/C3.
+    Khi BLOCKED/NEEDS_FIX, O11 không render bản hoàn chỉnh, không tự tạo cảnh báo thuốc, không tự kiểm tương tác, không tự kết luận thuốc an toàn, không tự cho phép/chặn O6, không tự sửa thuốc/đơn thuốc/liều/đường dùng/số ngày/số lượng, không tự sửa/chạy C3, không tự chạy A/C/O, không tự sửa A/C/G/O, không fallback sang A15 rộng/A13/C1/C2/C4-C7/O output cũ/raw/hidden/web và chỉ ghi lý do chặn nếu hệ thống yêu cầu.
 
-O11.4. Vai trò của O11 trong hệ thống
-    O11 nằm trong lớp O.
-    O11 là module render/output.
-    O11 là renderer của C3.
-    O11 chỉ trình bày nội dung đã có từ C3_STATE hợp lệ.
-    O11 chỉ chạy khi nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-    O11 không tự chạy C.
-    O11 không sửa A_STATE/C_STATE/G_STATE.
-    O11 không tạo dữ liệu lâm sàng mới.
-    O11 không tự tạo cảnh báo thuốc.
-    O11 không tự kiểm tương tác thuốc.
-    O11 không tự kết luận an toàn thuốc.
-    O11 không tự cho phép O6.
-    O11 không tự chặn O6 nếu C3 chưa chốt.
-    O11 không tự sửa đơn thuốc.
-    O11 không tự thêm, bỏ hoặc đổi thuốc.
-    O11 không thay C3.
-    O11 không thay A15.
-    O11 không thay O5/O6/O10/O12/O13.
-    Nếu thiếu C3 hoặc C3 không hợp lệ, O11 BLOCKED/NEEDS_FIX.
-    Nếu nguồn sai/mâu thuẫn, O11 không tự sửa mà yêu cầu chạy lại module nguồn.
+O11_ALLOWED_WRITE
+    O11 chỉ được ghi/render output thường quy của chính O11 theo schema, O11_OUTPUT nếu framework vận hành dùng field này, O11_RENDER_CHECK nếu framework nội bộ dùng và lý do BLOCKED/NEEDS_FIX nếu framework yêu cầu.
+    O11_OUTPUT là rendered output, không phải state nguồn và không là source cho A/C/O khác.
+    O11_RENDER_CHECK là metadata kỹ thuật nếu còn dùng; không render O11_RENDER_CHECK vào output thường quy.
+    O11 không ghi/tạo/sửa O11_STATE, O11_REV, O11_FINAL, O11_ERROR field riêng nếu contract hiện tại không định nghĩa, G_STATE, O_RENDER_LIST, O_RENDER_ORDER, A_STATE, A15_STATE, C_STATE, C3_STATE, C1/C2/C4/C5/C6/C7, O5/O6, O module khác hoặc S/G.
+    Khi SKIP, O11 không tạo/cập nhật O11_OUTPUT.
 
-O11.5. Điều kiện RUN / SKIP / BLOCKED
-    RUN chỉ khi tất cả đúng:
-        1. O11 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER.
-        2. Đã đến lượt O11 theo O_RENDER_ORDER.
-        3. C3_STATE tồn tại.
-        4. C3_CHECK = PASS.
-        5. C3_FINAL hoặc các field tương ứng có nội dung/schema hợp lệ.
-    SKIP khi:
-        1. O11 không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        2. Không render SKIP output nếu hệ thống không yêu cầu.
-        3. Không tạo/cập nhật O11_OUTPUT khi SKIP.
-    BLOCKED/NEEDS_FIX khi:
-        1. Thiếu C3_STATE.
-        2. C3_CHECK != PASS.
-        3. C3_CHECK = NEEDS_FIX.
-        4. C3_FINAL thiếu hoặc sai schema.
-        5. C3_WARNINGS thiếu schema khi cần.
-        6. C3_INTERACTIONS thiếu schema khi cần.
-        7. C3_CONTRAINDICATIONS thiếu schema khi cần.
-        8. C3_DOSE_WARNINGS thiếu schema khi cần.
-        9. C3_BLOCKED_MEDICATIONS thiếu schema khi cần.
-        10. C3_RECHECK_REQUIRED thiếu schema khi cần.
-        11. C3_ALLOW_O6 thiếu schema khi cần.
-        12. C3_SAFETY_NOTES thiếu schema khi cần.
-        13. C3 chưa tạo nội dung nhưng O11 được yêu cầu.
-        14. C3_STATE mâu thuẫn hoặc không phù hợp format O11.
-    Khi BLOCKED/NEEDS_FIX:
-        1. Không tự tạo cảnh báo thuốc.
-        2. Không tự kiểm tương tác.
-        3. Không tự kết luận an toàn thuốc.
-        4. Không tự cho phép O6.
-        5. Không tự sửa C3.
-        6. Không tự chạy C3.
-        7. Không tự sửa A15/O6.
-        8. Chỉ ghi lý do chặn nếu hệ thống yêu cầu.
+O11_RENDER_SCHEMA
+    O11 render thành block riêng theo contract O hiện tại; O11 không bắt buộc code block `text` riêng và không thêm code block riêng nếu contract O11 không yêu cầu.
+    Heading literal chuẩn: `CẢNH BÁO THUỐC / AN TOÀN THUỐC`.
+    Thứ tự mục chuẩn, tối đa 9 mục:
+        1. `Cảnh báo thuốc:` — từ C3_WARNINGS hoặc phần tương ứng trong C3_FINAL.
+        2. `Tương tác thuốc:` — từ C3_INTERACTIONS.
+        3. `Chống chỉ định / thận trọng:` — từ C3_CONTRAINDICATIONS.
+        4. `Cảnh báo liều / đường dùng / thời gian dùng:` — từ C3_DOSE_WARNINGS.
+        5. `Thuốc bị chặn:` — từ C3_BLOCKED_MEDICATIONS.
+        6. `Cần kiểm tra lại:` — từ C3_RECHECK_REQUIRED và lý do tương ứng nếu C3 có.
+        7. `Trạng thái cho phép O6:` — từ C3_ALLOW_O6.
+        8. `Lưu ý an toàn thuốc:` — từ C3_SAFETY_NOTES hoặc phần tương ứng trong C3_FINAL.
+        9. `Ghi chú giới hạn:` — từ C3_FINAL nếu C3 có ghi giới hạn/lý do cảnh báo.
+    Nếu C3 không có nội dung cho một mục, O11 không tự thêm mục, không tự lấp mục trống, không bù từ A15/A13/C1/C2/C4-C7/O output và không tự sửa nội dung C3.
+    Nếu C3 ghi không có cảnh báo thuốc nổi bật, O11 render đúng câu C3 đã chốt, ví dụ `Không có cảnh báo thuốc nổi bật từ C3`, hoặc câu tương ứng từ C3; không tự thêm cảnh báo/tương tác/chống chỉ định/thận trọng/cảnh báo liều/O6 và không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C3 không chốt.
+    Khi xuất thật, không in placeholder, tên biến, nhãn kỹ thuật như C3_STATE/C3_FINAL/O11_OUTPUT, metadata, check/error/rev/state hoặc debug text.
 
-O11.6. Mapping dữ liệu nguồn sang output
-    O11 mapping:
-        1. Cảnh báo thuốc:
-            - Lấy từ C3_WARNINGS hoặc phần tương ứng trong C3_FINAL.
-        2. Tương tác thuốc:
-            - Lấy từ C3_INTERACTIONS nếu có.
-        3. Chống chỉ định / thận trọng:
-            - Lấy từ C3_CONTRAINDICATIONS nếu có.
-        4. Cảnh báo liều / đường dùng / thời gian dùng:
-            - Lấy từ C3_DOSE_WARNINGS nếu có.
-        5. Thuốc bị chặn:
-            - Lấy từ C3_BLOCKED_MEDICATIONS nếu có.
-        6. Cần kiểm tra lại:
-            - Lấy từ C3_RECHECK_REQUIRED và lý do tương ứng nếu C3 có.
-        7. Trạng thái cho phép O6:
-            - Lấy từ C3_ALLOW_O6 nếu có.
-            - Không tự quyết định O6 được phép hay không.
-        8. Lưu ý an toàn thuốc:
-            - Lấy từ C3_SAFETY_NOTES hoặc phần tương ứng trong C3_FINAL.
-        9. Ghi chú giới hạn:
-            - Lấy từ C3_FINAL nếu C3 có ghi giới hạn hoặc lý do cảnh báo.
-    Không tự thêm mục nếu C3 không có nội dung.
-    Không chuyển A15 thuốc thành cảnh báo nếu C3 chưa tạo.
-    Không chuyển O6 đơn thuốc thành cảnh báo nếu C3 chưa tạo.
-    Không chuyển C2 cảnh báo lâm sàng thành cảnh báo thuốc.
-    Không chuyển C6 tra cứu thành O11.
+O11_LOGIC_RULES
+    O11 render nguyên nội dung C3 đúng vị trí theo mapping O11.
+    Mỗi nội dung output phải traceable về field C3 allowed hoặc ngoại lệ A15 rất hẹp chỉ để đối chiếu tên thuốc khi C3 không chứa tên thuốc.
+    O11 không tự tạo cảnh báo thuốc, tự kiểm tương tác, tự kết luận thuốc an toàn, tự cho phép/chặn O6 nếu C3 chưa chốt, tự sửa thuốc/đơn thuốc, tự thêm/bỏ/đổi thuốc, tự đổi liều/đường dùng/thời gian dùng/số ngày/số lượng, tự biến cảnh báo thành y lệnh/hướng điều trị/chỉ định, tự chuyển A15/O6/C2/C6/O10/O12/O13 thành cảnh báo thuốc, tự dùng web/guideline để thêm cảnh báo hoặc tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C3 không chốt.
+    Nếu cần bổ sung cảnh báo thuốc mới, phải quay lại C3 theo điều phối hệ thống; O11 không tự chạy hoặc tự sửa C3.
 
-O11.7. Quy tắc render nội dung cảnh báo thuốc / an toàn thuốc
-    O11 render cảnh báo thuốc đúng theo C3_WARNINGS hoặc phần tương ứng trong C3_FINAL.
-    O11 render tương tác thuốc đúng theo C3_INTERACTIONS nếu C3 đã chốt.
-    O11 render chống chỉ định / thận trọng đúng theo C3_CONTRAINDICATIONS nếu C3 đã chốt.
-    O11 render cảnh báo liều / đường dùng / thời gian dùng đúng theo C3_DOSE_WARNINGS nếu C3 đã chốt.
-    O11 render thuốc bị chặn đúng theo C3_BLOCKED_MEDICATIONS nếu C3 đã chốt.
-    O11 render cần kiểm tra lại đúng theo C3_RECHECK_REQUIRED và lý do tương ứng nếu C3 có.
-    O11 render trạng thái cho phép O6 đúng theo C3_ALLOW_O6 nếu C3 đã chốt.
-    O11 render lưu ý an toàn thuốc đúng theo C3_SAFETY_NOTES hoặc phần tương ứng trong C3_FINAL.
-    O11 render ghi chú giới hạn đúng theo C3_FINAL nếu C3 có ghi giới hạn hoặc lý do cảnh báo.
-    Nếu C3 ghi không có cảnh báo thuốc nổi bật, O11 render đúng “Không có cảnh báo thuốc nổi bật từ C3” hoặc câu tương ứng từ C3.
-    O11 không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C3 không chốt câu đó.
-    O11 không tự tạo nội dung để lấp mục trống.
-    O11 không tự sửa nội dung C3 khi render.
+O11_SPECIAL_RULES
+    Boundary với C3: C3 tạo cảnh báo/an toàn thuốc; O11 chỉ render, không thay/sửa/tự chạy C3; nếu cần cảnh báo mới phải chạy lại C3.
+    Boundary với A15/O6: O11 không tạo/sửa thuốc, đơn thuốc, liều, đường dùng, số ngày, số lượng; không biến cảnh báo thành y lệnh; không sửa A15_STATE/O6; không dùng O6_OUTPUT làm source; không tự cho phép/chặn O6 nếu C3 chưa chốt.
+    Boundary với A: O11 không đọc A_STATE rộng để tự tạo cảnh báo, không dùng A13/A13_LABS/A13_IMAGING/A13_TREATMENT để tự tạo cảnh báo/hướng xử trí/chỉ định/đơn thuốc, không dùng A12 để tạo/sửa chẩn đoán; A15 chỉ là ngoại lệ hẹp trong O11_ALLOWED_SOURCE.
+    Boundary với C/O khác: O11 không đọc C2/O10 để render cảnh báo lâm sàng, C1/O9 để render hỏi thêm/khám thêm/xét nghiệm cần làm, C6/O12/web/guideline để tra cứu nguồn, C5/O13/A12 để render chẩn đoán phân biệt/chẩn đoán, C4 để bù cảnh báo thuốc nếu C3 không chốt, hoặc C7/bệnh trình/ra viện để tự tạo cảnh báo thuốc; O11 không thay hoặc tự gọi O9/O10/O12/O13.
+    Boundary với output cũ: O11 không đọc O output cũ, O11_OUTPUT cũ, rendered output cũ hoặc O5/O6/O9/O10/O12/O13 output.
+    Metadata: không render metadata kỹ thuật, O11_RENDER_CHECK, O11_ERROR nếu framework có, C3_CHECK, C3_ERROR trong output thường quy khi C3_CHECK PASS, STATE_VERSION, ROUND_ID, RUN_MODE, A/C/O REV, A_CHECK/C_CHECK/O_CHECK, CREATE/UPDATE/REUSE, A_MODULE_REV/C_MODULE_REV, output cũ hoặc debug text.
+    No-warning/no-data: nếu C3 ghi không có cảnh báo thuốc nổi bật, O11 render đúng câu C3 đã chốt; nếu C3 chưa tạo nội dung nhưng O11 được yêu cầu, O11 NEEDS_FIX/BLOCKED; không tự bù cảnh báo từ nguồn khác và không nhầm “không có cảnh báo thuốc” với “thiếu source”.
 
-O11.8. No-data / BLOCKED / NEEDS_FIX
-    O11 không render bản hoàn chỉnh nếu:
-        1. O11 không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        2. Thiếu C3_STATE.
-        3. C3_CHECK != PASS.
-        4. C3_FINAL thiếu hoặc sai schema.
-        5. C3_WARNINGS/C3_INTERACTIONS/C3_CONTRAINDICATIONS/C3_DOSE_WARNINGS/C3_BLOCKED_MEDICATIONS/C3_RECHECK_REQUIRED/C3_ALLOW_O6/C3_SAFETY_NOTES thiếu schema khi cần.
-        6. C3 chưa tạo nội dung nhưng O11 được yêu cầu.
-        7. C3_STATE mâu thuẫn hoặc không phù hợp format O11.
-    Khi BLOCKED:
-        1. Không tự tạo cảnh báo thuốc.
-        2. Không tự kiểm tương tác.
-        3. Không tự kết luận an toàn thuốc.
-        4. Không tự cho phép O6.
-        5. Không tự sửa C3.
-        6. Không tự chạy C3.
-        7. Không tự sửa A15/O6.
-        8. Không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C3 không chốt câu đó.
+O11_CHECK_PASS_IF
+    PASS khi tất cả điều kiện sau đúng:
+        1. O11 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt render.
+        2. C3_STATE tồn tại, C3_CHECK = PASS, C3_FINAL hoặc các field C3 tương ứng có nội dung/schema hợp lệ.
+        3. Chỉ dùng source allowlist; nếu dùng A15 thì chỉ dùng ngoại lệ hẹp để đối chiếu tên thuốc khi C3 không chứa tên thuốc.
+        4. Không dùng A_STATE rộng/A13/A15 rộng, C1/C2/C4/C5/C6/C7, O output cũ/rendered output cũ, raw input/hidden memory/web hoặc patch/delta để tự tạo/bù cảnh báo.
+        5. Output đúng heading/schema O11, các mục render đúng từ C3, không tự thêm mục/nội dung ngoài C3 và nếu C3 ghi không có cảnh báo thuốc thì render đúng câu C3 đã chốt.
+        6. Không tự tạo cảnh báo thuốc/tương tác/kết luận an toàn/O6, không sửa thuốc/đơn thuốc/A15/O6/C3 và không render metadata.
+        7. Nếu O11_RENDER_CHECK = PASS thì không có lỗi nội bộ còn mở.
 
-O11.9. Metadata không được render
-    O11 không được render:
-        1. STATE_VERSION.
-        2. ROUND_ID.
-        3. RUN_MODE.
-        4. Ax_REV.
-        5. Cx_REV.
-        6. Ox_REV nếu có.
-        7. UPDATED_AT.
-        8. A_CHECK / A_ERROR.
-        9. C_CHECK / C_ERROR.
-        10. O_CHECK / O_ERROR.
-        11. CREATE / UPDATE / REUSE.
-        12. A_MODULE_REV.
-        13. C_MODULE_REV.
-        14. O11_RENDER_CHECK.
-        15. G_STATE metadata kỹ thuật.
-        16. C3 technical metadata.
-    Nếu O11_RENDER_CHECK còn dùng:
-        1. O11_RENDER_CHECK chỉ là kiểm nội bộ.
-        2. Không render vào output thường quy.
-        3. Chỉ được hiển thị trong debug/report khi hệ thống yêu cầu.
+O11_NEEDS_FIX_IF
+    NEEDS_FIX/BLOCKED khi có bất kỳ điều kiện sau:
+        1. O11 được plan nhưng thiếu điều kiện RUN hoặc chưa đến lượt render.
+        2. Thiếu C3_STATE, C3_CHECK != PASS hoặc C3_CHECK = NEEDS_FIX.
+        3. C3_FINAL thiếu/sai schema hoặc C3_WARNINGS/C3_INTERACTIONS/C3_CONTRAINDICATIONS/C3_DOSE_WARNINGS/C3_BLOCKED_MEDICATIONS/C3_RECHECK_REQUIRED/C3_ALLOW_O6/C3_SAFETY_NOTES thiếu/sai schema khi cần.
+        4. C3 chưa tạo nội dung nhưng O11 được yêu cầu, C3_STATE mâu thuẫn/không phù hợp format O11 hoặc O11 cần tự bịa/tự kiểm/tự sửa mới render được.
+        5. Dùng source ngoài allowlist, dùng A15 ngoài ngoại lệ hẹp, dùng A/A13/A15 để tự tạo/bù cảnh báo, dùng C1/C2/C4/C5/C6/C7 để bù, dùng O output cũ/rendered output cũ, raw input/hidden memory/web hoặc patch/delta.
+        6. Output sai schema; O11 tự tạo/bù cảnh báo thuốc/tương tác/chống chỉ định/cảnh báo liều/O6; O11 sửa thuốc/đơn thuốc/A15/O6/C3; O11 biến cảnh báo thành y lệnh/hướng điều trị.
+        7. O11 lẫn cảnh báo lâm sàng/O10, tra cứu nguồn/O12, chẩn đoán phân biệt/O13, gợi ý thuốc/đơn thuốc/O5/O6 hoặc render metadata kỹ thuật.
 
-O11.10. Ranh giới O11
-    O11 không thay:
-        1. C3 — tạo cảnh báo thuốc / kiểm an toàn thuốc.
-        2. A15 — tạo thuốc / gợi ý thuốc / đơn thuốc draft.
-        3. O5 — gợi ý thuốc / nhóm thuốc.
-        4. O6 — đơn thuốc.
-        5. O10 — cảnh báo lâm sàng.
-        6. O12 — render C6 / tra cứu.
-        7. O13 — chẩn đoán phân biệt.
-        8. C1 — hỏi thêm / khám thêm / cần làm thêm.
-        9. C2 — cảnh báo lâm sàng.
-        10. C5 — chẩn đoán phân biệt.
-        11. C6 — tra cứu / kiến thức ngoài.
-    C3 tạo nội dung.
-    O11 chỉ render nội dung.
-    Nếu cần bổ sung cảnh báo thuốc mới, phải chạy lại C3.
-    O11 không tự chạy C3.
-    O11 không tự sửa C3.
-    O11 không tự lấy A15/O6/C2/C6 để bù nội dung.
-    O11 không tự cho phép hoặc chặn O6 ngoài kết luận C3 đã chốt.
-    O11 không biến thành O5/O6/O10/O12/O13.
+O11_ERROR_RULE
+    Khi NEEDS_FIX/BLOCKED, O11 không render bản hoàn chỉnh, không tự tạo cảnh báo thuốc, không tự kiểm tương tác, không tự kết luận thuốc an toàn, không tự cho phép/chặn O6, không tự sửa thuốc/đơn thuốc/A15/O6/C3, không tự chạy C3, không tự chạy A/C/O và không fallback sang A15 rộng/A13/C1/C2/C4-C7/O output cũ/raw/hidden/web.
+    Nếu framework cần lỗi/check nội bộ, ghi lý do chặn theo framework, có thể dùng C3_ERROR làm lý do chặn và không render lỗi/check metadata vào output thường quy.
+    Lý do chặn phải nêu nguyên nhân như: O11 không nằm render plan, thiếu C3_STATE, C3_CHECK không PASS, C3_FINAL/field C3 thiếu/sai schema, C3_STATE mâu thuẫn, dùng nguồn cấm, dùng A15 ngoài ngoại lệ hẹp, output sai schema hoặc lẫn O10/O12/O13/O5/O6/A15.
+    Khi SKIP, O11 không tạo hoặc in O11_OUTPUT dạng SKIP; khi PASS, check nội bộ nếu có không render vào output thường quy.
 
-O11.11. Chuẩn đầu ra O11
-    O11 render nội dung do C3 tạo.
-    Format chuẩn:
+O11_REUSE_RULE
+    O11 không có lifecycle CREATE/UPDATE/REUSE state riêng theo contract hiện tại.
+    Không reuse O output cũ, O11_OUTPUT cũ hoặc rendered output cũ; khi G plan O11, render từ current allowed sources của ROUND hiện tại.
+    Nếu hệ thống có REUSE nội bộ, REUSE chỉ là metadata điều phối, không làm nguồn nội dung, không render thường quy, không ghi “reuse O11”, không tạo O11_REV và không tạo O11_STATE.
 
-    CẢNH BÁO THUỐC / AN TOÀN THUỐC
-
-    1. Cảnh báo thuốc:
-       ...
-
-    2. Tương tác thuốc:
-       ...
-
-    3. Chống chỉ định / thận trọng:
-       ...
-
-    4. Cảnh báo liều / đường dùng / thời gian dùng:
-       ...
-
-    5. Thuốc bị chặn:
-       ...
-
-    6. Cần kiểm tra lại:
-       ...
-
-    7. Trạng thái cho phép O6:
-       ...
-
-    8. Lưu ý an toàn thuốc:
-       ...
-
-    9. Ghi chú giới hạn:
-       ...
-
-    Nếu C3 ghi không có cảnh báo thuốc nổi bật:
-        1. O11 render đúng “Không có cảnh báo thuốc nổi bật từ C3” hoặc câu tương ứng từ C3.
-        2. Không tự thêm cảnh báo.
-        3. Không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C3 không chốt câu đó.
-    Nguyên tắc:
-        1. Không tự thêm mục nếu C3 không có.
-        2. Không tự tạo nội dung để lấp mục trống.
-        3. Không tự sửa nội dung C3.
-        4. Không tự đổi thứ tự nhóm output nếu chuẩn đã khóa.
-        5. Không render metadata kỹ thuật.
-        6. Không render C3_ERROR vào output thường quy khi C3_CHECK = PASS.
-        7. Nếu C3_ERROR được dùng, chỉ dùng cho lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
-        8. Không biến O11 thành O5.
-        9. Không biến O11 thành O6.
-        10. Không biến O11 thành O10.
-        11. Không biến O11 thành O12.
-        12. Không biến O11 thành O13.
-
-O11.12. Ví dụ chuẩn hóa nếu cần
-    Ví dụ 1 — C3 có cảnh báo thuốc:
-        - C3_WARNINGS có cảnh báo.
-        - C3_INTERACTIONS có tương tác nếu C3 chốt.
-        - C3_CONTRAINDICATIONS có chống chỉ định/thận trọng nếu C3 chốt.
-        - C3_DOSE_WARNINGS có cảnh báo liều nếu C3 chốt.
-        - C3_BLOCKED_MEDICATIONS có thuốc bị chặn nếu có.
-        - C3_RECHECK_REQUIRED có trạng thái nếu có.
-        - C3_ALLOW_O6 có trạng thái nếu có.
-        - O11 render đúng các mục từ C3.
-    Ví dụ 2 — C3 ghi không có cảnh báo thuốc nổi bật:
-        - C3_FINAL = “Không có cảnh báo thuốc nổi bật từ C3.”
-        - O11 render đúng câu C3 đã chốt.
-        - O11 không tự thêm cảnh báo.
-    Ví dụ 3 — Thiếu C3_STATE:
-        - O11 BLOCKED: thiếu C3_STATE.
-    Ví dụ 4 — C3_CHECK lỗi:
-        - O11 BLOCKED: C3_CHECK != PASS hoặc C3_CHECK = NEEDS_FIX.
-    Ví dụ 5 — C3 yêu cầu kiểm lại:
-        - C3_RECHECK_REQUIRED = YES.
-        - O11 render trạng thái kiểm lại từ C3 nếu C3_CHECK hợp lệ và contract cho phép.
-        - O11 không tự sửa thuốc.
-        - O11 không tự cho phép O6.
-    Ví dụ 6 — Có thuốc bị chặn:
-        - C3_BLOCKED_MEDICATIONS có thuốc bị chặn.
-        - O11 render đúng danh sách bị chặn từ C3.
-        - O11 không tự loại thuốc khỏi đơn.
-    Ví dụ 7 — C3 thiếu schema:
-        - C3_WARNINGS/C3_INTERACTIONS/C3_CONTRAINDICATIONS/C3_DOSE_WARNINGS/C3_BLOCKED_MEDICATIONS/C3_RECHECK_REQUIRED/C3_ALLOW_O6/C3_SAFETY_NOTES thiếu schema khi cần.
-        - O11 BLOCKED/NEEDS_FIX.
-        - O11 không tự bù.
-    Ví dụ chỉ là mẫu chuẩn hóa:
-        - Không sao chép dữ kiện mẫu vào ca thật.
-        - Không render metadata kỹ thuật.
-        - Không dùng A15/O6/C2/C6 để tự tạo nội dung.
-        - Không biến O11 thành O5/O6/O10/O12/O13.
-
-O11.13. Checklist trước khi chốt O11
-    Trước khi chốt O11, kiểm tối thiểu:
-        1. Đã đọc đủ O11 theo READ LOCK.
-        2. O11 nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        3. Đã đến lượt O11 theo O_RENDER_ORDER.
-        4. C3_STATE tồn tại.
-        5. C3_CHECK = PASS.
-        6. C3_FINAL hoặc các field C3 tương ứng có nội dung/schema hợp lệ.
-        7. Nguồn đọc đúng O11.2.
-        8. Không đọc Cx_STATE ngoài C3.
-        9. Không dùng A_STATE rộng để tự tạo cảnh báo thuốc.
-        10. Không dùng A15 để tự kiểm thuốc hoặc tự sửa đơn.
-        11. Không dùng O5_OUTPUT làm nguồn gợi ý thuốc để tự kiểm.
-        12. Không dùng O6_OUTPUT làm nguồn đơn thuốc để tự kiểm.
-        13. Không dùng C6_STATE trực tiếp.
-        14. Không dùng raw input/hidden memory/output cũ/patch state.
-        15. Output đúng cảnh báo thuốc / an toàn thuốc.
-        16. Nếu C3 ghi không có cảnh báo thuốc nổi bật, O11 render đúng câu C3.
-        17. Không tự thêm mục nếu C3 không có.
-        18. Không tự tạo cảnh báo thuốc.
-        19. Không tự kiểm tương tác thuốc.
-        20. Không tự kết luận thuốc an toàn.
-        21. Không tự cho phép O6.
-        22. Không tự sửa đơn thuốc.
-        23. Không tự thêm/bỏ/đổi thuốc.
-        24. No-data/BLOCKED đúng.
-        25. Không sửa C3.
-        26. Không tự chạy C3.
-        27. Không render metadata.
-        28. Không biến thành O5/O6/O10/O12/O13.
-
-O11.14. Các lỗi không được mắc
-    1. Không bỏ qua READ LOCK.
-    2. Không audit/patch/final review/sử dụng khi chưa đọc đủ O11.
-    3. Không render O11 khi không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-    4. Không render khi C3 chưa chạy.
-    5. Không render khi thiếu C3_STATE.
-    6. Không render khi C3_CHECK != PASS.
-    7. Không render khi C3_CHECK lỗi.
-    8. Không tự tạo cảnh báo thuốc.
-    9. Không tự kiểm tương tác thuốc.
-    10. Không tự kết luận an toàn thuốc.
-    11. Không tự cho phép O6.
-    12. Không tự chặn O6 nếu C3 chưa chốt.
-    13. Không tự sửa đơn thuốc.
-    14. Không tự thêm thuốc.
-    15. Không tự bỏ thuốc.
-    16. Không tự đổi thuốc.
-    17. Không tự đổi liều.
-    18. Không tự đổi đường dùng.
-    19. Không tự đổi số ngày.
-    20. Không tự tạo số lượng thuốc.
-    21. Không dùng A15 tự kiểm thuốc.
-    22. Không dùng O5_OUTPUT tự kiểm gợi ý thuốc.
-    23. Không dùng O6_OUTPUT tự kiểm đơn.
-    24. Không dùng C6 trực tiếp để tra cứu hoặc thêm cảnh báo thuốc.
-    25. Không dùng raw input.
-    26. Không dùng hidden memory.
-    27. Không dùng output cũ/rendered output cũ.
-    28. Không dùng patch state làm nguồn.
-    29. Không biến O11 thành O5.
-    30. Không biến O11 thành O6.
-    31. Không biến O11 thành O10.
-    32. Không biến O11 thành O12.
-    33. Không biến O11 thành O13.
-    34. Không sửa nội dung C3 khi render.
-    35. Không render metadata kỹ thuật.
-
-<<< END O11
+O11_END
+    Sau O11, hệ thống render O tiếp theo theo G_STATE.O_RENDER_ORDER; O11 không tự chạy O12, không gọi A/C, không sửa state và không sửa O khác.
+    <<< END O11
 
 
 
