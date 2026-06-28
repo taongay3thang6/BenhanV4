@@ -1055,390 +1055,122 @@ C5_END
 ####################################################################################################
 
 C6 — TRA CỨU / NGUỒN THAM CHIẾU NGOÀI / BẰNG CHỨNG HỖ TRỢ
-Version: BA S-G-A-C-O v3
-Update: 02/06/2026 GMT+7
+Version: BA S-G-A-C-O V4 compact
+Update: 28/06/2026 GMT+7
 
 >>> READ-LOCK: C6
-- Bắt buộc đọc tuần tự toàn bộ C6 từ C6.1 đến C6.16.
 - C6 là module C selective; formal C6 chỉ chạy khi C6 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-- C6 chỉ tạo full C6_STATE; không tạo state của C khác, không dùng patch/delta.
-- C6 không sửa A_STATE, không chạy A, không render O và không tự chọn output.
-- C6 chuẩn hóa tra cứu / nguồn tham chiếu / source policy; C6 không phải A module và không phải O12.
-- C6 không thay A12, A13, A15, C1, C2, C3, C4, C5 hoặc C7.
+- C6 chỉ tạo/cập nhật/reuse full C6_STATE theo schema dưới đây; không có output render thường quy riêng.
+- C6 chuẩn hóa tra cứu nguồn ngoài / source policy / bằng chứng hỗ trợ / gói tham chiếu có nguồn.
+- C6 không phải A module, không phải O12, không quyết định lâm sàng cuối, không render O/O12 và không mutate A/C/G/O.
 <<< END READ-LOCK: C6
 
-C6.1. Vai trò và phạm vi
-    C6 chuẩn hóa việc tra cứu nguồn ngoài và tạo gói tham chiếu có nguồn, phạm vi áp dụng và giới hạn.
-    C6 không phải module quyết định lâm sàng cuối và không viết trực tiếp output cuối cho user trong workflow formal.
-    C6 không biến tài liệu tham khảo thành dữ kiện bệnh nhân.
-    C6 không tạo triệu chứng, dấu khám, xét nghiệm, chẩn đoán, hướng xử trí hoặc thuốc cho bệnh nhân.
-    C6 không viết hội chứng/vấn đề rời thay C4.
-    C6 không viết chẩn đoán phân biệt thay C5.
-    C6 không viết thuốc hoặc kiểm an toàn thuốc thay A15.
-    C6 không viết cảnh báo tác dụng phụ / theo dõi thuốc thay C3.
-    C6 không viết bệnh trình / tình trạng ra viện thay C7.
+C6_ROLE
+    C6 tạo gói tham chiếu có nguồn khi được chạy formal: mục đích, nguồn, kết quả chính, khả năng áp dụng, giới hạn và handoff metadata.
+    C6 không viết output cuối cho user trong workflow formal và không biến tài liệu tham khảo thành dữ kiện bệnh nhân.
+    C6 không tạo triệu chứng, dấu khám, xét nghiệm, kết quả cận lâm sàng, chẩn đoán, chẩn đoán phân biệt, hướng xử trí, chỉ định, thuốc/đơn thuốc, cảnh báo thuốc, bệnh trình hoặc tình trạng ra viện.
+    C6 không thay C3, C4, C5, C7, A12, A13, A14 hoặc A15.
 
-C6.2. Selective-run boundary
-    C6.2.1. Điều kiện formal duy nhất
-        Formal C6 chỉ chạy nếu C6 nằm trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-        G_STATE chỉ xác định C6 có nằm trong C_RUN_ORDER hay không.
-        CREATE / UPDATE / REUSE là lifecycle nội bộ của C6, không do G chọn.
-        Không có C_RUN_ORDER mặc định toàn hệ thống.
+C6_ALLOWED_SOURCE
+    Khi C6 nằm trong G_STATE.C_RUN_ORDER, C6 chỉ được đọc:
+        1. User input ROUND hiện tại nếu liên quan trực tiếp yêu cầu C6.
+        2. G_STATE metadata kỹ thuật, C_RUN_ORDER và RUN_MODE nếu cần; RUN_MODE không quyết định quyền chạy C6.
+        3. A_GATE hợp lệ, full current A_STATE sau A_GATE và A_MODULE_REV nếu C6 cần case context formal hoặc dựa vào A_STATE.
+        4. C6_STATE hiện hành mới nhất nếu đã có, chỉ để CREATE / UPDATE / REUSE.
+        5. File/module C6.
+        6. Source policy / danh mục nguồn tin cậy do user hoặc hệ thống khai báo rõ trong contract C6.
+        7. Web/guideline/source ngoài khi nhiệm vụ formal yêu cầu tra cứu và nguồn đó đúng source policy C6.
+    C6 không được đọc/dùng: O_OUTPUT, output đã render, C1_STATE, C2_STATE, C3_STATE, C4_STATE, C5_STATE, C7_STATE, hidden memory/trí nhớ ẩn, dữ liệu ngoài state hợp lệ, nguồn web/guideline ngoài danh mục C6, A_STATE patch/delta thay full current A_STATE khi cần case context, generic C state, generic mixed A/C state, nguồn yếu làm nguồn chính nếu có nguồn tin cậy hơn, hoặc nguồn chưa đọc trong C6_SOURCE_LIST.
+    C6 không đọc C khác chỉ vì state đó tồn tại; nếu tương lai cần dependency C khác thì phải mở task kiến trúc riêng, khai báo G plan riêng và audit lại.
 
-    C6.2.2. Khi C6 không nằm trong C_RUN_ORDER
-        Nếu C6 không nằm trong C_RUN_ORDER:
-            1. Không chạy C6.
-            2. Không tạo C6_STATE.
-            3. Không cập nhật C6_STATE.
-            4. Không in C6_STATE dạng SKIP.
-            5. Không tạo patch/delta.
-            6. Không tăng C6_REV.
-            7. Không cập nhật C6_SOURCE_A_REV.
+C6_ALLOWED_ACTION
+    Formal C6 chỉ chạy khi C6 nằm trong G_STATE.C_RUN_ORDER; user request, A_STATE đổi, thông tin có tính thời gian hoặc O12 cần nguồn chỉ là lý do để G cân nhắc plan C6, không tự kích hoạt C6.
+    C6 được CREATE, UPDATE, REUSE và CHECK full C6_STATE; được chuẩn hóa tra cứu/source policy; được tra cứu nguồn ngoài khi nhiệm vụ formal yêu cầu và source policy C6 cho phép.
+    C6 được ghi C6_SOURCE_A_REV theo A_MODULE_REV nguồn đã dùng, hoặc C6_SOURCE_A_REV = NONE / NOT_APPLICABLE nếu không dựa vào A_STATE.
+    PLAN_9 / PLAN_OUTSIDE_RECORD không chạy formal C6: không tạo formal C6_STATE, không tạo formal O12_OUTPUT, không mutate A/C/O state; C6 chỉ là source/reference rules tham khảo khi cần trả lời ngoài bệnh án.
+    C6 không tự thêm C6 vào C_RUN_ORDER, không tự chạy C module khác, không tự sửa G_STATE, không tạo C_MODULE_REV chung, không render O/O12, không tự gọi/chọn O12 hoặc O output, không sửa A_STATE/A12/A13/A14/A15/C1-C5/C7, không tạo clinical decision và không tự áp dụng guideline vào bệnh án.
+    Sau C6, chuyển module C kế tiếp theo G_STATE.C_RUN_ORDER; không giả định C5 hoặc C7 là module kế tiếp; nếu C6 là C cuối trong C_RUN_ORDER thì STEP C kết thúc và chuyển C_GATE theo contract chung.
 
-    C6.2.3. Các tín hiệu không tự kích hoạt C6
-        User request trực tiếp C6 không làm C6 tự chạy; trong workflow formal, G phải đưa C6 vào C_RUN_ORDER trước.
-        A_GATE PASS, A_STATE thay đổi, A_MODULE_REV thay đổi, thông tin có thể thay đổi theo thời gian hoặc output cần tham khảo nguồn không tự kích hoạt C6.
-        Nếu A_STATE đổi nhưng không có formal O12, không có yêu cầu C6 và plan hiện tại không chỉ định C6 thì C6 không chạy formal.
-        Khi user yêu cầu tra guideline, phác đồ, tiêu chuẩn, thông tin thuốc, bằng chứng hoặc citation, đó là lý do để G cân nhắc đưa C6 vào C_RUN_ORDER; không phải trigger tự chạy C6.
+C6_ALLOWED_WRITE
+    C6 chỉ được ghi full C6_STATE khi C6 được chạy formal.
+    C6 không được ghi patch/delta, A_STATE, A1-A15, C1-C5, C7, G_STATE, C_RUN_ORDER, O_OUTPUT, O12, O module khác, S/G, state/output module khác hoặc C_MODULE_REV chung.
+    C6 không tạo field ngoài schema hiện tại.
 
-    C6.2.4. Formal O12
-        G_CORE khai báo O12 requires C6.
-        Nếu formal O12 được render, G phải thêm C6 vào C_RUN_ORDER vì O12 requires C6.
-        Formal O12 render không làm C6 tự chạy.
-        Output khác cần C6 phải được khai báo dependency rõ trong G plan và audit riêng.
-
-C6.3. PLAN_9 / PLAN_OUTSIDE_RECORD boundary
-    PLAN_9 / PLAN_OUTSIDE_RECORD là bypass ngoài bệnh án; không chạy formal C6.
-    Trong PLAN_9:
-        1. Không chạy STEP A hoặc A_GATE.
-        2. FORMAL_C_RUN_ORDER = NONE.
-        3. Không tạo formal C6_STATE.
-        4. Không tạo formal O12_OUTPUT.
-        5. Không mutate A/C/O state.
-        6. C6 chỉ là source/reference rules tham khảo khi cần trả lời câu hỏi ngoài bệnh án.
-        7. O12 chỉ là response-style rules tham khảo khi cần.
-    C6 không biến câu hỏi outside-record thành bệnh án và không ghi câu trả lời outside-record vào bệnh án.
-    O12 requires C6 chỉ áp dụng cho formal O12 render, không áp dụng cho PLAN_9 bypass.
-
-C6.4. Source boundary trong workflow formal
-    C6.4.1. Nguồn nội bộ được đọc
-        Khi C6 nằm trong G_STATE.C_RUN_ORDER, C6 được đọc:
-            1. User input ROUND hiện tại nếu liên quan trực tiếp tới yêu cầu C6.
-            2. G_STATE metadata kỹ thuật và C_RUN_ORDER để xác nhận C6 được chạy formal.
-            3. A_GATE hợp lệ nếu C6 cần tham chiếu case bệnh án formal.
-            4. Full current A_STATE sau A_GATE nếu C6 cần bối cảnh ca bệnh formal.
-            5. A_MODULE_REV từ A_GATE / full current A_STATE nếu C6 dựa vào A_STATE.
-            6. C6_STATE hiện hành mới nhất nếu đã có.
-            7. File/module C6.
-            8. Danh mục nguồn tin cậy / source policy được user hoặc hệ thống khai báo rõ trong contract C6.
-            9. Nguồn web/guideline theo đúng source policy C6 nếu nhiệm vụ formal yêu cầu tra cứu.
-
-    C6.4.2. Nguồn không được đọc
-        C6 không được đọc:
-            1. O_OUTPUT hoặc output đã render.
-            2. C1_STATE.
-            3. C2_STATE.
-            4. C3_STATE.
-            5. C4_STATE.
-            6. C5_STATE.
-            7. C7_STATE.
-            8. Hidden memory / trí nhớ ẩn.
-            9. Dữ liệu ngoài state hợp lệ.
-            10. Nguồn web/guideline ngoài danh mục cho phép của C6.
-            11. A_STATE patch/delta thay full current A_STATE nếu C6 cần case context.
-            12. Generic state của layer C.
-            13. Generic state trộn layer A/C.
-        C6 không đọc C khác chỉ vì state đó tồn tại.
-        Nếu tương lai cần C6 đọc Cy, phải mở task kiến trúc riêng, khai báo dependency rõ trong G plan và audit dependency đó.
-
-C6.5. Source policy
-    C6.5.1. Nguồn ưu tiên
-        Nguồn ngoài chỉ dùng theo source policy C6 và khi nhiệm vụ formal yêu cầu tra cứu.
-        Ưu tiên:
-            1. Guideline chính thức.
-            2. Hướng dẫn Bộ Y tế / cơ quan chuyên môn.
-            3. Khuyến cáo hội chuyên ngành.
-            4. Cơ sở dữ liệu thuốc uy tín.
-            5. Tờ hướng dẫn sử dụng thuốc / thông tin thuốc chính thức.
-            6. Bài báo khoa học.
-            7. Tổng quan hệ thống / meta-analysis.
-            8. Sách hoặc tài liệu chuyên ngành phù hợp.
-            9. Nguồn chính thống khác.
-        Ưu tiên nguồn trực tiếp nhất với câu hỏi và nguồn mới nếu thông tin có thể thay đổi.
-        Nếu tra guideline, phác đồ, thuốc, chống chỉ định, tương tác hoặc quy định thì phải cố gắng ghi ngày, năm hoặc phiên bản.
-
-    C6.5.2. Nguồn hạn chế hoặc không dùng
-        Không dùng làm nguồn chính:
-            1. Nguồn không rõ xuất xứ.
-            2. Blog cá nhân không có chuyên môn rõ.
-            3. Forum không kiểm duyệt.
-            4. Nội dung quảng cáo hoặc nguồn thương mại không kiểm chứng.
-            5. Nguồn không có ngày/phiên bản khi thông tin cần cập nhật.
-            6. Nội dung trích lại nhưng không có nguồn gốc.
-            7. Nguồn mâu thuẫn nhưng không ghi rõ mâu thuẫn.
-            8. Hidden memory để thay nguồn.
-            9. Output đã render làm nguồn.
-        Nếu bắt buộc dùng nguồn yếu do không có nguồn khác, phải ghi rõ giới hạn; không trình bày nguồn yếu như guideline chính thức.
-
-    C6.5.3. Khi nguồn không đủ
-        Nếu không có nguồn đủ tin cậy:
-            1. Không bịa nguồn hoặc kết quả.
-            2. C6_SOURCE_LIST ghi rõ không tìm được nguồn đủ tin cậy/phù hợp.
-            3. C6_KEY_FINDINGS không được bịa.
-            4. C6_LIMITATIONS ghi rõ giới hạn.
-            5. C6_CHECK = NEEDS_FIX nếu yêu cầu bắt buộc phải có nguồn tin cậy.
-        Trong workflow formal, source policy được ghi vào formal C6_STATE khi C6 được chạy.
-        Trong PLAN_9, source policy chỉ là rules tham khảo; không tạo formal C6_STATE.
-
-C6.6. Quan hệ với A_STATE / A_MODULE_REV
-    Nếu formal C6 cần case context, C6 đọc A_GATE hợp lệ, full current A_STATE và A_MODULE_REV sau A_GATE.
-    C6 ghi A_MODULE_REV nguồn vào C6_SOURCE_A_REV.
-    Nếu formal C6_STATE không dựa vào A_STATE mà chỉ là source policy chung, C6_SOURCE_A_REV = NONE / NOT_APPLICABLE theo convention.
-    C6 không đọc A_STATE patch/delta, không sửa bất kỳ Ax_STATE nào và không tạo A_MODULE_REV.
-    Nếu A_MODULE_REV thay đổi nhưng C6 không được G plan thì C6 không chạy.
-    Nếu C6 được G plan và A_MODULE_REV thay đổi, C6 đọc full current A_STATE và xuất full C6_STATE theo lifecycle.
-    Nếu A_MODULE_REV đổi nhưng nội dung thật C6 không đổi, C6_REV giữ nguyên; C6_SOURCE_A_REV cập nhật theo A_MODULE_REV nguồn hiện hành nếu C6 dựa vào A_STATE.
-    C6 không chạy trước A12/A13/A15 và không trả ngược C6_STATE cho A12/A13/A15 trong cùng ROUND.
-    Nếu A module sau này cần nguồn tham khảo, phải xử lý bằng ROUND mới hoặc contract kiến trúc riêng; không sửa STEP A hiện hành.
-
-C6.7. Lifecycle CREATE / UPDATE / REUSE và revision
-    CREATE / UPDATE / REUSE là lifecycle nội bộ của C6, không phải RUN_MODE và không do G chọn.
-    Khi C6 được chạy formal, C6_STATE luôn là full state; không dùng patch/delta.
-
-    C6.7.1. CREATE
-        CREATE khi C6 được chạy formal và chưa có C6_STATE cũ.
-        CREATE đặt C6_REV = 1.
-        C6_SOURCE_A_REV ghi A_MODULE_REV nguồn đã dùng hoặc NONE / NOT_APPLICABLE nếu không dựa vào A_STATE.
-
-    C6.7.2. UPDATE
-        UPDATE khi C6 được chạy formal và nội dung thật C6 thay đổi do user input, full current A_STATE hoặc source policy/source lookup hợp lệ.
-        UPDATE nội dung thật đổi thì C6_REV tăng.
-        C6_STATE sau UPDATE phải là full state với STATE_VERSION hiện hành.
-
-    C6.7.3. REUSE
-        REUSE khi C6 được chạy formal nhưng nội dung thật C6 không đổi.
-        REUSE giữ nguyên C6_REV và vẫn in full C6_STATE với STATE_VERSION hiện hành.
-        Nếu A_MODULE_REV đổi nhưng nội dung thật C6 không đổi, C6_REV giữ nguyên và C6_SOURCE_A_REV cập nhật nếu C6 dựa vào A_STATE.
-        Không ghi “reuse C6” hoặc “giữ nguyên như trước” thay nội dung thật.
-
-    C6.7.4. Khi không chạy
-        Nếu C6 không được chạy formal trong ROUND thì không in C6_STATE, không tạo patch/delta, không tăng C6_REV và không cập nhật C6_SOURCE_A_REV.
-        C6 không tự tạo C_MODULE_REV chung.
-
-C6.8. RUN_MODE boundary
-    C6 không tự xác định RUN_MODE; nếu cần, C6 chỉ đọc RUN_MODE từ G_STATE.
-    RUN_MODE không phải CREATE / UPDATE / REUSE và không quyết định C6 có chạy formal hay không; quyền chạy chỉ do C_RUN_ORDER.
-    USER_ONLY / DEFAULT_COMPLETION / AUTO_SAMPLE chỉ là chế độ dữ liệu nếu có, không phải lifecycle.
-    PLAN_9 bypass không phải RUN_MODE và không lẫn với USER_ONLY / DEFAULT_COMPLETION / AUTO_SAMPLE.
-    Dù RUN_MODE nào, C6 vẫn phải ghi rõ mục đích, nguồn, kết quả chính, khả năng áp dụng và giới hạn; không tự áp dụng vào bệnh án.
-
-C6.9. Trường nội dung C6_STATE
+C6_STATE_SCHEMA
+    C6_STATE:
+        STATE_VERSION = ...
+        C6_REV = ...
+        C6_SOURCE_A_REV = ... / NONE / NOT_APPLICABLE
+        C6_SEARCH_PURPOSE = ...
+        C6_TARGET_MODULE = ...
+        C6_SOURCE_SCOPE = ...
+        C6_SEARCH_QUERY = ...
+        C6_SOURCE_LIST = ...
+        C6_KEY_FINDINGS = ...
+        C6_APPLICABILITY = ...
+        C6_LIMITATIONS = ...
+        C6_TO_MODULE = ...
+        C6_FINAL = ...
+        C6_CHECK = PASS / NEEDS_FIX
+        C6_ERROR = ...
+    Không thêm UPDATED_AT, C6_SOURCE_C_REV, C6_FOR_O*, C6_CITATIONS, C6_REFERENCE, C6_EVIDENCE_SUMMARY, C6_QUERY, C6_STATUS hoặc field ngoài schema hiện tại.
     C6_SEARCH_PURPOSE ghi mục đích tra cứu cụ thể.
-    C6_TARGET_MODULE ghi metadata module/output dự kiến nhận gói tham chiếu; không tự ép target module chạy.
+    C6_TARGET_MODULE ghi metadata module/output dự kiến nhận gói tham chiếu; không ép module chạy.
     C6_SOURCE_SCOPE ghi loại nguồn được phép, mức ưu tiên, phạm vi và giới hạn nguồn.
-    C6_SEARCH_QUERY ghi câu hỏi hoặc truy vấn tra cứu cụ thể; không phải kết quả.
+    C6_SEARCH_QUERY ghi câu hỏi/truy vấn tra cứu, không phải kết quả.
     C6_SOURCE_LIST ghi nguồn thực sự đã đọc, cơ quan/tác giả nếu có, ngày/phiên bản nếu có, loại nguồn và mức phù hợp; không liệt kê nguồn chưa đọc.
     C6_KEY_FINDINGS ghi điểm chính từ nguồn; không vượt quá nội dung nguồn.
     C6_APPLICABILITY ghi khả năng áp dụng và dữ kiện cần đối chiếu; không biến nguồn thành dữ kiện bệnh nhân.
     C6_LIMITATIONS ghi giới hạn nguồn, giới hạn áp dụng, thiếu dữ kiện, nguồn cũ hoặc mâu thuẫn nếu có.
-    C6_TO_MODULE là metadata/handoff; không phải output cuối, không sửa module nhận và không tự ép module nhận chạy.
+    C6_TO_MODULE là metadata/handoff; không phải output cuối, không sửa module nhận và không ép module nhận chạy.
     C6_FINAL tóm tắt đủ sáu nhóm: mục đích, nguồn, kết quả chính, khả năng áp dụng, giới hạn và gói chuyển module.
 
-C6.10. Quan hệ với O12
-    G_CORE khai báo O12 requires C6.
-    O12 requires C6 chỉ áp dụng cho formal O12 render.
-    Nếu formal O12 được render, G phải thêm C6 vào C_RUN_ORDER.
-    C6 không render O12, không tự gọi O12 và không tự chọn O12.
-    O12 không tự chạy C6 và chỉ đọc formal C6_STATE hợp lệ.
-    Nếu thiếu C6_STATE, C6_CHECK = NEEDS_FIX hoặc C6_STATE sai schema thì formal O12 BLOCKED/NEEDS_FIX theo contract O12.
-    Trong PLAN_9, O12 chỉ là response-style rules tham khảo; không cần formal C6_STATE hoặc O12_OUTPUT.
-    O12 không sửa C6_STATE.
+C6_LOGIC_RULES
+    C6 có thể tra cứu nguồn ngoài chỉ khi nhiệm vụ formal yêu cầu tra cứu, source policy C6 cho phép và nguồn thuộc danh mục tin cậy hoặc được ghi rõ giới hạn nếu yếu.
+    Nguồn ưu tiên: guideline chính thức; Bộ Y tế hoặc cơ quan chuyên môn; hội chuyên ngành; cơ sở dữ liệu thuốc uy tín; thông tin thuốc/tờ hướng dẫn thuốc chính thức; bài báo khoa học; systematic review/meta-analysis; sách/tài liệu chuyên ngành; nguồn chính thống khác.
+    Ưu tiên nguồn trực tiếp nhất với câu hỏi và nguồn mới nếu thông tin có thể thay đổi; với guideline/phác đồ/thuốc/chống chỉ định/tương tác/quy định phải cố gắng ghi ngày, năm hoặc phiên bản.
+    Không dùng nguồn yếu làm nguồn chính nếu có nguồn tin cậy hơn; nếu buộc dùng nguồn yếu thì ghi rõ giới hạn trong C6_LIMITATIONS và không trình bày như guideline chính thức.
+    Khi không có nguồn đủ tin cậy: không bịa nguồn, không bịa kết quả, C6_SOURCE_LIST ghi rõ không tìm được nguồn đủ tin cậy/phù hợp, C6_KEY_FINDINGS không bịa, C6_LIMITATIONS ghi giới hạn, và C6_CHECK = NEEDS_FIX nếu yêu cầu bắt buộc nguồn tin cậy.
+    C6 không biến evidence thành clinical decision, không tự áp dụng guideline vào bệnh án, không biến source thành dữ kiện bệnh nhân, không ghi kết quả ngoài nội dung nguồn, không liệt kê nguồn chưa đọc, không sửa module nhận trong C6_TO_MODULE, không ép module nhận chạy và không trả ngược C6_STATE cho A12/A13/A15 trong cùng ROUND.
 
-C6.11. Quan hệ với C khác / C-order boundary
-    C6 không đọc C1/C2/C3/C4/C5/C7 mặc định.
-    C6 không tạo state của C khác và không buộc C1/C2/C3/C4/C5/C7 chạy.
-    Sau C6, hệ thống chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-    Nếu C6 là C cuối cùng trong C_RUN_ORDER thì STEP C kết thúc.
-    C6 không giả định C5 hoặc C7 là module kế tiếp; không hard-code đường chuyển từ C6 sang C5 hoặc từ C6 sang C7.
-    C6_TARGET_MODULE / C6_TO_MODULE chỉ là metadata/handoff; không tự ép target module chạy.
-    Nếu tương lai cần dependency C6 với Cy theo bất kỳ chiều nào, phải khai báo rõ trong G plan và audit riêng.
-    Không có canonical/default C order.
+C6_SPECIAL_RULES
+    Boundary với A: C6 có thể đọc A_GATE/full current A_STATE/A_MODULE_REV nếu cần case context; C6 không sửa A_STATE, không chạy A, không tạo/sửa A12 chẩn đoán, A13 hướng điều trị/chỉ định cần làm, A14 kết quả cận lâm sàng hoặc A15 thuốc/liều/đơn thuốc; C6 không trả ngược C6_STATE cho A12/A13/A15 trong cùng ROUND.
+    Boundary với C: C6 không đọc C1-C5/C7 mặc định, không tạo state C khác, không buộc C khác chạy, không thay C3 cảnh báo thuốc, C4 hội chứng/triệu chứng/cận lâm sàng, C5 chẩn đoán phân biệt hoặc C7 bệnh trình/ra viện.
+    Boundary với O/O12: O12 requires C6 trong formal render; G phải plan C6 nếu O12 formal render cần C6; C6 không render O12, không tự gọi/chọn/sửa O12; O12 chỉ đọc formal C6_STATE hợp lệ và không sửa C6_STATE; C6 không đọc O_OUTPUT/output đã render.
+    PLAN_9 / PLAN_OUTSIDE_RECORD không tạo formal C6_STATE, không tạo formal O12_OUTPUT và không mutate A/C/O state; C6 chỉ là source/reference rules tham khảo cho câu trả lời ngoài bệnh án nếu cần.
+    Runtime order: không giả định C5 hoặc C7 là module kế tiếp, sau C6 chuyển theo G_STATE.C_RUN_ORDER và không có canonical/default C order.
+    Schema discipline: không thêm field chưa có contract, không đổi tên field và không dùng C6_SOURCE_C_REV, UPDATED_AT, C6_FOR_O*, C6_CITATIONS, C6_REFERENCE, C6_EVIDENCE_SUMMARY hoặc C6_QUERY.
 
-C6.12. Schema C6_STATE
-    C6.12.1. Schema chuẩn
-        C6_STATE:
-            STATE_VERSION = ...
-            C6_REV = ...
-            C6_SOURCE_A_REV = ... / NONE / NOT_APPLICABLE
-            C6_SEARCH_PURPOSE = ...
-            C6_TARGET_MODULE = ...
-            C6_SOURCE_SCOPE = ...
-            C6_SEARCH_QUERY = ...
-            C6_SOURCE_LIST = ...
-            C6_KEY_FINDINGS = ...
-            C6_APPLICABILITY = ...
-            C6_LIMITATIONS = ...
-            C6_TO_MODULE = ...
-            C6_FINAL = ...
-            C6_CHECK = PASS / NEEDS_FIX
-            C6_ERROR = ...
+C6_CHECK_PASS_IF
+    C6_CHECK = PASS chỉ khi: C6 nằm trong G_STATE.C_RUN_ORDER; C6_STATE là full state không patch/delta; có STATE_VERSION, C6_REV, C6_SOURCE_A_REV; C6_SOURCE_A_REV đúng A_MODULE_REV nguồn đã dùng hoặc NONE / NOT_APPLICABLE nếu không dựa vào A_STATE; đủ tất cả field nội dung schema; C6_FINAL đủ sáu nhóm; C6_SOURCE_LIST chỉ liệt kê nguồn đã đọc; C6_KEY_FINDINGS không vượt nội dung nguồn; C6_APPLICABILITY không biến nguồn thành dữ kiện bệnh nhân; C6_LIMITATIONS ghi giới hạn khi có; chỉ dùng nguồn allowlist/source policy; không đọc C khác mặc định; không dùng rendered output/O output/hidden memory/web guideline ngoài policy; không sửa A, không chạy A, không render O, không tự tạo clinical decision, không tự tạo C_MODULE_REV; và C6_ERROR = NONE.
 
-    C6.12.2. Nguyên tắc schema
-        C6_STATE là full state khi C6 được chạy formal; không có patch/delta.
-        C6_STATE phải dùng STATE_VERSION của ROUND hiện tại.
-        Nếu C6_CHECK = PASS thì C6_ERROR = NONE.
-        Nếu C6_CHECK = NEEDS_FIX thì C6_ERROR ghi rõ lỗi hoặc phần thiếu.
-        Không ghi “reuse C6” hoặc “giữ nguyên như trước” thay nội dung thật.
+C6_NEEDS_FIX_IF
+    C6_CHECK = NEEDS_FIX khi: C6 chạy ngoài C_RUN_ORDER; thiếu/sai field schema; dùng patch/delta thay full state; thiếu hoặc sai C6_SOURCE_A_REV; không dùng NONE / NOT_APPLICABLE khi không dựa A_STATE; C6_FINAL thiếu một trong sáu nhóm; C6_SOURCE_LIST liệt kê nguồn chưa đọc; nguồn yếu/không đủ tin cậy nhưng không ghi giới hạn; yêu cầu bắt buộc nguồn tin cậy nhưng không tìm được nguồn đủ tin cậy; bịa nguồn; bịa kết quả; C6_KEY_FINDINGS vượt nội dung nguồn; biến evidence thành clinical decision; biến source thành dữ kiện bệnh nhân; tự áp dụng guideline vào bệnh án; tự tạo chẩn đoán/hướng điều trị/chỉ định/thuốc/đơn thuốc/cảnh báo/bệnh trình; đọc C khác mặc định; dùng O output/rendered output/hidden memory/web guideline ngoài source policy; sửa A/C/G/O; tạo field ngoài schema; tạo C6_FOR_O*, C6_SOURCE_C_REV, UPDATED_AT, C6_CITATIONS, C6_REFERENCE, C6_EVIDENCE_SUMMARY hoặc C6_QUERY; C6_CHECK = PASS trong bất kỳ trường hợp sai trên; hoặc C6_CHECK = NEEDS_FIX nhưng C6_ERROR không rõ lỗi.
 
-    C6.12.3. Mẫu C6_STATE
-        C6_STATE:
-            STATE_VERSION = ...
-            C6_REV = ...
-            C6_SOURCE_A_REV = ... / NONE / NOT_APPLICABLE
-            C6_SEARCH_PURPOSE = ...
-            C6_TARGET_MODULE = ...
-            C6_SOURCE_SCOPE = ...
-            C6_SEARCH_QUERY = ...
-            C6_SOURCE_LIST = ...
-            C6_KEY_FINDINGS = ...
-            C6_APPLICABILITY = ...
-            C6_LIMITATIONS = ...
-            C6_TO_MODULE = ...
-            C6_FINAL:
-                Mục đích tra cứu: ...
-                Nguồn đã dùng: ...
-                Kết quả chính: ...
-                Khả năng áp dụng: ...
-                Giới hạn: ...
-                Gói chuyển module: ...
-            C6_CHECK = PASS / NEEDS_FIX
-            C6_ERROR = ...
+C6_ERROR_RULE
+    Nếu C6_CHECK = PASS thì C6_ERROR = NONE.
+    Nếu C6_CHECK = NEEDS_FIX thì C6_ERROR ghi rõ lỗi/phần thiếu, gồm lỗi nguồn đọc, source policy, thiếu nguồn tin cậy, schema, C6_FINAL, source rev, evidence vượt nguồn, boundary A/C/O hoặc tạo clinical decision.
+    Khi không có nguồn đủ tin cậy: không bịa nguồn/kết quả; C6_SOURCE_LIST ghi không tìm được nguồn đủ tin cậy/phù hợp; C6_KEY_FINDINGS không bịa; C6_LIMITATIONS ghi giới hạn; nếu yêu cầu bắt buộc nguồn tin cậy thì C6_CHECK = NEEDS_FIX.
 
-C6.13. Ví dụ hệ thống
-    C6.13.1. Không chạy formal khi không được plan
-        G_STATE.C_RUN_ORDER = NONE hoặc không chứa C6.
-        C6 không chạy, không in C6_STATE, không tạo patch/delta, không tăng C6_REV và không cập nhật C6_SOURCE_A_REV.
+C6_REUSE_RULE
+    CREATE khi C6 formal chạy và chưa có C6_STATE cũ: xuất full C6_STATE và đặt C6_REV = 1.
+    UPDATE khi C6 formal chạy và nội dung thật C6 thay đổi do user input, full current A_STATE, source policy hoặc source lookup hợp lệ: xuất full C6_STATE mới và tăng C6_REV.
+    REUSE khi C6 formal chạy nhưng nội dung thật không đổi: xuất full C6_STATE, giữ C6_REV, không ghi “reuse C6”, không ghi “giữ nguyên như trước” và không dùng patch/delta.
 
-    C6.13.2. CREATE full C6_STATE lần đầu
-        G_STATE.C_RUN_ORDER = {C6}.
-        C6_STATE:
-            STATE_VERSION = V1
-            C6_REV = 1
-            C6_SOURCE_A_REV = NOT_APPLICABLE
-            C6_SEARCH_PURPOSE = Tra guideline chính thức cho câu hỏi tham khảo chung.
-            C6_TARGET_MODULE = O12
-            C6_SOURCE_SCOPE = Guideline chính thức / cơ quan chuyên môn; ưu tiên bản cập nhật.
-            C6_SEARCH_QUERY = Guideline chính thức cập nhật cho vấn đề X.
-            C6_SOURCE_LIST = Nguồn đã đọc, có cơ quan và phiên bản nếu có.
-            C6_KEY_FINDINGS = Điểm chính từ nguồn.
-            C6_APPLICABILITY = Thông tin tham khảo chung; không tự áp dụng vào bệnh án.
-            C6_LIMITATIONS = Ghi rõ giới hạn nguồn và phạm vi áp dụng.
-            C6_TO_MODULE = O12 chỉ render formal nếu nằm trong formal O_RENDER_LIST/O_RENDER_ORDER.
-            C6_FINAL = Đủ sáu nhóm nội dung bắt buộc.
-            C6_CHECK = PASS
-            C6_ERROR = NONE
+C6_REV_RULE
+    CREATE đặt C6_REV = 1.
+    UPDATE tăng C6_REV khi nội dung thật đổi.
+    REUSE giữ C6_REV.
+    Nếu A_MODULE_REV đổi nhưng nội dung thật C6 không đổi thì giữ C6_REV và cập nhật C6_SOURCE_A_REV nếu C6 dựa vào A_STATE.
+    Nếu C6 không dựa vào A_STATE thì C6_SOURCE_A_REV = NONE / NOT_APPLICABLE.
+    Nếu C6 không chạy formal thì không in C6_STATE, không patch/delta, không tăng C6_REV và không cập nhật C6_SOURCE_A_REV.
+    C6 không tự tạo C_MODULE_REV chung.
 
-    C6.13.3. UPDATE full C6_STATE
-        G_STATE.C_RUN_ORDER = {C6}; C6 đã có state cũ với C6_REV = 1.
-        Full current A_STATE / A_MODULE_REV nguồn thay đổi và làm nội dung thật C6 thay đổi.
-        C6_STATE:
-            STATE_VERSION = V2
-            C6_REV = 2
-            C6_SOURCE_A_REV = A_MODULE_REV hiện hành đã dùng
-            C6_SEARCH_PURPOSE = Tra nguồn phù hợp bối cảnh ca bệnh cập nhật.
-            C6_TARGET_MODULE = Module/output do G plan.
-            C6_SOURCE_SCOPE = Nguồn chính thống phù hợp câu hỏi.
-            C6_SEARCH_QUERY = Query cập nhật theo bối cảnh hợp lệ.
-            C6_SOURCE_LIST = Danh sách nguồn thực sự đã đọc.
-            C6_KEY_FINDINGS = Điểm chính cập nhật từ nguồn.
-            C6_APPLICABILITY = Đối chiếu với full current A_STATE; không biến nguồn thành dữ kiện bệnh nhân.
-            C6_LIMITATIONS = Giới hạn nguồn và áp dụng.
-            C6_TO_MODULE = Metadata/handoff; không ép module nhận chạy.
-            C6_FINAL = Đủ sáu nhóm nội dung bắt buộc.
-            C6_CHECK = PASS
-            C6_ERROR = NONE
-
-    C6.13.4. REUSE full C6_STATE
-        G_STATE.C_RUN_ORDER = {C6}; C6 đã có state cũ với C6_REV = 2.
-        A_MODULE_REV nguồn có thể đổi nhưng nội dung thật C6 sau tính toán không đổi.
-        C6_STATE:
-            STATE_VERSION = V3
-            C6_REV = 2
-            C6_SOURCE_A_REV = A_MODULE_REV hiện hành đã dùng / NOT_APPLICABLE nếu không dựa vào A_STATE
-            C6_SEARCH_PURPOSE = Mục đích tra cứu đầy đủ như state hợp lệ hiện hành.
-            C6_TARGET_MODULE = Module/output do G plan.
-            C6_SOURCE_SCOPE = Phạm vi nguồn đầy đủ như state hợp lệ hiện hành.
-            C6_SEARCH_QUERY = Query đầy đủ như state hợp lệ hiện hành.
-            C6_SOURCE_LIST = Danh sách nguồn đầy đủ như state hợp lệ hiện hành.
-            C6_KEY_FINDINGS = Điểm chính đầy đủ như state hợp lệ hiện hành.
-            C6_APPLICABILITY = Khả năng áp dụng đầy đủ như state hợp lệ hiện hành.
-            C6_LIMITATIONS = Giới hạn đầy đủ như state hợp lệ hiện hành.
-            C6_TO_MODULE = Metadata/handoff đầy đủ; không ép module nhận chạy.
-            C6_FINAL = Đủ sáu nhóm nội dung bắt buộc.
-            C6_CHECK = PASS
-            C6_ERROR = NONE
-
-    C6.13.5. A thay đổi nhưng C6 không được plan
-        A_STATE / A_MODULE_REV đổi nhưng không có formal O12, không có yêu cầu C6 và plan hiện tại không chỉ định C6.
-        C6 không chạy, không in C6_STATE và không tăng C6_REV.
-
-    C6.13.6. Formal O12 render
-        Formal O_RENDER_LIST/O_RENDER_ORDER có O12.
-        G thêm C6 vào C_RUN_ORDER vì O12 requires C6.
-        C6 chạy formal, tạo/cập nhật/reuse full C6_STATE hợp lệ; O12 render từ formal C6_STATE.
-
-    C6.13.7. PLAN_9 outside-record
-        PLAN_9 chỉ tham khảo source/reference rules của C6 và response-style rules của O12 khi cần.
-        Không tạo formal C6_STATE, không tạo formal O12_OUTPUT và không mutate A/C/O state.
-
-    C6.13.8. Sau C6
-        Sau C6, chuyển C module kế tiếp theo C_RUN_ORDER; nếu C6 là C cuối thì STEP C kết thúc.
-
-    C6.13.9. Không có nguồn đủ tin cậy
-        Không bịa nguồn hoặc kết quả; ghi C6_LIMITATIONS và đặt C6_CHECK = NEEDS_FIX nếu yêu cầu bắt buộc phải có nguồn tin cậy.
-
-C6.14. Lỗi không được mắc
-    Không chạy C6 nếu C6 không nằm trong C_RUN_ORDER.
-    Không tạo hoặc cập nhật C6_STATE dạng SKIP.
-    Không dùng patch/delta làm C6_STATE chính thức.
-    Không thiếu STATE_VERSION, C6_REV hoặc C6_SOURCE_A_REV.
-    Không thiếu C6_SEARCH_PURPOSE, C6_TARGET_MODULE, C6_SOURCE_SCOPE, C6_SEARCH_QUERY, C6_SOURCE_LIST, C6_KEY_FINDINGS, C6_APPLICABILITY, C6_LIMITATIONS, C6_TO_MODULE, C6_FINAL, C6_CHECK hoặc C6_ERROR.
-    Không đọc state C khác mặc định, O_OUTPUT, output đã render, hidden memory hoặc dữ liệu ngoài state hợp lệ.
-    Không đọc A_STATE patch/delta thay full current A_STATE khi cần case context.
-    Không tự chẩn đoán, điều trị, kê thuốc, sửa A_STATE, tạo state C khác hoặc render O.
-    Không chạy trước A12/A13/A15 và không trả ngược C6_STATE cho A12/A13/A15 trong cùng ROUND.
-    Không biến PLAN_9 thành formal C6_STATE mutation.
-    Không tự tạo C_MODULE_REV chung và không thêm C7_REV.
-
-C6.15. Checklist C6_CHECK
-    Trước khi kết thúc C6, kiểm:
-        1. C6 nằm trong G_STATE.C_RUN_ORDER.
-        2. C6_STATE là full state, không patch/delta.
-        3. C6_STATE có STATE_VERSION.
-        4. C6_STATE có C6_REV.
-        5. C6_STATE có C6_SOURCE_A_REV đúng A_MODULE_REV nguồn hoặc NONE / NOT_APPLICABLE.
-        6. C6_STATE có C6_SEARCH_PURPOSE.
-        7. C6_STATE có C6_TARGET_MODULE.
-        8. C6_STATE có C6_SOURCE_SCOPE.
-        9. C6_STATE có C6_SEARCH_QUERY.
-        10. C6_STATE có C6_SOURCE_LIST.
-        11. C6_STATE có C6_KEY_FINDINGS.
-        12. C6_STATE có C6_APPLICABILITY.
-        13. C6_STATE có C6_LIMITATIONS.
-        14. C6_STATE có C6_TO_MODULE.
-        15. C6_STATE có C6_FINAL đủ sáu nhóm.
-        16. C6_STATE có C6_CHECK và C6_ERROR.
-        17. Nếu C6_CHECK = PASS thì C6_ERROR = NONE.
-        18. Nếu C6_CHECK = NEEDS_FIX thì C6_ERROR ghi rõ lỗi.
-        19. Không đọc state C khác mặc định.
-        20. Không sửa A_STATE, không chạy A và không render O.
-        21. Không tự tạo C_MODULE_REV chung.
-
-C6.16. Kết thúc module
+C6_END
     C6 hoàn tất khi đã tạo/cập nhật/reuse full C6_STATE hợp lệ và đã kiểm C6_CHECK.
-    Sau C6, chuyển sang C module kế tiếp theo đúng thứ tự trong G_STATE.C_RUN_ORDER của ROUND hiện tại.
-    Nếu C6 là C cuối cùng trong C_RUN_ORDER thì STEP C kết thúc.
-    Không chuyển thẳng sang O trước khi STEP C và C_GATE hoàn tất theo contract hệ thống.
+    Sau C6, chuyển module C kế tiếp theo G_STATE.C_RUN_ORDER; không giả định C7 luôn chạy kế tiếp.
+    Nếu C6 là C cuối trong C_RUN_ORDER thì STEP C kết thúc và chuyển C_GATE theo contract chung.
+    Không chuyển thẳng sang O trước khi STEP C và C_GATE hoàn tất; không tự gọi C7/O12 và không sửa A/C/G/O.
 
 <<< END C6
 
