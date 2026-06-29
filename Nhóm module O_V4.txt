@@ -937,7 +937,7 @@ O8_ALLOWED_SOURCE
         3. Full current A_STATE mới nhất: chỉ truy cập field được mapping rõ trong O8_ALLOWED_SOURCE; không dùng A_STATE ngoài mapping O8 để tự dựng bệnh án.
         4. A1_STATE.A1_REASON: nguồn duy nhất cho mục 1 “Lý do vào viện”.
         5. A2_STATE.A2_FINAL: nguồn duy nhất cho mục 2 “Tiền sử”.
-        6. A3_STATE.A3_FINAL: nguồn duy nhất cho mục 3 “Bệnh sử”.
+        6. A3_STATE.A3_FOR_O8: nguồn duy nhất cho mục 3 “Bệnh sử”.
         7. A4_STATE.A4_FOR_O8: nguồn duy nhất cho dòng khám thứ 1; bắt buộc dùng đúng A4_FOR_O8 nếu field tồn tại/hợp lệ.
         8. A5_STATE.A5_FOR_O8: nguồn duy nhất cho dòng khám thứ 2; bắt buộc dùng đúng A5_FOR_O8.
         9. A6_STATE.A6_FOR_O8: nguồn duy nhất cho dòng khám thứ 3; bắt buộc dùng đúng A6_FOR_O8.
@@ -968,7 +968,7 @@ O8_RENDER_SCHEMA
     Schema nội dung bên trong code block text:
         1. Lý do vào viện: [A1_STATE.A1_REASON].
         2. Tiền sử: [A2_STATE.A2_FINAL].
-        3. Bệnh sử: [A3_STATE.A3_FINAL].
+        3. Bệnh sử: [A3_STATE.A3_FOR_O8].
         4. Khám:
         - [A4_STATE.A4_FOR_O8]
         - [A5_STATE.A5_FOR_O8]
@@ -994,7 +994,7 @@ O8_LOGIC_RULES
 O8_SPECIAL_RULES
     No-data guard: O8 phải kiểm mọi source A dùng cho output thường quy; nếu source chứa no-data leak thì không render bệnh án hoàn chỉnh, O8_RENDER_CHECK = NEEDS_FIX hoặc BLOCKED theo framework và nêu module/field A cần sửa.
     No-data leak gồm các kiểu “Không có dữ kiện”, “Chưa rõ”, “Chưa khai thác”, “Không ghi nhận”, “NONE”, “NULL”, “NOT_APPLICABLE”, placeholder, output rỗng, đoạn báo thiếu dữ kiện, giá trị chưa đủ để copy vào bệnh án chi tiết thường quy và các biến thể viết hoa/thường/dấu câu của các cụm no-data trong source A hiện hành.
-    No-data guard áp dụng tối thiểu cho A1_REASON, A2_FINAL, A3_FINAL, A4_FOR_O8, A5_FOR_O8, A6_FOR_O8, A7_FOR_O8, A8_FOR_O8, A9_FOR_O8, A10_FOR_O8 nếu A10_HAS_DATA = YES, A11_FOR_O8 nếu A11_HAS_EXTRA = YES, A11_OTHER_SYSTEMS và A13_TREATMENT.
+    No-data guard áp dụng tối thiểu cho A1_REASON, A2_FINAL, A3_FOR_O8, A4_FOR_O8, A5_FOR_O8, A6_FOR_O8, A7_FOR_O8, A8_FOR_O8, A9_FOR_O8, A10_FOR_O8 nếu A10_HAS_DATA = YES, A11_FOR_O8 nếu A11_HAS_EXTRA = YES, A11_OTHER_SYSTEMS và A13_TREATMENT.
     Boundary với A12: O8 không đọc A12 để thêm chẩn đoán, không thêm mục Chẩn đoán và không tạo/sửa chẩn đoán.
     Boundary với A13: O8 chỉ dùng A13_TREATMENT cho mục Điều trị; không dùng A13_LABS, A13_IMAGING và không biến xét nghiệm/hình ảnh cần làm thành điều trị.
     Boundary với A14: O8 không đọc A14 nếu contract hiện tại không mapping A14; không dùng A14 để thêm cận lâm sàng, hành chính hoặc ra viện.
@@ -1007,12 +1007,12 @@ O8_CHECK_PASS_IF
     PASS khi: O8 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER; đã đến lượt render; A_GATE PASS; full current A_STATE hợp lệ; chỉ dùng source allowlist; không dùng raw input để tạo dữ kiện mới; không dùng hidden memory, web/guideline, C hoặc O output cũ/rendered output cũ; đủ A1/A2/A3/A4-A9/A13; A10 xử lý đúng theo A10_HAS_DATA; A11 xử lý đúng theo A11_HAS_EXTRA; A11_OTHER_SYSTEMS có mặt và được render dòng cuối mục Khám; no-data guard PASS; mục Khám dùng đúng FOR_O8 và đúng thứ tự; không fallback bản khám rộng hơn/chi tiết hơn; output đúng một code block text và đúng 5 mục lớn; không thêm mục thứ 6 hoặc Hành chính/Chẩn đoán/Cận lâm sàng/Thuốc/Đơn thuốc/chữ ký; không render metadata; nếu O8_RENDER_CHECK = PASS thì không có lỗi nội bộ còn mở.
 
 O8_NEEDS_FIX_IF
-    NEEDS_FIX/BLOCKED khi: O8 được plan nhưng thiếu điều kiện RUN; O8 chưa đến lượt render; A_GATE chưa PASS; full current A_STATE không hợp lệ; thiếu A1_REASON, A2_FINAL, A3_FINAL, A4_FOR_O8, A5_FOR_O8, A6_FOR_O8, A7_FOR_O8, A8_FOR_O8, A9_FOR_O8 hoặc A13_TREATMENT; A10_HAS_DATA = YES nhưng thiếu/sai A10_FOR_O8; A11_HAS_EXTRA = YES nhưng thiếu/sai A11_FOR_O8; thiếu/sai A11_OTHER_SYSTEMS; source có no-data leak, mâu thuẫn hoặc sai format; dùng source ngoài allowlist; dùng C_STATE/Cx_STATE/C1-C7; dùng O output cũ/rendered output cũ; dùng raw input/hidden memory/web để bù dữ kiện; dùng A12 để thêm chẩn đoán; dùng A13_LABS/A13_IMAGING làm điều trị hoặc cận lâm sàng; dùng A14 ngoài mapping; dùng A15 thuốc/đơn thuốc; dùng bản khám rộng hơn/chi tiết hơn để bù FOR_O8; output sai schema 1 code block/5 mục; mục Khám có nhãn cơ quan; tự bịa/tự sửa/tự chạy A/C/O; render metadata kỹ thuật.
+    NEEDS_FIX/BLOCKED khi: O8 được plan nhưng thiếu điều kiện RUN; O8 chưa đến lượt render; A_GATE chưa PASS; full current A_STATE không hợp lệ; thiếu A1_REASON, A2_FINAL, A3_FOR_O8, A4_FOR_O8, A5_FOR_O8, A6_FOR_O8, A7_FOR_O8, A8_FOR_O8, A9_FOR_O8 hoặc A13_TREATMENT; A10_HAS_DATA = YES nhưng thiếu/sai A10_FOR_O8; A11_HAS_EXTRA = YES nhưng thiếu/sai A11_FOR_O8; thiếu/sai A11_OTHER_SYSTEMS; source có no-data leak, mâu thuẫn hoặc sai format; dùng source ngoài allowlist; dùng C_STATE/Cx_STATE/C1-C7; dùng O output cũ/rendered output cũ; dùng raw input/hidden memory/web để bù dữ kiện; dùng A12 để thêm chẩn đoán; dùng A13_LABS/A13_IMAGING làm điều trị hoặc cận lâm sàng; dùng A14 ngoài mapping; dùng A15 thuốc/đơn thuốc; dùng bản khám rộng hơn/chi tiết hơn để bù FOR_O8; output sai schema 1 code block/5 mục; mục Khám có nhãn cơ quan; tự bịa/tự sửa/tự chạy A/C/O; render metadata kỹ thuật.
 
 O8_ERROR_RULE
     Khi NEEDS_FIX/BLOCKED, O8 không render bệnh án hoàn chỉnh, không tự bịa dữ kiện, không tự sửa A, không tự chạy A, không tự chạy C, không tự gọi O khác và không fallback sang output cũ/raw input/hidden memory/web/C/bản khám rộng hơn.
     Nếu framework cần lỗi/check nội bộ, ghi lý do theo framework nhưng không render lỗi/check metadata vào bệnh án.
-    Lỗi phải nêu module/field cần sửa, ví dụ A1_REASON, A2_FINAL, A3_FINAL, A4_FOR_O8, A5_FOR_O8, A6_FOR_O8, A7_FOR_O8, A8_FOR_O8, A9_FOR_O8, A10_FOR_O8, A11_FOR_O8, A11_OTHER_SYSTEMS, A13_TREATMENT, G render plan hoặc A_GATE/full current A_STATE.
+    Lỗi phải nêu module/field cần sửa, ví dụ A1_REASON, A2_FINAL, A3_FOR_O8, A4_FOR_O8, A5_FOR_O8, A6_FOR_O8, A7_FOR_O8, A8_FOR_O8, A9_FOR_O8, A10_FOR_O8, A11_FOR_O8, A11_OTHER_SYSTEMS, A13_TREATMENT, G render plan hoặc A_GATE/full current A_STATE.
 
 O8_REUSE_RULE
     O8 không có lifecycle CREATE/UPDATE/REUSE state riêng theo contract hiện tại.
