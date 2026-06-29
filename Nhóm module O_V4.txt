@@ -1360,485 +1360,101 @@ O11_END
 ####################################################################################################
 
 O12 — TRA CỨU / NGOÀI BỆNH ÁN
-Version: BA S-G-A-C-O v3
-Update: 10/06/2026 GMT+7 — O12 renderer-only / C6 source contract
-
-O12.0. READ LOCK
-    Khi audit, patch, final review hoặc sử dụng/render O12, AI/Codex phải đọc toàn bộ O12 từ O12.0 đến marker “<<< END O12”.
-    Không được chỉ đọc một đoạn giữa module.
-    Không được chỉ đọc nguồn dữ liệu.
-    Không được chỉ đọc ví dụ, checklist hoặc lỗi cấm.
-    Không được chỉ đọc diff.
-    Không được patch một mục nếu chưa kiểm tra ảnh hưởng tới các mục còn lại trong O12.
-    Nếu chưa đọc đủ toàn bộ O12 thì phải kết luận UNCLEAR, không được PASS/FAIL.
-    O12 chỉ render khi nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER và đã đến lượt theo G_STATE.O_RENDER_ORDER.
-
-O12.1. Mục tiêu
-    O12 là module render TRA CỨU / NGOÀI BỆNH ÁN thuộc lớp O.
-    O12 là renderer của C6.
-    O12 render nội dung do C6 tạo.
-    O12 chỉ render nội dung tra cứu / trả lời ngoài bệnh án từ C6_STATE hợp lệ.
-    O12 phục vụ trình bày câu hỏi/chủ đề tra cứu, kết quả trả lời, ý chính, nguồn tham khảo, phạm vi áp dụng, giới hạn dữ liệu và ghi chú không đưa trực tiếp vào bệnh án nếu C6 đã chốt.
-    O12 không tự tra cứu.
-    O12 không tự trả lời ngoài C6.
-    O12 không tự thêm web/guideline/source ngoài C6.
-    O12 không tự biến nội dung tra cứu thành nội dung bệnh án.
-    O12 không tự tạo chẩn đoán.
-    O12 không tự tạo chẩn đoán phân biệt.
-    O12 không tự tạo hướng xử trí.
-    O12 không tự tạo xét nghiệm/cận lâm sàng.
-    O12 không tự tạo thuốc/đơn thuốc.
-    O12 không tự chạy C6.
-    O12 không sửa C6_STATE.
-    O12 không thay C6.
-    O12 không thay A12/A13/O9/O10/O11/O13.
-    O12 không sửa A_STATE/C_STATE/G_STATE.
-    O12 không tự gọi A/C/O khác.
-    O12 không render metadata kỹ thuật vào output thường quy.
-    O12 chỉ hoạt động khi có trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER.
-
-O12.2. Nguồn dữ liệu được phép
-    O12 chỉ được đọc nguồn mapping rõ.
-
-    1. G_STATE của ROUND hiện tại:
-        - Chỉ để kiểm O12 nằm trong O_RENDER_LIST/O_RENDER_ORDER và thứ tự render.
-        - Không dùng G_STATE làm nguồn tạo nội dung tra cứu.
-        - Không render metadata G_STATE vào output.
-
-    2. C_GATE mới nhất nếu hệ thống có:
-        - Chỉ để kiểm C6_STATE hợp lệ.
-        - Không render C_GATE vào output.
-        - Không dùng C_GATE để tạo nội dung tra cứu.
-
-    3. C6_STATE:
-        - Nguồn chính và bắt buộc của O12.
-
-    4. C6_CHECK:
-        - Phải = PASS để O12 render thường quy.
-        - Nếu C6_CHECK != PASS thì O12 BLOCKED/NEEDS_FIX.
-
-    5. C6_FINAL:
-        - Nguồn tổng hợp cuối nếu C6 đã chốt.
-
-    6. C6_QUERY hoặc C6_TOPIC nếu có:
-        - Nguồn cho mục “Câu hỏi / chủ đề tra cứu”.
-
-    7. C6_ANSWER hoặc C6_CONTENT nếu có:
-        - Nguồn cho mục “Kết quả tra cứu / trả lời”.
-
-    8. C6_KEY_POINTS nếu có:
-        - Nguồn cho mục “Ý chính”.
-
-    9. C6_SOURCES / C6_REFERENCES / C6_CITATIONS nếu có:
-        - Nguồn cho mục “Nguồn tham khảo”.
-
-    10. C6_LIMITATIONS nếu có:
-        - Nguồn cho mục “Giới hạn dữ liệu / lưu ý độ tin cậy”.
-
-    11. C6_APPLICABILITY nếu có:
-        - Nguồn cho mục “Phạm vi áp dụng”.
-
-    12. C6_NOT_FOR_MEDICAL_RECORD hoặc field tương đương nếu có:
-        - Nguồn cho mục “Ghi chú không đưa trực tiếp vào bệnh án”.
-
-    13. C6_ERROR:
-        - Chỉ dùng để ghi lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
-        - Không render vào output thường quy khi C6_CHECK = PASS.
-
-    Không viết nguồn đọc kiểu “các Cx_STATE cần thiết” lấp lửng.
-    Không đọc Cx_STATE rộng.
-    Không đọc A_STATE để tự tạo nội dung O12.
-    Nếu cần bối cảnh, bối cảnh đó phải nằm trong C6_STATE/C6_FINAL.
-    Không giữ A_STATE/A_MODULE_REV/A_GATE_STATUS/RUN_MODE như nguồn render O12.
-    Không render C6_TO_MODULE nếu đó là metadata/handoff kỹ thuật.
-
-O12.3. Nguồn dữ liệu không được dùng
-    O12 không được đọc/dùng:
-        - Raw input để tự tra cứu hoặc tự trả lời.
-        - Hidden memory.
-        - O_OUTPUT cũ / O12_OUTPUT cũ / rendered output cũ.
-        - A_STATE_PATCH làm nguồn chính.
-        - C_STATE_PATCH làm nguồn chính.
-        - A_STATE để tự tạo nội dung O12.
-        - A12_STATE để tự tạo chẩn đoán.
-        - A13_STATE để tự tạo hướng xử trí.
-        - A13_LABS để tự tạo xét nghiệm/cận lâm sàng cần làm.
-        - A13_IMAGING để tự tạo chẩn đoán hình ảnh/thăm dò cần làm.
-        - A13_TREATMENT để tự tạo điều trị.
-        - A15_STATE để tự tạo thuốc hoặc đơn thuốc.
-        - C1_STATE để tạo hỏi thêm/khám thêm/cần làm thêm.
-        - C2_STATE để tạo cảnh báo lâm sàng.
-        - C3_STATE để tạo cảnh báo thuốc.
-        - C4_STATE để tạo hội chứng/tóm tắt.
-        - C5_STATE để tạo chẩn đoán phân biệt.
-        - C7_STATE để tạo bệnh trình.
-        - Cx_STATE ngoài C6.
-        - O9_OUTPUT để tạo hỏi thêm/cần làm thêm.
-        - O10_OUTPUT để tạo cảnh báo lâm sàng.
-        - O11_OUTPUT để tạo cảnh báo thuốc.
-        - O13_OUTPUT để thêm chẩn đoán phân biệt.
-        - Web/guideline/source ngoài nếu C6 chưa cung cấp hoặc hệ thống không có contract.
-        - Metadata kỹ thuật để render thành nội dung tra cứu.
-
-O12.4. Vai trò của O12 trong hệ thống
-    O12 nằm trong lớp O.
-    O12 là module render/output.
-    O12 là renderer của C6.
-    O12 chỉ trình bày nội dung đã có từ C6_STATE hợp lệ.
-    O12 chỉ chạy khi nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-    O12 không tự chạy C.
-    O12 không sửa A_STATE/C_STATE/G_STATE.
-    O12 không tạo dữ liệu lâm sàng mới.
-    O12 không tự tra cứu.
-    O12 không tự trả lời ngoài C6.
-    O12 không tự thêm nguồn.
-    O12 không tự dùng web/guideline/source ngoài.
-    O12 không biến tra cứu thành nội dung bệnh án.
-    O12 không thay C6.
-    O12 không thay A12/A13.
-    O12 không thay O9/O10/O11/O13.
-    Nếu thiếu C6 hoặc C6 không hợp lệ, O12 BLOCKED/NEEDS_FIX.
-    Nếu nguồn sai/mâu thuẫn, O12 không tự sửa mà yêu cầu chạy lại module nguồn.
-
-O12.5. Điều kiện RUN / SKIP / BLOCKED
-    O12 RUN chỉ khi tất cả điều kiện sau đúng:
-        1. O12 nằm trong G_STATE.O_RENDER_LIST/O_RENDER_ORDER của ROUND hiện tại.
-        2. Đã đến lượt O12 theo O_RENDER_ORDER.
-        3. C6_STATE tồn tại.
-        4. C6_CHECK = PASS.
-        5. C6_FINAL hoặc các field tương ứng có nội dung/schema hợp lệ.
-
-    O12 SKIP khi:
-        1. O12 không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        2. Không render SKIP output nếu hệ thống không yêu cầu.
-        3. Không tạo O12_OUTPUT khi SKIP.
-        4. Không cập nhật O12_OUTPUT khi SKIP.
-        5. Không tự thêm O12 vào O_RENDER_LIST/O_RENDER_ORDER.
-
-    O12 BLOCKED/NEEDS_FIX khi:
-        1. Thiếu C6_STATE.
-        2. C6_CHECK != PASS.
-        3. C6_CHECK = NEEDS_FIX.
-        4. C6_FINAL thiếu hoặc sai schema.
-        5. C6_QUERY/C6_TOPIC thiếu schema khi cần.
-        6. C6_ANSWER/C6_CONTENT thiếu schema khi cần.
-        7. C6_KEY_POINTS thiếu schema khi cần.
-        8. C6_SOURCES/C6_REFERENCES/C6_CITATIONS thiếu schema khi cần.
-        9. C6_LIMITATIONS thiếu schema khi cần.
-        10. C6_APPLICABILITY thiếu schema khi cần.
-        11. C6_NOT_FOR_MEDICAL_RECORD thiếu schema khi cần.
-        12. C6 chưa tạo nội dung nhưng O12 được yêu cầu.
-        13. C6_STATE mâu thuẫn hoặc không phù hợp format O12.
-
-    Khi BLOCKED/NEEDS_FIX:
-        - Không tự tra cứu.
-        - Không tự trả lời kiến thức ngoài C6.
-        - Không tự thêm nguồn.
-        - Không tự sửa C6.
-        - Không tự chạy C6.
-        - Không tự biến nội dung tra cứu thành bệnh án.
-        - Chỉ ghi lý do chặn nếu hệ thống yêu cầu.
-
-O12.6. Mapping dữ liệu nguồn sang output
-    O12 mapping từ C6 sang output:
-        1. Câu hỏi / chủ đề tra cứu:
-            - Lấy từ C6_QUERY hoặc C6_TOPIC hoặc phần tương ứng trong C6_FINAL.
-
-        2. Kết quả tra cứu / trả lời:
-            - Lấy từ C6_ANSWER hoặc C6_CONTENT hoặc phần tương ứng trong C6_FINAL.
-
-        3. Ý chính:
-            - Lấy từ C6_KEY_POINTS nếu có.
-
-        4. Nguồn tham khảo:
-            - Lấy từ C6_SOURCES / C6_REFERENCES / C6_CITATIONS nếu có.
-            - O12 không tự thêm nguồn ngoài C6.
-
-        5. Phạm vi áp dụng:
-            - Lấy từ C6_APPLICABILITY nếu có.
-
-        6. Giới hạn dữ liệu / lưu ý độ tin cậy:
-            - Lấy từ C6_LIMITATIONS hoặc phần tương ứng trong C6_FINAL nếu có.
-
-        7. Ghi chú không đưa trực tiếp vào bệnh án:
-            - Lấy từ C6_NOT_FOR_MEDICAL_RECORD hoặc field tương đương nếu có.
-            - Không tự quyết định ngoài C6.
-
-    Không tự thêm mục nếu C6 không có nội dung.
-    Không chuyển C6 tra cứu thành chẩn đoán A12.
-    Không chuyển C6 tra cứu thành hướng xử trí A13.
-    Không chuyển C6 tra cứu thành O9/O10/O11/O13.
-    Không dùng O12 để sửa lỗi của C6.
-
-O12.7. Quy tắc render từng nhóm nội dung
-    Câu hỏi / chủ đề tra cứu:
-        - Render đúng nội dung C6_QUERY hoặc C6_TOPIC hoặc phần tương ứng trong C6_FINAL.
-        - Không tự suy diễn câu hỏi từ raw input, bệnh án hoặc output cũ.
-
-    Kết quả tra cứu / trả lời:
-        - Render đúng nội dung C6_ANSWER hoặc C6_CONTENT hoặc phần tương ứng trong C6_FINAL.
-        - Không tự trả lời kiến thức ngoài C6.
-        - Không tự thêm guideline, y văn, khuyến cáo hoặc nguồn mới ngoài C6.
-
-    Ý chính:
-        - Render C6_KEY_POINTS nếu C6 cung cấp.
-        - Không tự tóm tắt thêm nếu C6 không cung cấp ý chính hoặc C6_FINAL không có phần tương ứng.
-
-    Nguồn tham khảo:
-        - Render C6_SOURCES / C6_REFERENCES / C6_CITATIONS nếu C6 cung cấp.
-        - Không tự thêm citation/source/reference ngoài C6.
-        - Không tự tra cứu web để bổ sung nguồn.
-
-    Phạm vi áp dụng:
-        - Render C6_APPLICABILITY nếu C6 cung cấp.
-        - Không tự áp dụng vào ca bệnh như chẩn đoán, chỉ định, xét nghiệm, điều trị hoặc đơn thuốc.
-
-    Giới hạn dữ liệu / lưu ý độ tin cậy:
-        - Render C6_LIMITATIONS hoặc phần tương ứng trong C6_FINAL nếu C6 cung cấp.
-        - Không tự tạo cảnh báo lâm sàng thay O10/C2 hoặc cảnh báo thuốc thay O11/C3.
-
-    Ghi chú không đưa trực tiếp vào bệnh án:
-        - Render C6_NOT_FOR_MEDICAL_RECORD hoặc field tương đương nếu C6 cung cấp.
-        - Không tự quyết định ngoài C6 rằng nội dung nào được hoặc không được đưa vào bệnh án.
-
-    Khi C6 ghi không có nội dung tra cứu:
-        - O12 render đúng câu C6 đã chốt, ví dụ “Không có nội dung tra cứu từ C6.”.
-        - O12 không tự thêm nội dung.
-        - O12 không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C6 không chốt câu đó.
-
-O12.8. No-data / BLOCKED / NEEDS_FIX
-    O12 không render bản hoàn chỉnh nếu:
-        - O12 không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        - Thiếu C6_STATE.
-        - C6_CHECK != PASS.
-        - C6_FINAL thiếu hoặc sai schema.
-        - C6_QUERY/C6_TOPIC thiếu schema khi cần.
-        - C6_ANSWER/C6_CONTENT thiếu schema khi cần.
-        - C6_KEY_POINTS thiếu schema khi cần.
-        - C6_SOURCES/C6_REFERENCES/C6_CITATIONS thiếu schema khi cần.
-        - C6_LIMITATIONS thiếu schema khi cần.
-        - C6_APPLICABILITY thiếu schema khi cần.
-        - C6_NOT_FOR_MEDICAL_RECORD thiếu schema khi cần.
-        - C6 chưa tạo nội dung nhưng O12 được yêu cầu.
-        - C6_STATE mâu thuẫn hoặc không phù hợp format O12.
-
-    Khi BLOCKED:
-        - Không tự tra cứu.
-        - Không tự trả lời.
-        - Không tự thêm nguồn.
-        - Không tự sửa C6.
-        - Không tự chạy C6.
-        - Không tự biến tra cứu thành bệnh án.
-        - Không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C6 không chốt câu đó.
-        - Nếu hệ thống yêu cầu lý do chặn, chỉ dùng C6_ERROR hoặc lý do schema/dependency trực tiếp; không render lý do này vào output thường quy khi C6_CHECK = PASS.
-
-O12.9. Metadata không được render
-    O12 không được render metadata kỹ thuật vào output thường quy, bao gồm:
-        - STATE_VERSION.
-        - ROUND_ID.
-        - RUN_MODE.
-        - Ax_REV.
-        - Cx_REV.
-        - Ox_REV nếu có.
-        - UPDATED_AT.
-        - A_CHECK / A_ERROR.
-        - C_CHECK / C_ERROR.
-        - O_CHECK / O_ERROR.
-        - CREATE / UPDATE / REUSE.
-        - A_MODULE_REV.
-        - C_MODULE_REV.
-        - O12_RENDER_CHECK.
-        - G_STATE metadata kỹ thuật.
-        - C6 technical metadata.
-        - C6_TO_MODULE nếu là metadata/handoff kỹ thuật.
-
-    Nếu O12_RENDER_CHECK còn dùng:
-        - O12_RENDER_CHECK chỉ là kiểm nội bộ.
-        - Không render vào output thường quy.
-        - Chỉ được hiển thị trong debug/report khi hệ thống yêu cầu.
-
-O12.10. Ranh giới O12
-    O12 không thay:
-        - C6 — tạo nội dung tra cứu / ngoài bệnh án.
-        - A12 — chẩn đoán.
-        - A13 — hướng xử trí / điều trị.
-        - O9 — hỏi thêm / khám thêm / cần làm thêm.
-        - O10 — cảnh báo lâm sàng.
-        - O11 — cảnh báo thuốc.
-        - O13 — chẩn đoán phân biệt.
-        - C1 — hỏi thêm / khám thêm / cần làm thêm.
-        - C2 — cảnh báo lâm sàng.
-        - C3 — cảnh báo thuốc.
-        - C5 — chẩn đoán phân biệt.
-        - C7 — bệnh trình.
-
-    C6 tạo nội dung.
-    O12 chỉ render nội dung.
-    Nếu cần bổ sung nội dung tra cứu mới, phải chạy lại C6.
-    O12 không tự chạy C6.
-    O12 không tự sửa C6.
-    O12 không tự lấy A12/A13/C1/C2/C3/C5/C7 để bù nội dung.
-    O12 không tự dùng web/guideline/source ngoài nếu C6 chưa cung cấp.
-    O12 không biến thành O9/O10/O11/O13/A12/A13.
-
-O12.11. Chuẩn đầu ra O12
-    O12 render nội dung do C6 tạo.
-
-    Format chuẩn:
-
-    TRA CỨU / NGOÀI BỆNH ÁN
-
-    1. Câu hỏi / chủ đề tra cứu:
-       ...
-
-    2. Kết quả tra cứu / trả lời:
-       ...
-
-    3. Ý chính:
-       ...
-
-    4. Nguồn tham khảo:
-       ...
-
-    5. Phạm vi áp dụng:
-       ...
-
-    6. Giới hạn dữ liệu / lưu ý độ tin cậy:
-       ...
-
-    7. Ghi chú không đưa trực tiếp vào bệnh án:
-       ...
-
-    Nếu C6 ghi không có nội dung tra cứu:
-        - O12 render đúng “Không có nội dung tra cứu từ C6” hoặc câu tương ứng từ C6.
-        - Không tự thêm nội dung.
-        - Không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C6 không chốt câu đó.
-
-    Nguyên tắc:
-        - Không tự thêm mục nếu C6 không có.
-        - Không tự tạo nội dung để lấp mục trống.
-        - Không tự sửa nội dung C6.
-        - Không tự đổi thứ tự nhóm output nếu chuẩn đã khóa.
-        - Không render metadata kỹ thuật.
-        - Không render C6_ERROR vào output thường quy khi C6_CHECK = PASS.
-        - Nếu C6_ERROR được dùng, chỉ dùng cho lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
-        - Không biến O12 thành nội dung bệnh án thường quy.
-        - Không biến O12 thành O9/O10/O11/O13/A12/A13.
-
-O12.12. Ví dụ chuẩn hóa nếu cần
-    Ví dụ 1 — C6 có nội dung tra cứu:
-        - C6_QUERY/C6_TOPIC có câu hỏi/chủ đề.
-        - C6_ANSWER/C6_CONTENT có trả lời.
-        - C6_SOURCES/C6_REFERENCES/C6_CITATIONS có nguồn nếu C6 chốt.
-        - O12 render đúng các mục từ C6.
-        - O12 không tự thêm nguồn ngoài C6.
-
-    Ví dụ 2 — C6 có ý chính và giới hạn:
-        - C6_KEY_POINTS có ý chính.
-        - C6_LIMITATIONS có giới hạn dữ liệu.
-        - O12 render đúng, không tự thêm ý chính hoặc giới hạn mới.
-
-    Ví dụ 3 — C6 ghi không có nội dung tra cứu:
-        - C6_FINAL = “Không có nội dung tra cứu từ C6.”
-        - O12 render đúng câu C6 đã chốt.
-        - O12 không tự thêm nội dung.
-
-    Ví dụ 4 — Thiếu C6_STATE:
-        - O12 BLOCKED: thiếu C6_STATE.
-        - O12 không tự chạy C6.
-        - O12 không tự bù nội dung.
-
-    Ví dụ 5 — C6_CHECK lỗi:
-        - O12 BLOCKED: C6_CHECK != PASS hoặc C6_CHECK = NEEDS_FIX.
-        - O12 không render output thường quy.
-        - O12 chỉ ghi lý do chặn nếu hệ thống yêu cầu.
-
-    Ví dụ 6 — C6 thiếu schema:
-        - C6_QUERY/C6_TOPIC, C6_ANSWER/C6_CONTENT, C6_KEY_POINTS, C6_SOURCES/C6_REFERENCES/C6_CITATIONS, C6_LIMITATIONS, C6_APPLICABILITY hoặc C6_NOT_FOR_MEDICAL_RECORD thiếu schema khi cần.
-        - O12 BLOCKED/NEEDS_FIX.
-        - O12 không tự bù.
-
-    Quy tắc chung cho ví dụ:
-        - Không sao chép dữ kiện mẫu vào ca thật.
-        - Không render metadata kỹ thuật.
-        - Không dùng A12/A13/C1/C2/C3/C5/C7 để tự tạo nội dung.
-        - Không tự thêm nguồn ngoài C6.
-        - Không biến O12 thành nội dung bệnh án thường quy.
-
-O12.13. Checklist trước khi chốt O12
-    Trước khi chốt O12, phải kiểm:
-        1. Đã đọc đủ O12 theo READ LOCK.
-        2. O12 nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        3. Đã đến lượt O12 theo O_RENDER_ORDER.
-        4. C6_STATE tồn tại.
-        5. C6_CHECK = PASS.
-        6. C6_FINAL hoặc các field C6 tương ứng có nội dung/schema hợp lệ.
-        7. Nguồn đọc đúng O12.2.
-        8. Không đọc Cx_STATE ngoài C6.
-        9. Không dùng A_STATE/A12/A13 để tự tạo nội dung.
-        10. Không dùng A13_LABS/A13_IMAGING/A13_TREATMENT để thay C6.
-        11. Không dùng C1/C2/C3/C5/C7 sai phạm vi.
-        12. Không dùng raw input/hidden memory/output cũ/patch state.
-        13. Không tự dùng web/guideline/source ngoài C6.
-        14. Output đúng TRA CỨU / NGOÀI BỆNH ÁN.
-        15. Output đủ 7 mục chuẩn nếu C6 có dữ liệu tương ứng.
-        16. Nếu C6 ghi không có nội dung tra cứu, O12 render đúng câu C6.
-        17. Không tự thêm mục nếu C6 không có.
-        18. Không tự tra cứu.
-        19. Không tự trả lời ngoài C6.
-        20. Không tự thêm nguồn.
-        21. Không tự biến tra cứu thành bệnh án thường quy.
-        22. Không tự tạo chẩn đoán.
-        23. Không tự tạo chẩn đoán phân biệt.
-        24. Không tự tạo hướng xử trí.
-        25. Không tự tạo xét nghiệm/cận lâm sàng.
-        26. Không tự tạo thuốc/đơn thuốc.
-        27. No-data/BLOCKED đúng.
-        28. Không sửa C6.
-        29. Không tự chạy C6.
-        30. Không render metadata.
-        31. Không biến thành O9/O10/O11/O13/A12/A13.
-
-O12.14. Các lỗi không được mắc
-    Không bỏ qua READ LOCK.
-    Không audit/patch/final review/sử dụng khi chưa đọc đủ O12.
-    Không render O12 khi không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-    Không render khi C6 chưa chạy.
-    Không render khi thiếu C6_STATE.
-    Không render khi C6_CHECK != PASS.
-    Không render khi C6_CHECK lỗi.
-    Không tự tra cứu.
-    Không tự trả lời ngoài C6.
-    Không tự thêm nguồn.
-    Không tự dùng web/guideline/source ngoài.
-    Không tự biến tra cứu thành bệnh án.
-    Không tự tạo chẩn đoán.
-    Không tự tạo chẩn đoán phân biệt.
-    Không tự tạo hướng xử trí.
-    Không tự tạo xét nghiệm/cận lâm sàng.
-    Không tự tạo thuốc.
-    Không tự tạo đơn thuốc.
-    Không dùng A12 thay C6.
-    Không dùng A13 thay C6.
-    Không dùng A13_LABS/A13_IMAGING để tự tạo cận lâm sàng.
-    Không dùng A13_TREATMENT để tự tạo điều trị.
-    Không dùng C1 sai phạm vi.
-    Không dùng C2 sai phạm vi.
-    Không dùng C3 sai phạm vi.
-    Không dùng C5 sai phạm vi.
-    Không dùng C7 sai phạm vi.
-    Không dùng raw input.
-    Không dùng hidden memory.
-    Không dùng output cũ/rendered output cũ.
-    Không dùng patch state làm nguồn.
-    Không biến O12 thành O9.
-    Không biến O12 thành O10.
-    Không biến O12 thành O11.
-    Không biến O12 thành O13.
-    Không biến O12 thành A12.
-    Không biến O12 thành A13.
-    Không sửa nội dung C6 khi render.
-    Không render metadata kỹ thuật.
+Version: BA S-G-A-C-O V4
+Update: 29/06/2026 GMT+7 — compact allowlist / O12 renderer-only / C6 source contract
+
+O12_READ_LOCK
+    Khi audit, patch, final review hoặc render O12, phải đọc nguyên section từ header `O12 — TRA CỨU / NGOÀI BỆNH ÁN` đến marker `<<< END O12`.
+    Không patch/render dựa trên diff, trích đoạn, ví dụ hoặc checklist rời.
+    Không sửa O11, O13 hoặc section khác khi chỉ xử lý O12.
+
+O12_ROLE
+    O12 là strict renderer/output module thuộc lớp O cho block `TRA CỨU / NGOÀI BỆNH ÁN`.
+    O12 là renderer-only của C6 và chỉ trình bày nội dung tra cứu/ngoài bệnh án đã được C6 tạo/chốt trong `C6_STATE` hoặc `C6_FINAL`.
+    O12 không tự xác định, tự tạo hoặc tự bổ sung câu hỏi/chủ đề tra cứu, kết quả trả lời, ý chính, nguồn tham khảo, citation, guideline, bằng chứng, mức độ tin cậy, phạm vi áp dụng, giới hạn dữ liệu, ghi chú không đưa vào bệnh án hoặc nội dung bệnh án chính thức.
+    O12 không tự tạo cảnh báo lâm sàng, cảnh báo thuốc, chẩn đoán, chẩn đoán phân biệt, hướng xử trí, chỉ định, xét nghiệm/cận lâm sàng, thuốc hoặc đơn thuốc.
+    O12 không phải C6, O9, O10, O11, O13, A12, A13 hoặc A15.
+    O12 output nếu có là rendered output, không phải state nguồn, không là source cho A/C/O khác, không được reuse như nguồn lâm sàng và không biến nội dung ngoài bệnh án thành dữ kiện bệnh án chính thức.
+
+O12_ALLOWED_SOURCE
+    O12 chỉ được đọc:
+        1. `G_STATE` ROUND hiện tại: chỉ kiểm O12 nằm trong `O_RENDER_LIST`/`O_RENDER_ORDER`, đã đến lượt render và metadata điều phối cần thiết; không dùng làm nguồn nội dung, không render metadata G_STATE.
+        2. `C_GATE` mới nhất nếu hệ thống có: chỉ kiểm `C6_STATE` hợp lệ; không render `C_GATE`, không dùng để tạo nội dung tra cứu.
+        3. `C6_STATE`: nguồn chính và bắt buộc của O12.
+        4. `C6_CHECK`: phải = `PASS` để render thường quy; nếu không PASS thì O12 `BLOCKED/NEEDS_FIX`.
+        5. `C6_FINAL`: nguồn tổng hợp cuối nếu C6 đã chốt.
+        6. `C6_QUERY` hoặc `C6_TOPIC` nếu có: nguồn cho mục `1. Câu hỏi / chủ đề tra cứu:`.
+        7. `C6_ANSWER` hoặc `C6_CONTENT` nếu có: nguồn cho mục `2. Kết quả tra cứu / trả lời:`.
+        8. `C6_KEY_POINTS` nếu có: nguồn cho mục `3. Ý chính:`.
+        9. `C6_SOURCES` hoặc `C6_REFERENCES` hoặc `C6_CITATIONS` nếu có: nguồn cho mục `4. Nguồn tham khảo:`.
+        10. `C6_APPLICABILITY` nếu có: nguồn cho mục `5. Phạm vi áp dụng:`.
+        11. `C6_LIMITATIONS` nếu có: nguồn cho mục `6. Giới hạn dữ liệu / lưu ý độ tin cậy:`.
+        12. `C6_NOT_FOR_MEDICAL_RECORD` hoặc field tương đương nếu có: nguồn cho mục `7. Ghi chú không đưa trực tiếp vào bệnh án:`.
+        13. `C6_ERROR`: chỉ dùng làm lý do chặn khi `BLOCKED/NEEDS_FIX` nếu hệ thống yêu cầu; không render trong output thường quy khi `C6_CHECK = PASS`.
+    Nếu cần bối cảnh, bối cảnh phải nằm trong `C6_STATE` hoặc `C6_FINAL`; O12 không đọc A_STATE trực tiếp để tự tạo nội dung.
+    O12 không đọc/dùng raw user input, hidden memory, web/guideline/source ngoài trực tiếp, output O cũ, `O12_OUTPUT` cũ, rendered output cũ, A_STATE rộng, A_GATE để tạo nội dung, A_STATE_PATCH, C_STATE_PATCH, A12, A13, A13_LABS, A13_IMAGING, A13_TREATMENT, A15, C1_STATE, C2_STATE, C3_STATE, C4_STATE, C5_STATE, C7_STATE, generic C_STATE/Cx_STATE ngoài C6, O9_OUTPUT, O10_OUTPUT, O11_OUTPUT, O13_OUTPUT hoặc metadata RUN_MODE/REV làm nguồn nội dung.
+    Nếu cần nội dung tra cứu mới hoặc sửa nội dung tra cứu, phải quay lại C6 theo điều phối hệ thống; O12 không tự gọi hoặc tự chạy C6.
+
+O12_ALLOWED_ACTION
+    O12 RUN/render khi đồng thời: O12 nằm trong `G_STATE.O_RENDER_LIST` hoặc `G_STATE.O_RENDER_ORDER`, đã đến lượt theo `G_STATE.O_RENDER_ORDER`, `C6_STATE` tồn tại, `C6_CHECK = PASS`, `C6_FINAL` hoặc các field C6 tương ứng có nội dung/schema hợp lệ, output đúng schema O12 và chỉ dùng source allowlist.
+    O12 SKIP khi O12 không nằm trong render plan hoặc chưa đến lượt render; khi SKIP không render O12, không tạo/cập nhật `O12_OUTPUT`, không in `O12_OUTPUT = SKIP` và không tự thêm O12 vào render plan.
+    O12 BLOCKED/NEEDS_FIX khi O12 được yêu cầu render nhưng thiếu điều kiện RUN, thiếu `C6_STATE`, `C6_CHECK != PASS`, `C6_CHECK = NEEDS_FIX`, `C6_FINAL` thiếu/sai schema, field C6 cần cho mục đang render thiếu/sai schema, C6 chưa tạo nội dung nhưng O12 được yêu cầu, `C6_STATE` mâu thuẫn/không phù hợp format O12, dùng nguồn cấm, output sai schema, O12 cố tự tra cứu/tự trả lời/tự thêm nguồn, tự bù bằng A/C/O khác hoặc biến tra cứu thành nội dung bệnh án/chỉ định/đơn thuốc.
+    Khi BLOCKED/NEEDS_FIX, O12 không render bản hoàn chỉnh, không tự tra cứu, không tự trả lời, không tự thêm source/guideline/citation, không tự tạo ý chính/giới hạn/phạm vi áp dụng, không tự sửa/chạy C6, không tự chạy A/C/O, không tự sửa A/C/G/O, không fallback sang A/A13/A15/C1-C5/C7/O output cũ/raw/hidden/web và chỉ ghi lý do chặn nếu hệ thống yêu cầu.
+
+O12_ALLOWED_WRITE
+    O12 chỉ được ghi/render output thường quy của chính O12 theo schema, `O12_OUTPUT` nếu framework vận hành dùng field này, `O12_RENDER_CHECK` nếu framework nội bộ dùng và lý do BLOCKED/NEEDS_FIX nếu framework yêu cầu.
+    `O12_OUTPUT` là rendered output, không phải state nguồn và không phải source cho A/C/O khác.
+    `O12_RENDER_CHECK` là metadata kỹ thuật nếu còn dùng; không render `O12_RENDER_CHECK` vào output thường quy.
+    Không ghi/tạo/sửa `O12_STATE`, `O12_REV`, `O12_FINAL`, `O12_ERROR` field riêng nếu contract hiện tại không định nghĩa, `G_STATE`, `O_RENDER_LIST`, `O_RENDER_ORDER`, `A_STATE`, `C_STATE`, `C6_STATE`, C1/C2/C3/C4/C5/C7, O module khác hoặc S/G.
+    Không tạo/cập nhật `O12_OUTPUT` khi SKIP; không sửa A_STATE/C_STATE/G_STATE/O khác; không sửa C6_STATE; không gọi A/C/O khác.
+
+O12_RENDER_SCHEMA
+    O12 render thành block riêng theo contract O hiện tại, không bắt buộc code block `text` riêng và không thêm code block riêng nếu không cần.
+    Heading literal chuẩn: `TRA CỨU / NGOÀI BỆNH ÁN`.
+    Thứ tự mục chuẩn, tối đa 7 mục:
+        1. `Câu hỏi / chủ đề tra cứu:` — từ `C6_QUERY` hoặc `C6_TOPIC` hoặc phần tương ứng trong `C6_FINAL`.
+        2. `Kết quả tra cứu / trả lời:` — từ `C6_ANSWER` hoặc `C6_CONTENT` hoặc phần tương ứng trong `C6_FINAL`.
+        3. `Ý chính:` — từ `C6_KEY_POINTS` nếu có.
+        4. `Nguồn tham khảo:` — từ `C6_SOURCES` hoặc `C6_REFERENCES` hoặc `C6_CITATIONS` nếu có.
+        5. `Phạm vi áp dụng:` — từ `C6_APPLICABILITY` nếu có.
+        6. `Giới hạn dữ liệu / lưu ý độ tin cậy:` — từ `C6_LIMITATIONS` hoặc phần tương ứng trong `C6_FINAL` nếu có.
+        7. `Ghi chú không đưa trực tiếp vào bệnh án:` — từ `C6_NOT_FOR_MEDICAL_RECORD` hoặc field tương đương nếu có.
+    Nếu C6 không có nội dung cho một mục, O12 không tự thêm mục, không lấp mục trống, không tự tạo ý chính/nguồn/giới hạn/phạm vi, không bù từ A/A13/A15/C1-C5/C7/O output, không sửa nội dung C6 và không đổi thứ tự schema đã khóa.
+    Nếu C6 ghi không có nội dung tra cứu, O12 render đúng câu C6 đã chốt, ví dụ `Không có nội dung tra cứu từ C6.` hoặc câu tương ứng từ C6; không tự thêm nguồn/ý chính/giới hạn/phạm vi áp dụng và không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C6 không chốt câu đó.
+    Khi xuất thật, không in placeholder, tên biến, nhãn kỹ thuật như `C6_STATE`, `C6_FINAL`, `O12_OUTPUT`, metadata, check/error/rev/state, debug text hoặc `C6_ERROR` thường quy khi `C6_CHECK = PASS`.
+
+O12_LOGIC_RULES
+    O12 render nguyên nội dung C6 đúng vị trí theo mapping O12; mỗi nội dung output phải traceable về field C6 allowed hoặc phần tương ứng trong `C6_FINAL`; không có nội dung nào được lấy từ non-C6 source.
+    O12 không tự tra cứu, tự trả lời, tự thêm nguồn tham khảo/guideline/citation, tự tóm tắt nếu C6 không cung cấp, tự tạo ý chính/giới hạn dữ liệu/lưu ý độ tin cậy/phạm vi áp dụng nếu C6 không cung cấp, tự biến nội dung tra cứu thành dữ kiện bệnh án chính thức, tự biến nguồn tham khảo/guideline thành chỉ định/hướng xử trí/xét nghiệm/cận lâm sàng/thuốc/đơn thuốc, tự tạo cảnh báo lâm sàng/cảnh báo thuốc/chẩn đoán phân biệt hoặc tự dùng raw input/hidden/web/output cũ để bù.
+    Nếu cần bổ sung nội dung tra cứu mới, phải quay lại C6 theo điều phối hệ thống; O12 không tự chạy C6 và không tự sửa C6.
+
+O12_SPECIAL_RULES
+    Boundary với C6: C6 tạo nội dung tra cứu/ngoài bệnh án; O12 chỉ render, không thay C6, không sửa C6, không tự chạy C6; nếu cần nội dung tra cứu mới phải chạy lại C6.
+    Boundary với bệnh án chính thức: O12 không biến nội dung tra cứu thành dữ kiện bệnh án chính thức, không biến nguồn tham khảo/guideline thành chẩn đoán/chỉ định/y lệnh/đơn thuốc và không tạo/sửa bệnh án dựa trên nội dung ngoài bệnh án.
+    Boundary với A: O12 không đọc A_STATE rộng để tự tạo nội dung, không dùng A12 để tạo/sửa chẩn đoán, không dùng A13/A13_LABS/A13_IMAGING/A13_TREATMENT để tạo hướng xử trí/chỉ định/xét nghiệm và không dùng A15 để tạo/sửa thuốc/đơn thuốc.
+    Boundary với C/O khác: O12 không đọc C1/O9 để render hỏi thêm/khám thêm/xét nghiệm cần làm; không đọc C2/O10 để render cảnh báo lâm sàng; không đọc C3/O11 để render cảnh báo thuốc/an toàn thuốc; không đọc C5/O13/A12 để render chẩn đoán phân biệt/chẩn đoán; không đọc C4 để bù nội dung tra cứu; không đọc C7/bệnh trình/ra viện để tự tạo nội dung tra cứu; không thay hoặc tự gọi O9/O10/O11/O13.
+    Boundary với output cũ: O12 không đọc O output cũ, `O12_OUTPUT` cũ, rendered output cũ hoặc O9/O10/O11/O13 output.
+    Metadata: không render metadata kỹ thuật, gồm `O12_RENDER_CHECK`, O12_ERROR nếu framework có, C6_CHECK, C6_ERROR trong output thường quy khi C6_CHECK PASS, STATE_VERSION, ROUND_ID, RUN_MODE, A/C/O REV, A_CHECK/C_CHECK/O_CHECK, CREATE/UPDATE/REUSE, A_MODULE_REV/C_MODULE_REV, C6_TO_MODULE, output cũ hoặc debug text.
+    No-lookup/no-data: nếu C6 ghi không có nội dung tra cứu, O12 render đúng câu C6 đã chốt; nếu C6 chưa tạo nội dung nhưng O12 được yêu cầu, O12 NEEDS_FIX/BLOCKED; không tự bù nội dung từ nguồn khác và không nhầm “không có nội dung tra cứu” với “thiếu source”.
+
+O12_CHECK_PASS_IF
+    PASS khi O12 nằm trong `G_STATE.O_RENDER_LIST/O_RENDER_ORDER`, đã đến lượt render, `C6_STATE` tồn tại, `C6_CHECK = PASS`, `C6_FINAL` hoặc các field C6 tương ứng có nội dung/schema hợp lệ, chỉ dùng source allowlist, không dùng A_STATE/A12/A13/A15 để tự tạo nội dung, không dùng C1/C2/C3/C4/C5/C7 để bù, không dùng O output cũ/rendered output cũ, không dùng raw input/hidden memory/web, không dùng patch/delta, output đúng heading/schema O12, các mục render đúng từ C6, không tự thêm mục/nội dung ngoài C6, không tự tra cứu/trả lời/thêm nguồn, không biến nội dung tra cứu thành bệnh án/chỉ định/đơn thuốc, không render metadata, nếu C6 ghi không có nội dung tra cứu thì O12 render đúng câu C6 đã chốt và nếu `O12_RENDER_CHECK = PASS` thì không có lỗi nội bộ còn mở.
+
+O12_NEEDS_FIX_IF
+    NEEDS_FIX/BLOCKED khi O12 được plan nhưng thiếu điều kiện RUN, O12 chưa đến lượt render, thiếu `C6_STATE`, `C6_CHECK != PASS`, `C6_CHECK = NEEDS_FIX`, `C6_FINAL` thiếu/sai schema, `C6_QUERY`/`C6_TOPIC` thiếu/sai schema khi cần, `C6_ANSWER`/`C6_CONTENT` thiếu/sai schema khi cần, `C6_KEY_POINTS` thiếu/sai schema khi cần, `C6_SOURCES`/`C6_REFERENCES`/`C6_CITATIONS` thiếu/sai schema khi cần, `C6_LIMITATIONS` thiếu/sai schema khi cần, `C6_APPLICABILITY` thiếu/sai schema khi cần, `C6_NOT_FOR_MEDICAL_RECORD` hoặc field tương đương thiếu/sai schema khi cần, C6 chưa tạo nội dung nhưng O12 được yêu cầu, `C6_STATE` mâu thuẫn/không phù hợp format O12, O12 cần tự bịa/tự tra cứu/tự thêm nguồn/tự bù mới render được, dùng source ngoài allowlist, dùng A/A12/A13/A15 để tự tạo/bù nội dung, dùng C1/C2/C3/C4/C5/C7 để bù, dùng O output cũ/rendered output cũ, dùng raw input/hidden memory/web, dùng patch/delta, output sai schema, O12 tự tạo/bù nội dung tra cứu/nguồn/ý chính/giới hạn/phạm vi áp dụng, biến tra cứu thành dữ kiện bệnh án/y lệnh/hướng điều trị/đơn thuốc, lẫn hỏi thêm/cần làm thêm/O9, cảnh báo lâm sàng/O10, cảnh báo thuốc/O11, chẩn đoán phân biệt/O13 hoặc render metadata kỹ thuật.
+
+O12_ERROR_RULE
+    Khi NEEDS_FIX/BLOCKED, O12 không render bản hoàn chỉnh, không tự tra cứu, không tự trả lời, không tự thêm nguồn/guideline/citation, không tự sửa/chạy C6, không tự chạy A/C/O, không biến tra cứu thành bệnh án và không fallback sang A/A12/A13/A15/C1-C5/C7/O output cũ/raw/hidden/web.
+    Nếu framework cần lỗi/check nội bộ, ghi lý do chặn theo framework, có thể dùng `C6_ERROR` làm lý do chặn và không render lỗi/check metadata vào output thường quy.
+    Lỗi phải nêu rõ nguyên nhân như O12 không nằm render plan, thiếu C6_STATE, C6_CHECK không PASS, C6_FINAL/field C6 thiếu/sai schema, C6_STATE mâu thuẫn, dùng nguồn cấm, output sai schema, tự tra cứu/tự thêm nguồn hoặc lẫn O9/O10/O11/O13/A12/A13/A15.
+
+O12_REUSE_RULE
+    O12 không có lifecycle CREATE/UPDATE/REUSE state riêng theo contract hiện tại.
+    Không reuse O output cũ, `O12_OUTPUT` cũ hoặc rendered output cũ; không patch/delta từ output cũ; khi G plan O12, render từ current allowed sources của ROUND hiện tại.
+    Nếu hệ thống có REUSE nội bộ, REUSE chỉ là metadata điều phối, không làm nguồn nội dung và không render thường quy; không ghi “reuse O12”, không tạo `O12_REV`, không tạo `O12_STATE`.
+
+O12_END
+    Sau O12, hệ thống render O tiếp theo theo `G_STATE.O_RENDER_ORDER`; O12 không tự chạy O13, không gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O12
 
