@@ -50,7 +50,7 @@ O1_ALLOWED_SOURCE
             - A1_STATE.A1_TIME nếu có: render dòng thời gian dưới tiêu đề; nếu không có thì bỏ dòng thời gian, không tự tạo.
             - A1_STATE.A1_REASON: mục 1 “Lý do vào viện”.
             - A2_STATE.A2_FINAL: mục 2 “Tiền sử”.
-            - A3_STATE.A3_FINAL: mục 3 “Bệnh sử”.
+            - A3_STATE.A3_FOR_O1: mục 3 “Bệnh sử”.
             - A4_STATE.A4_FOR_O1: dòng “Toàn thân”.
             - A5_STATE.A5_FOR_O1: dòng “Tuần hoàn”.
             - A6_STATE.A6_FOR_O1: dòng “Hô hấp”.
@@ -99,7 +99,7 @@ O1_RENDER_SCHEMA
 
         2. Tiền sử: [A2_FINAL].
 
-        3. Bệnh sử: [A3_FINAL].
+        3. Bệnh sử: [A3_FOR_O1].
 
         4. Khám bệnh:
         - Toàn thân: [A4_FOR_O1].
@@ -133,7 +133,7 @@ O1_LOGIC_RULES
 
 O1_SPECIAL_RULES
     A14/A15/C boundary: O1 không đọc A14, không render hành chính, không render cận lâm sàng đã có từ A14, không đọc A15, không tự lấy thuốc cụ thể từ A15, không đọc C_STATE/Cx_STATE và không lấy hội chứng/cảnh báo/chẩn đoán phân biệt/tổng hợp C.
-    No-data leak guard: trước khi render hoàn chỉnh, O1 phải kiểm toàn bộ field nguồn thường quy sẽ dùng: A1_TIME nếu có, A1_REASON, A2_FINAL, A3_FINAL, A4_FOR_O1, A5_FOR_O1, A6_FOR_O1, A7_FOR_O1, A8_FOR_O1, A9_FOR_O1, A10_FOR_O1 nếu A10_HAS_DATA = YES, A11_FOR_O1/A11_OTHER_SYSTEMS theo contract, A12_FINAL, A13_LABS, A13_IMAGING, A13_TREATMENT.
+    No-data leak guard: trước khi render hoàn chỉnh, O1 phải kiểm toàn bộ field nguồn thường quy sẽ dùng: A1_TIME nếu có, A1_REASON, A2_FINAL, A3_FOR_O1, A4_FOR_O1, A5_FOR_O1, A6_FOR_O1, A7_FOR_O1, A8_FOR_O1, A9_FOR_O1, A10_FOR_O1 nếu A10_HAS_DATA = YES, A11_FOR_O1/A11_OTHER_SYSTEMS theo contract, A12_FINAL, A13_LABS, A13_IMAGING, A13_TREATMENT.
     Các cụm no-data leak cần chặn, không phân biệt viết hoa/thường và có thể có dấu câu liền kề: “chưa có dữ kiện”; “chưa ghi nhận dữ kiện”; “chưa có dữ liệu”; “trong dữ liệu cung cấp”; “chưa ghi nhận bất thường rõ”; “Chưa ghi nhận dữ kiện dị ứng thuốc”.
     Nếu source field chứa no-data leak, O1_RENDER_CHECK hoặc O1_CHECK = NEEDS_FIX/BLOCKED, O1 không render bản `Khám sơ bộ` hoàn chỉnh, phải báo rõ source A field cần sửa nếu hệ thống yêu cầu và không hợp thức hóa placeholder thành nội dung bệnh án thường quy.
     O1 không tự tạo lý do vào viện, tiền sử, bệnh sử, khám thực thể, chẩn đoán, hướng điều trị, xét nghiệm, chẩn đoán hình ảnh, thuốc, dị ứng, thông tin hành chính, hội chứng, cảnh báo hoặc chẩn đoán phân biệt.
