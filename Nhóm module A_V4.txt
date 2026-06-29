@@ -330,6 +330,7 @@ A2_END
 A3 — BỆNH SỬ
 Version: BA S-G-A-C-O v4 allowlist compact
 Update 00:16 30/05/2026 GMT+7 — compact refactor
+Patch: A3_FOR_O1/A3_FOR_O8 split output for O1/O8
 
 >>> READ-LOCK: A3
 - Bắt buộc đọc toàn bộ A3 compact trước khi tạo/cập nhật/dùng lại A3_STATE.
@@ -340,24 +341,32 @@ Update 00:16 30/05/2026 GMT+7 — compact refactor
 A3_ROLE
     A3 chuẩn hóa bệnh sử hiện tại của người bệnh trước thời điểm khám / vào viện.
     A3 tạo / cập nhật / dùng lại A3_STATE để đưa vào full current A_STATE của ROUND hiện tại.
-    A3_FINAL là đoạn bệnh sử đã chuẩn hóa, hoàn chỉnh, mạch lạc, đúng trình tự thời gian khi dữ liệu cho phép.
-    A3_FINAL là source of truth cho dữ liệu bệnh sử khi C/O cần.
-    A3 chịu trách nhiệm chất lượng A3_FINAL; nếu bệnh sử sai, thiếu, lẫn module khác hoặc mâu thuẫn dữ liệu nguồn hợp lệ thì phải sửa tại A3.
+    A3_FOR_O1 là đoạn bệnh sử đã chuẩn hóa dùng cho bệnh án khám sơ bộ O1.
+    A3_FOR_O8 là đoạn bệnh sử đã chuẩn hóa dùng cho bệnh án chi tiết O8 và có thể đầy đủ hơn O1 ở câu kết theo rule A3.
+    A3_FOR_O1 và A3_FOR_O8 là source of truth cho dữ liệu bệnh sử khi C/O cần; không dùng A3_FINAL làm đầu ra chính cho O1/O8 nữa.
+    A3 chịu trách nhiệm chất lượng A3_FOR_O1 và A3_FOR_O8; nếu bệnh sử sai, thiếu, lẫn module khác hoặc mâu thuẫn dữ liệu nguồn hợp lệ thì phải sửa tại A3.
 
 A3_ALLOWED_SOURCE
     A3 chỉ được đọc:
-        1. User input của ROUND hiện tại, chỉ phần thuộc bệnh sử hiện tại.
+        1. User input của ROUND hiện tại, chỉ phần thuộc bệnh sử hiện tại và các dữ kiện dùng cho câu kết bệnh sử nếu user cung cấp.
         2. G_STATE của ROUND hiện tại, chỉ metadata kỹ thuật:
             - ROUND_ID.
             - STATE_VERSION.
             - RUN_MODE.
         3. Latest/current A3_STATE nếu đã có, chỉ để UPDATE hoặc REUSE.
         4. File/module A3.
-        5. A1_STATE.A1_REASON, chỉ để đối chiếu triệu chứng chính / lý do vào viện trong A3_FINAL.
-        6. A2_STATE.A2_FINAL, chỉ để tạo câu mở đầu bệnh sử trong A3_FINAL.
-    A3 không sửa A1_REASON hoặc A2_FINAL.
-    A3 không đọc A4-A15 để tạo A3_FINAL.
+        5. A1_STATE.A1_REASON, chỉ để đối chiếu triệu chứng chính / lý do vào viện trong A3_FOR_O1 và A3_FOR_O8.
+        6. A1_STATE.A1_TIME, chỉ để lấy ngày vào viện / ngày khám cho câu kết bệnh sử nếu cần.
+        7. A2_STATE.A2_FINAL, chỉ để tạo câu mở đầu tiền sử trong A3_FOR_O1 và A3_FOR_O8.
+    A3 không sửa A1_REASON, A1_TIME hoặc A2_FINAL.
+    A3 không đọc A4_STATE, vì A4 chạy sau A3 trong A_RUN_ORDER.
+    A3 không đọc A5-A15 để tạo A3_FOR_O1 hoặc A3_FOR_O8.
     A3 không đọc C_STATE, O_OUTPUT, không dùng output đã render để suy ngược A3 và không dùng trí nhớ ẩn hoặc dữ liệu ngoài state hợp lệ.
+    Riêng dữ kiện “ý thức” và “tiếp xúc” trong câu kết A3_FOR_O8:
+        - Nếu user cung cấp trực tiếp trong input hiện tại, A3 được dùng đúng dữ kiện user cung cấp cho câu kết O8.
+        - Nếu RUN_MODE = USER_ONLY và user không cung cấp ý thức / tiếp xúc nhưng O8 bắt buộc đủ câu kết, A3_CHECK = NEEDS_FIX và A3_ERROR nêu thiếu ý thức / tiếp xúc cho câu kết A3_FOR_O8.
+        - Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE, A3 được dùng literal mặc định “ý thức tỉnh, tiếp xúc tốt” cho câu kết A3_FOR_O8 khi không có dữ kiện trái ngược trong user input.
+        - Dữ kiện này chỉ phục vụ câu kết bệnh sử O8 trong A3_FOR_O8; A3 không ghi A4_STATE và không coi đây là patch A4.
     Mọi nguồn ngoài allowlist này không thuộc phạm vi A3.
 
 A3_ALLOWED_ACTION
@@ -370,171 +379,216 @@ A3_ALLOWED_ACTION
 
 A3_ALLOWED_WRITE
     A3 chỉ ghi A3_STATE.
-    A3 không ghi A1_STATE, A2_STATE, A4-A15, C/O hoặc A_GATE.
+    A3 không ghi A1_STATE, A2_STATE, A4-A15, C/O/G hoặc A_GATE.
     A3 không tự tạo toàn bộ A_MODULE_REV; A3 chỉ cung cấp / quản lý A3_REV để A_GATE / full current A_STATE tổng hợp.
-    A3 không đổi pipeline A_RUN_ORDER và không đổi full current A_STATE schema.
+    A3 không đổi pipeline A_RUN_ORDER và không đổi full current A_STATE schema ngoài schema A3_STATE của chính A3.
 
 A3_STATE_SCHEMA
-    A3_STATE giữ nguyên schema:
+    A3_STATE giữ schema:
         STATE_VERSION = ...
-        A3_FINAL = ...
+        A3_FOR_O1 = ...
+        A3_FOR_O8 = ...
         A3_CHECK = PASS / NEEDS_FIX
         A3_ERROR = ...
 
-    Không thêm STATUS, UPDATED_AT, A3_TIME hoặc field mới khác.
-    Không đổi tên A3_FINAL.
-    A3_FINAL là bệnh sử đã chuẩn hóa.
+    Không thêm STATUS, UPDATED_AT, A3_TIME hoặc field kỹ thuật mới khác.
+    Không dùng A3_FINAL làm đầu ra chính cho O1/O8 sau patch này.
+    A3_FOR_O1 và A3_FOR_O8 đều là đoạn văn bệnh sử mạch lạc, đúng văn phong bệnh án, không viết thành gạch đầu dòng, danh sách triệu chứng rời rạc hoặc danh sách chẩn đoán.
+    A3_FOR_O1 là bản bệnh sử cho bệnh án khám sơ bộ.
+    A3_FOR_O8 là bản bệnh sử cho bệnh án chi tiết, có thể đầy đủ hơn O1 ở câu kết theo rule A3.
     A3_CHECK là kết quả tự kiểm của A3.
     Nếu A3_CHECK = PASS: A3_ERROR = NONE.
     Nếu A3_CHECK = NEEDS_FIX: A3_ERROR phải ghi lỗi cụ thể, nêu dữ liệu cần bổ sung hoặc phần cần sửa.
 
 A3_LOGIC_RULES
     CREATE / UPDATE / REUSE:
-        1. CREATE áp dụng khi chưa có latest/current A3_STATE.
-        2. UPDATE áp dụng khi user input ROUND hiện tại hoặc source hợp lệ làm A3_FINAL thay đổi thật.
+        1. CREATE áp dụng khi chưa có latest/current A3_STATE hợp lệ; tạo A3_STATE mới với đủ STATE_VERSION, A3_FOR_O1, A3_FOR_O8, A3_CHECK, A3_ERROR.
+        2. UPDATE áp dụng khi user input ROUND hiện tại hoặc dependency hợp lệ làm nội dung thật của A3_FOR_O1 hoặc A3_FOR_O8 thay đổi.
         3. Dữ liệu ảnh hưởng A3 gồm:
             - Bệnh sử user cung cấp trực tiếp.
             - Triệu chứng hiện tại.
             - Thời gian khởi phát.
+            - Kiểu khởi phát.
+            - Yếu tố chấn thương nếu có.
             - Diễn biến trước vào viện.
             - Tính chất / mức độ triệu chứng.
             - Yếu tố tăng / giảm triệu chứng.
             - Triệu chứng kèm theo.
-            - Xử trí trước vào viện.
-            - Nơi xử trí trước vào viện.
-            - Đáp ứng với xử trí trước vào viện.
+            - Xử trí / điều trị trước vào viện.
+            - Nơi xử trí trước vào viện theo 3 nhóm chuẩn.
+            - Đáp ứng với xử trí trước vào viện nếu user cung cấp.
             - Thông tin chỉnh sửa bệnh sử.
-            - A1_REASON thay đổi làm triệu chứng chính / lý do vào viện cần đối chiếu lại trong A3_FINAL.
-            - A2_FINAL thay đổi làm câu mở đầu bệnh sử trong A3_FINAL thay đổi thật.
+            - Ngày vào viện / ngày khám từ A1_TIME nếu dùng trong câu kết.
+            - A1_REASON thay đổi làm triệu chứng chính / lý do vào viện cần đối chiếu lại trong A3_FOR_O1 hoặc A3_FOR_O8.
+            - A2_FINAL thay đổi làm câu mở đầu tiền sử trong A3_FOR_O1 hoặc A3_FOR_O8 thay đổi thật.
+            - Dữ kiện ý thức / tiếp xúc user cung cấp trực tiếp nếu dùng cho câu kết A3_FOR_O8.
         4. Khi UPDATE, A3 chỉ thay phần bị ảnh hưởng bằng dữ liệu mới; phần không bị ảnh hưởng phải lấy từ latest/current A3_STATE.
         5. A3_STATE sau CREATE hoặc UPDATE phải dùng STATE_VERSION của ROUND hiện tại.
-        6. REUSE áp dụng khi đã có latest/current A3_STATE và user input/source hợp lệ không ảnh hưởng A3 hoặc không làm A3_FINAL thay đổi thật.
+        6. REUSE áp dụng khi đã có latest/current A3_STATE hợp lệ và user input/source hợp lệ không ảnh hưởng A3 hoặc không làm A3_FOR_O1 / A3_FOR_O8 thay đổi thật.
+        7. Khi REUSE, A3 vẫn in full A3_STATE, không ghi “giữ nguyên”, “reuse A3”, “theo bản trước”, “không đổi” hoặc patch/delta thay nội dung thật.
 
     A3_REV:
         1. CREATE A3_STATE thì A3_REV = 1.
-        2. UPDATE nếu A3_FINAL thay đổi thật thì A3_REV tăng so với A3_REV hiện hành.
-        3. REUSE hoặc input/source hợp lệ không làm đổi nội dung thật của A3_FINAL thì A3_REV giữ nguyên.
-        4. Nếu A2_FINAL thay đổi làm câu mở đầu bệnh sử trong A3_FINAL thay đổi thật, A3 phải UPDATE và A3_REV tăng.
-        5. A3_REV tăng hoặc giữ theo thay đổi thật của A3_FINAL, không theo tên RUN_MODE.
-        6. A3_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
-        7. A3 không tự tạo toàn bộ A_MODULE_REV.
-        8. A3_STATE vẫn phải là full state; không dùng patch/delta làm A3_STATE chính thức.
+        2. UPDATE nếu A3_FOR_O1 hoặc A3_FOR_O8 thay đổi thật thì A3_REV tăng so với A3_REV hiện hành.
+        3. REUSE hoặc input/source hợp lệ không làm đổi nội dung thật của A3_FOR_O1 và A3_FOR_O8 thì A3_REV giữ nguyên.
+        4. Nếu A2_FINAL thay đổi làm câu mở đầu bệnh sử trong A3_FOR_O1 hoặc A3_FOR_O8 thay đổi thật, A3 phải UPDATE và A3_REV tăng.
+        5. Nếu A1_TIME thay đổi làm câu kết A3_FOR_O1 hoặc A3_FOR_O8 thay đổi thật, A3 phải UPDATE và A3_REV tăng.
+        6. A3_REV tăng hoặc giữ theo thay đổi thật của A3_FOR_O1 / A3_FOR_O8, không theo tên RUN_MODE.
+        7. A3_REV là metadata kỹ thuật để A_GATE / full current A_STATE tổng hợp vào A_MODULE_REV.
+        8. A3 không tự tạo toàn bộ A_MODULE_REV.
+        9. A3_STATE vẫn phải là full state; không dùng patch/delta làm A3_STATE chính thức.
 
     RUN_MODE:
         1. RUN_MODE lấy từ G_STATE; A3 không tự xác định RUN_MODE.
         2. RUN_MODE độc lập với trạng thái xử lý nội bộ CREATE / UPDATE / REUSE.
-        3. USER_ONLY: ngoài câu tiền sử mở đầu lấy đúng từ A2_FINAL, A3 chỉ dùng dữ liệu bệnh sử user cung cấp; không tự thêm triệu chứng, thời gian khởi phát, diễn biến, yếu tố tăng/giảm, triệu chứng kèm, xử trí trước vào viện hoặc đáp ứng xử trí. Nếu user cung cấp bệnh sử, A3 được chuẩn hóa, sắp xếp và diễn đạt lại cho mạch lạc. Nếu thiếu dữ kiện bệnh sử quan trọng mà output cần bệnh sử, A3_CHECK = NEEDS_FIX và A3_ERROR ghi rõ dữ liệu cần bổ sung. Nếu user không cung cấp bệnh sử hoặc triệu chứng hiện tại, A3_FINAL = Bệnh nhân có tiền sử [A2_FINAL]. Chưa có dữ kiện bệnh sử hiện tại.
-        4. DEFAULT_COMPLETION: A3 dùng dữ liệu user cung cấp làm nền và được tự hoàn thiện triệu chứng cơ năng / bệnh sử khi bệnh cảnh đủ rõ; có thể rút bệnh cảnh hợp lý từ chẩn đoán hoặc mã bệnh user cung cấp nhưng chỉ ở mức triệu chứng cơ năng / bệnh sử; không trái user input, không tạo dấu khám thực thể, cận lâm sàng, thuốc cụ thể, xử trí trước vào viện, đáp ứng điều trị, dữ kiện bệnh trình nội trú, tình trạng ra viện hoặc giờ/phút chính xác nếu user không cung cấp; không biến ICD/chẩn đoán thành đoạn bệnh sử sai phạm vi.
+        3. USER_ONLY: ngoài câu tiền sử mở đầu lấy đúng từ A2_FINAL, A3 chỉ dùng dữ liệu bệnh sử user cung cấp và dữ kiện câu kết user cung cấp; không tự thêm triệu chứng, thời gian khởi phát, kiểu khởi phát, yếu tố chấn thương, diễn biến, yếu tố tăng/giảm, triệu chứng kèm, xử trí trước vào viện, nơi xử trí, đáp ứng xử trí, ý thức hoặc tiếp xúc. Nếu user cung cấp bệnh sử, A3 được chuẩn hóa, sắp xếp và diễn đạt lại cho mạch lạc. Nếu thiếu dữ kiện bệnh sử quan trọng mà output cần bệnh sử, A3_CHECK = NEEDS_FIX và A3_ERROR ghi rõ dữ liệu cần bổ sung. Nếu USER_ONLY cần render O8 đủ câu kết nhưng user không cung cấp ý thức / tiếp xúc, A3_CHECK = NEEDS_FIX và A3_ERROR nêu thiếu ý thức / tiếp xúc cho câu kết A3_FOR_O8.
+        4. DEFAULT_COMPLETION: A3 dùng dữ liệu user cung cấp làm nền và được tự hoàn thiện triệu chứng cơ năng / bệnh sử khi bệnh cảnh đủ rõ; có thể rút bệnh cảnh hợp lý từ chẩn đoán hoặc mã bệnh user cung cấp nhưng chỉ ở mức triệu chứng cơ năng / bệnh sử; không trái user input, không tạo dấu khám thực thể, cận lâm sàng, thuốc cụ thể, xử trí trước vào viện, nơi xử trí, đáp ứng điều trị, dữ kiện bệnh trình nội trú, tình trạng ra viện hoặc giờ/phút chính xác nếu user không cung cấp; được dùng literal mặc định “ý thức tỉnh, tiếp xúc tốt” cho câu kết A3_FOR_O8 khi user không cung cấp dữ kiện trái ngược.
         5. DEFAULT_COMPLETION ví dụ hợp lệ: K21/K29 hoặc bệnh cảnh trào ngược / viêm dạ dày có thể bổ sung ợ hơi, ợ chua, nóng rát thượng vị; H81 hoặc bệnh cảnh rối loạn tiền đình có thể bổ sung hoa mắt, chóng mặt, buồn nôn; chẩn đoán cơ xương khớp có thể bổ sung đau vị trí tương ứng, đau tăng khi vận động; đái tháo đường kèm gợi ý thần kinh ngoại biên có thể bổ sung tê bì / dị cảm, nếu phù hợp và không trái dữ kiện user.
-        6. AUTO_SAMPLE: A3 được tạo bệnh sử mẫu đầy đủ phù hợp bệnh cảnh mẫu, có thể tạo thời gian, triệu chứng chính, triệu chứng kèm, diễn biến, xử trí trước vào viện và đáp ứng nếu cần; A3_FINAL mẫu phải nhất quán với A1, A2 và các A khác về sau; không dùng AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
+        6. AUTO_SAMPLE: A3 được tạo bệnh sử mẫu đầy đủ phù hợp bệnh cảnh mẫu, có thể tạo thời gian, triệu chứng chính, triệu chứng kèm, diễn biến, xử trí trước vào viện, nơi xử trí, đáp ứng và literal “ý thức tỉnh, tiếp xúc tốt” nếu cần; A3_FOR_O1 / A3_FOR_O8 mẫu phải nhất quán với A1, A2 và các A khác về sau; không dùng AUTO_SAMPLE cho ca bệnh thật nếu user đã cung cấp dữ liệu ca bệnh thật.
 
 A3_SPECIAL_RULES
     Phạm vi bệnh sử:
         1. Bệnh sử trong A3 là diễn biến bệnh hiện tại trước thời điểm khám / vào viện.
-        2. A3 tập trung vào triệu chứng cơ năng, thời gian khởi phát, trình tự thời gian, diễn biến trước vào viện, tính chất / mức độ triệu chứng, yếu tố tăng/giảm, triệu chứng kèm, xử trí trước vào viện, nơi xử trí trước vào viện, đáp ứng xử trí và lý do hiện tại khiến bệnh nhân vào viện / đi khám.
-        3. A3_FINAL phải là đoạn văn mạch lạc, đúng văn phong bệnh án; không viết thành gạch đầu dòng, danh sách triệu chứng rời rạc hoặc danh sách chẩn đoán.
-        4. Không mở đầu bằng thông tin hành chính như “Bệnh nhân nam, vào viện ngày...” nếu không cần; không bắt buộc ghi tên khoa nếu user không cung cấp; nếu user cung cấp khoa vào viện, có thể ghi đúng khoa đó.
-        5. Có thể kết thúc bằng “vào viện khám và điều trị” theo cấu trúc bệnh sử chuẩn.
+        2. A3 tập trung vào triệu chứng cơ năng, thời gian khởi phát, trình tự thời gian, kiểu khởi phát, yếu tố chấn thương nếu có, diễn biến trước vào viện, tính chất / mức độ triệu chứng, yếu tố tăng/giảm, triệu chứng kèm, xử trí trước vào viện, nơi xử trí trước vào viện, đáp ứng xử trí và lý do hiện tại khiến bệnh nhân vào viện / đi khám.
+        3. A3_FOR_O1 và A3_FOR_O8 phải là đoạn văn mạch lạc, đúng văn phong bệnh án; không viết thành gạch đầu dòng, danh sách triệu chứng rời rạc hoặc danh sách chẩn đoán.
+        4. Không mở đầu bằng thông tin hành chính như “Bệnh nhân nam, vào viện ngày...” nếu không cần.
+        5. Cụm “trong tình trạng...” chỉ được dùng trong câu kết A3_FOR_O8 theo rule A3; không dùng trong A3_FOR_O1.
 
     Câu mở đầu từ A2_FINAL:
-        1. A3_FINAL bắt buộc mở đầu bằng câu tiền sử từ A2_STATE.A2_FINAL.
-        2. Nếu A2_FINAL = “Khỏe mạnh.” hoặc tương đương / chưa ghi nhận tiền sử bệnh lý: A3_FINAL mở đầu “Bệnh nhân có tiền sử khỏe mạnh.” hoặc wording tương đương theo contract hiện tại.
-        3. Nếu A2_FINAL là bệnh lý cụ thể: A3_FINAL mở đầu “Bệnh nhân có tiền sử [A2_FINAL].” hoặc wording tương đương theo contract hiện tại.
+        1. A3_FOR_O1 và A3_FOR_O8 bắt buộc mở đầu bằng câu tiền sử từ A2_STATE.A2_FINAL.
+        2. Nếu A2_FINAL = “Chưa ghi nhận tiền sử bệnh lý.”, “Khỏe mạnh.” hoặc tương đương / chưa ghi nhận tiền sử bệnh lý: có thể mở đầu “Bệnh nhân chưa ghi nhận tiền sử bệnh lý.” hoặc “Bệnh nhân có tiền sử khỏe mạnh.” theo wording tương đương phù hợp.
+        3. Nếu A2_FINAL là bệnh lý cụ thể: mở đầu “Bệnh nhân có tiền sử [A2_FINAL].” hoặc wording tương đương theo contract hiện tại.
         4. A2_FINAL là nguồn duy nhất cho câu tiền sử mở đầu; A3 không tự thêm tiền sử ngoài A2_FINAL, không sửa A2_FINAL và không biến chẩn đoán hiện tại thành tiền sử.
 
-    A1_REASON trong A3:
+    A1_REASON và A1_TIME trong A3:
         1. A3 chỉ đọc A1_REASON để đối chiếu triệu chứng chính / lý do vào viện.
         2. A3 không chép máy móc A1_REASON thành bệnh sử và không viết lý do vào viện thay A1.
         3. A3 không được bỏ sót triệu chứng chính nếu user input/A1_REASON cho thấy đó là lý do vào viện cần xuất hiện hợp lý trong bệnh sử.
-        4. Nếu A3_FINAL mâu thuẫn A1_REASON, A3_CHECK = NEEDS_FIX hoặc báo cần cập nhật A1/A3 tùy vị trí lỗi; A3_ERROR phải ghi rõ triệu chứng chính không đồng bộ với A1_REASON. A3 không tự sửa A1_REASON.
+        4. Nếu A3_FOR_O1 hoặc A3_FOR_O8 mâu thuẫn A1_REASON, A3_CHECK = NEEDS_FIX hoặc báo cần cập nhật A1/A3 tùy vị trí lỗi; A3_ERROR phải ghi rõ triệu chứng chính không đồng bộ với A1_REASON. A3 không tự sửa A1_REASON.
+        5. A3 chỉ đọc A1_TIME để lấy ngày vào viện / ngày khám cho câu kết nếu cần; nếu không có ngày hợp lệ thì không tự tạo ngày và có thể bỏ “Ngày...” trong câu kết.
+        6. Nếu câu kết dùng ngày mâu thuẫn A1_TIME, A3_CHECK = NEEDS_FIX và A3_ERROR phải ghi rõ mâu thuẫn A1_TIME.
 
-    Cấu trúc và trình tự bệnh sử:
-        1. Cấu trúc ưu tiên: Bệnh nhân có tiền sử [A2_FINAL]. Cách vào viện [thời gian nếu user cung cấp], bệnh nhân xuất hiện [triệu chứng chính]. [Mô tả khởi phát nếu user cung cấp]. [Diễn biến triệu chứng chính theo thời gian nếu user cung cấp]. Kèm theo [triệu chứng kèm nếu user cung cấp hoặc được DEFAULT_COMPLETION bổ sung hợp lệ]. Tại nhà / tuyến trước [xử trí trước vào viện nếu user cung cấp], [đáp ứng nếu user cung cấp]. Vào viện khám và điều trị.
-        2. Trình tự ưu tiên: câu tiền sử từ A2_FINAL → thời điểm / thời gian khởi phát → triệu chứng chính → diễn biến triệu chứng → triệu chứng kèm → xử trí trước vào viện → đáp ứng xử trí nếu có → lý do hiện tại khiến bệnh nhân vào viện / đi khám.
-        3. Nếu thiếu thành phần nào, không tự bịa thành phần đó.
-        4. Nếu có nhiều mốc thời gian, giữ đúng trình tự từ xa đến gần; không đảo mốc làm sai diễn biến.
-        5. Nếu user cung cấp diễn biến nặng dần, giảm dần, từng đợt, tái phát, di chuyển hoặc lan, A3 phải giữ đúng ý nghĩa đó.
-        6. Nếu có nhiều nhóm triệu chứng, ưu tiên nhóm triệu chứng chính liên quan lý do vào viện, ghi triệu chứng kèm sau triệu chứng chính, không làm mất triệu chứng chính và không gom sai hệ cơ quan nếu làm sai ý nghĩa user.
+    Cấu trúc và trình tự bệnh sử chung cho A3_FOR_O1 và A3_FOR_O8:
+        1. Cấu trúc ưu tiên: câu tiền sử từ A2_FINAL → thời điểm / thời gian khởi phát → triệu chứng chính → kiểu khởi phát / yếu tố chấn thương nếu có → diễn biến / tính chất / mức độ / yếu tố tăng giảm → triệu chứng kèm → xử trí trước vào viện nếu có → ngày vào viện / diễn biến hiện tại → câu kết theo O1 hoặc O8.
+        2. Nếu user cung cấp thời gian, dùng “Cách vào viện [thời gian]...” hoặc wording tương đương; nếu user không cung cấp thời gian thì USER_ONLY / DEFAULT_COMPLETION không tự tạo thời gian cụ thể, AUTO_SAMPLE được tạo thời gian mẫu phù hợp.
+        3. Ghi triệu chứng chính / lý do chính khiến bệnh nhân đi khám / vào viện; phải giữ đúng triệu chứng chính user cung cấp và đối chiếu với A1_REASON.
+        4. Nếu user cung cấp kiểu khởi phát như “khởi phát từ từ”, “khởi phát cấp tính”, “đột ngột” hoặc wording tương đương, A3 phải ghi đúng; nếu user không cung cấp thì USER_ONLY không tự tạo, DEFAULT_COMPLETION chỉ bổ sung khi bệnh cảnh đủ rõ và không trái user input, AUTO_SAMPLE được tạo mẫu phù hợp.
+        5. Nếu user cung cấp có / không chấn thương, A3 phải ghi đúng; nếu user phủ định chấn thương có thể ghi “không ghi nhận yếu tố chấn thương” hoặc wording tương đương; nếu user không cung cấp thì USER_ONLY không tự thêm, DEFAULT_COMPLETION chỉ bổ sung khi bệnh cảnh/source hợp lệ đủ rõ và không trái user input.
+        6. Ghi vị trí, mức độ, tính chất, yếu tố tăng/giảm nếu user cung cấp hoặc RUN_MODE cho phép hoàn thiện; ví dụ hợp lệ: “Khớp gối phải sưng đau, vận động đau tăng.”
+        7. Triệu chứng kèm theo / triệu chứng phụ ghi sau triệu chứng chính bằng “Kèm theo...” khi có; USER_ONLY không tự thêm triệu chứng kèm nếu user không cung cấp; DEFAULT_COMPLETION được bổ sung triệu chứng cơ năng phù hợp bệnh cảnh nếu không trái user input; không tạo triệu chứng trái phủ định của user.
+        8. Nếu thiếu thành phần nào, không tự bịa thành phần đó ngoài quyền RUN_MODE.
+        9. Nếu có nhiều mốc thời gian, giữ đúng trình tự từ xa đến gần; không đảo mốc làm sai diễn biến.
+        10. Nếu user cung cấp diễn biến nặng dần, giảm dần, từng đợt, tái phát, di chuyển hoặc lan, A3 phải giữ đúng ý nghĩa đó.
+        11. Nếu có nhiều nhóm triệu chứng, ưu tiên nhóm triệu chứng chính liên quan lý do vào viện, ghi triệu chứng kèm sau triệu chứng chính, không làm mất triệu chứng chính và không gom sai hệ cơ quan nếu làm sai ý nghĩa user.
 
-    Thời gian khởi phát:
-        1. Nếu user cung cấp thời gian khởi phát rõ, A3 phải dùng đúng thời gian đó.
-        2. Nếu user không cung cấp thời gian khởi phát: USER_ONLY không tự tạo; DEFAULT_COMPLETION có thể viết bệnh sử không có mốc cụ thể nếu vẫn hợp lệ nhưng không tự tạo giờ/ngày cụ thể; AUTO_SAMPLE có thể tạo mốc mẫu phù hợp.
-        3. Không ghi “cách vào viện...” nếu không có dữ kiện thời gian.
-        4. Không dùng ngày khám hoặc ngày ra viện làm thời gian khởi phát nếu user không cung cấp.
-        5. Không tự tạo giờ/phút chính xác cho thời gian khởi phát nếu user không cung cấp.
-        6. Nếu thiếu thời gian làm bệnh sử không thể chấp nhận theo output đang chạy, A3_CHECK = NEEDS_FIX.
+    Xử trí và nơi xử trí trước vào viện:
+        1. Chỉ ghi xử trí / điều trị trước vào viện nếu user cung cấp hoặc RUN_MODE = AUTO_SAMPLE cho phép tạo mẫu; USER_ONLY / DEFAULT_COMPLETION không tự tạo nơi xử trí, thuốc đã dùng hoặc đáp ứng điều trị nếu user không cung cấp.
+        2. Không hard-code “tại nhà” cho mọi trường hợp.
+        3. Nếu user nói chưa điều trị: ghi “chưa điều trị” hoặc “chưa xử trí gì”.
+        4. Nếu user nói đã điều trị nhưng không rõ thuốc: ghi “đã điều trị thuốc không rõ loại” hoặc “đã dùng thuốc không rõ loại” tùy ngữ cảnh.
+        5. A3 chỉ chuẩn hóa nơi xử trí trước vào viện theo 3 nhóm hợp lệ:
+            - Tại nhà.
+            - Tại quân y đơn vị.
+            - Tại bệnh viện [tên bệnh viện/cơ sở y tế user cung cấp].
+        6. Nếu user cung cấp “tại nhà”: dùng “Tại nhà...”.
+        7. Nếu user cung cấp “quân y đơn vị”: dùng “Tại quân y đơn vị...”.
+        8. Nếu user cung cấp bệnh viện / cơ sở y tế có tên: dùng “Tại bệnh viện [tên]...” hoặc wording tương đương giữ đúng tên user cung cấp.
+        9. Nếu user chỉ nói “đã điều trị / đã xử trí / được xử trí” nhưng không nói nơi xử trí: ghi việc điều trị / xử trí nhưng không tự thêm “tại nhà”, “tại quân y đơn vị” hoặc “tại bệnh viện”.
+        10. Nếu user cung cấp nơi ngoài 3 nhóm này và không thể chuẩn hóa an toàn về 1 trong 3 nhóm, giữ wording user cung cấp hoặc NEEDS_FIX nếu gây mơ hồ nghiêm trọng theo contract hiện hành.
+        11. Không mở rộng thêm nhóm nơi xử trí khác trong A3.
+        12. Wording hợp lệ gồm: “Tại nhà bệnh nhân chưa điều trị gì.”; “Tại nhà bệnh nhân đã dùng thuốc giảm đau không rõ loại, triệu chứng không đỡ.”; “Tại quân y đơn vị, bệnh nhân đã điều trị thuốc giảm đau không rõ loại, triệu chứng giảm ít.”; “Tại bệnh viện ABC, bệnh nhân được xử trí thuốc giảm đau, triệu chứng không cải thiện.”
+        13. Không biến thuốc điều trị hiện tại / nội trú, thuốc gợi ý, đơn thuốc hoặc A15_TREATMENT thành xử trí trước vào viện nếu user không nói.
 
-    Triệu chứng phủ định / đã hết:
-        1. Nếu user phủ định triệu chứng rõ ràng, A3 phải giữ đúng phủ định và không được tự viết ngược lại.
-        2. Nếu user ghi triệu chứng đã hết / giảm / hết trước vào viện, A3 ghi đúng theo dữ liệu user và không biến thành triệu chứng còn tồn tại.
-        3. A3 không tạo triệu chứng kèm trái với phủ định của user.
-        4. Nếu dữ liệu phủ định / đã hết mâu thuẫn nguồn hợp lệ khác, A3_CHECK = NEEDS_FIX và A3_ERROR ghi rõ điểm mâu thuẫn.
+    Câu kết A3_FOR_O1:
+        1. A3_FOR_O1 là bệnh sử dùng cho bệnh án khám sơ bộ.
+        2. Câu kết dùng khoa ngắn: “Ngày [ngày vào viện nếu có], các triệu chứng [triệu chứng chính ± triệu chứng kèm] [diễn biến hiện tại], bệnh nhân vào khoa A3 khám và điều trị.”
+        3. Nếu không có ngày vào viện / ngày khám hợp lệ từ A1_TIME hoặc user input: không tự tạo ngày; có thể bỏ “Ngày...” và viết câu kết không có ngày.
+        4. A3_FOR_O1 không nối thêm cụm “trong tình trạng...”.
 
-    Xử trí trước vào viện:
-        1. Chỉ ghi xử trí trước vào viện, nơi xử trí và đáp ứng nếu user cung cấp trong USER_ONLY / DEFAULT_COMPLETION.
-        2. Nếu user ghi điều trị tại nhà, phòng khám, tuyến trước, quân y, bệnh viện khác hoặc nơi khác, A3 được đưa đúng vào bệnh sử.
-        3. USER_ONLY / DEFAULT_COMPLETION không tự tạo “đã tự mua thuốc uống”, “đã điều trị không đỡ”, nơi xử trí hoặc đáp ứng điều trị.
-        4. AUTO_SAMPLE có thể tạo xử trí / nơi xử trí / đáp ứng mẫu phù hợp nếu cần cho ca mẫu.
-        5. Không biến thuốc điều trị hiện tại / nội trú, thuốc gợi ý, đơn thuốc hoặc A15_TREATMENT thành xử trí trước vào viện nếu user không nói.
+    Câu kết A3_FOR_O8:
+        1. A3_FOR_O8 là bệnh sử dùng cho bệnh án chi tiết.
+        2. Câu kết phải dùng “khoa Cơ xương khớp và Nội tiết”, không dùng “khoa A3”.
+        3. Câu kết phải có phần mở rộng “trong tình trạng [ý thức], [tiếp xúc], [triệu chứng chính], [triệu chứng kèm theo].” theo dữ kiện hợp lệ.
+        4. Mẫu câu: “Ngày [ngày vào viện nếu có], các triệu chứng [triệu chứng chính ± triệu chứng kèm] [diễn biến hiện tại], bệnh nhân vào khoa Cơ xương khớp và Nội tiết khám và điều trị trong tình trạng [ý thức], [tiếp xúc], [triệu chứng chính], [triệu chứng kèm theo].”
+        5. Nếu không có ngày vào viện / ngày khám hợp lệ từ A1_TIME hoặc user input: không tự tạo ngày; có thể bỏ “Ngày...” và viết câu kết không có ngày.
+        6. Nếu không có triệu chứng kèm theo hợp lệ, không tự bịa triệu chứng kèm; câu kết có thể chỉ gồm triệu chứng chính sau ý thức / tiếp xúc, hoặc NEEDS_FIX nếu output O8 hiện hành bắt buộc có đủ triệu chứng kèm.
+        7. Nếu RUN_MODE = DEFAULT_COMPLETION hoặc AUTO_SAMPLE và không có dữ kiện trái ngược, có thể dùng “ý thức tỉnh, tiếp xúc tốt”.
+        8. Nếu user cung cấp ý thức / tiếp xúc bất thường, phải giữ đúng, không tự sửa thành tỉnh / tiếp xúc tốt.
+
+    Ví dụ output phù hợp:
+        1. Ví dụ A3_FOR_O1: Bệnh nhân có tiền sử đái tháo đường. Cách vào viện 03 ngày, bệnh nhân xuất hiện sưng đau khớp gối phải, khởi phát từ từ, không ghi nhận yếu tố chấn thương. Khớp gối phải sưng đau, vận động đau tăng. Kèm theo ợ hơi, ợ chua, nóng rát vùng thượng vị. Tại nhà bệnh nhân chưa điều trị gì. Ngày dd/mm/yyyy, các triệu chứng sưng đau khớp gối phải, ợ hơi, ợ chua, nóng rát vùng thượng vị tăng lên, bệnh nhân vào khoa A3 khám và điều trị.
+        2. Ví dụ A3_FOR_O8: Bệnh nhân có tiền sử đái tháo đường. Cách vào viện 03 ngày, bệnh nhân xuất hiện sưng đau khớp gối phải, khởi phát từ từ, không ghi nhận yếu tố chấn thương. Khớp gối phải sưng đau, vận động đau tăng. Kèm theo ợ hơi, ợ chua, nóng rát vùng thượng vị. Tại nhà bệnh nhân chưa điều trị gì. Ngày dd/mm/yyyy, các triệu chứng sưng đau khớp gối phải, ợ hơi, ợ chua, nóng rát vùng thượng vị tăng lên, bệnh nhân vào khoa Cơ xương khớp và Nội tiết khám và điều trị trong tình trạng ý thức tỉnh, tiếp xúc tốt, sưng đau khớp gối phải nhiều, ợ hơi, ợ chua, nóng rát vùng thượng vị.
 
     Khi dữ liệu ít, chỉ có chẩn đoán hoặc chỉ có mã ICD:
-        1. Nếu chỉ có triệu chứng chính, A3_FINAL có thể là đoạn ngắn; USER_ONLY không tự tạo diễn biến hoặc triệu chứng kèm; DEFAULT_COMPLETION chỉ bổ sung triệu chứng kèm phù hợp nếu bệnh cảnh đủ rõ và không trái dữ kiện user.
-        2. Nếu user chỉ cung cấp chẩn đoán hoặc mã ICD mà không có triệu chứng / diễn biến do user cung cấp: không đưa mã ICD vào A3_FINAL như bệnh sử hoặc tiền sử; không biến chẩn đoán hiện tại thành bệnh sử nếu không có dữ liệu diễn biến; không biến mã ICD thành câu bệnh sử trực tiếp.
+        1. Nếu chỉ có triệu chứng chính, A3_FOR_O1 và A3_FOR_O8 có thể là đoạn ngắn; USER_ONLY không tự tạo diễn biến hoặc triệu chứng kèm; DEFAULT_COMPLETION chỉ bổ sung triệu chứng kèm phù hợp nếu bệnh cảnh đủ rõ và không trái dữ kiện user.
+        2. Nếu user chỉ cung cấp chẩn đoán hoặc mã ICD mà không có triệu chứng / diễn biến do user cung cấp: không đưa mã ICD vào A3_FOR_O1 / A3_FOR_O8 như bệnh sử hoặc tiền sử; không biến chẩn đoán hiện tại thành bệnh sử nếu không có dữ liệu diễn biến; không biến mã ICD thành câu bệnh sử trực tiếp.
         3. Với chẩn đoán/mã ICD only: USER_ONLY không tự tạo bệnh sử và A3_CHECK = NEEDS_FIX nếu bệnh sử là dữ liệu bắt buộc; DEFAULT_COMPLETION được hoàn thiện triệu chứng cơ năng / bệnh sử nếu bệnh cảnh đủ rõ và không trái dữ kiện user; AUTO_SAMPLE được tạo bệnh sử mẫu phù hợp ca mẫu.
 
     Phân ranh với module khác:
-        1. A3 không viết thay A1_REASON và không sửa A1_REASON.
+        1. A3 không viết thay A1_REASON, không sửa A1_REASON và không sửa A1_TIME.
         2. Ngoài câu mở đầu lấy đúng từ A2_FINAL, A3 không viết tiền sử thay A2, không tự thêm tiền sử ngoài A2_FINAL và không sửa A2_FINAL.
-        3. A3 không viết khám thực thể thay A4-A11, không biến dấu khám khách quan thành lời kể bệnh sử nếu user không cung cấp dưới dạng triệu chứng, không dùng nghiệm pháp khám như Lasègue, Valleix, Schober hoặc dấu thần kinh khu trú khách quan nếu đó là dữ kiện khám.
-        4. A3 không viết chẩn đoán thay A12, không biến bệnh sử thành danh sách chẩn đoán, không bê nguyên danh sách chẩn đoán vào bệnh sử và không tự tạo chẩn đoán mới.
-        5. A3 không viết hướng cần làm / hướng điều trị thay A13, không biến chỉ định cần làm thành kết quả đã làm và không biến A13_TREATMENT thành điều trị đã thực hiện trước vào viện nếu user không cung cấp.
-        6. A3 không viết cận lâm sàng thay A14, không tạo kết quả xét nghiệm / chẩn đoán hình ảnh / thăm dò chức năng và không dùng kết quả CLS để viết thành bệnh sử nếu user không mô tả là diễn biến lâm sàng.
-        7. A3 không viết thuốc / điều trị / đơn thuốc thay A15, không biến thuốc gợi ý thành thuốc đã dùng.
-        8. A3 không viết bệnh trình nội trú, diễn biến điều trị nội trú hoặc tình trạng ra viện thay C7/O; A3 chỉ xử lý diễn biến trước vào viện.
-        9. Khám thực thể, CLS, chẩn đoán, thuốc, điều trị, bệnh trình hoặc tình trạng ra viện chỉ được nhắc trong A3 nếu user cung cấp dưới dạng diễn biến trước vào viện / bệnh sử hợp lệ; nếu không thì không đưa vào A3_FINAL.
+        3. A3 không đọc hoặc ghi A4_STATE; dữ kiện ý thức / tiếp xúc trong câu kết A3_FOR_O8 chỉ là dữ kiện câu kết bệnh sử theo rule A3, không phải patch A4.
+        4. A3 không viết khám thực thể thay A4-A11, không biến dấu khám khách quan thành lời kể bệnh sử nếu user không cung cấp dưới dạng triệu chứng, không dùng nghiệm pháp khám như Lasègue, Valleix, Schober hoặc dấu thần kinh khu trú khách quan nếu đó là dữ kiện khám.
+        5. A3 không viết chẩn đoán thay A12, không biến bệnh sử thành danh sách chẩn đoán, không bê nguyên danh sách chẩn đoán vào bệnh sử và không tự tạo chẩn đoán mới.
+        6. A3 không viết hướng cần làm / hướng điều trị thay A13, không biến chỉ định cần làm thành kết quả đã làm và không biến A13_TREATMENT thành điều trị đã thực hiện trước vào viện nếu user không cung cấp.
+        7. A3 không viết cận lâm sàng thay A14, không tạo kết quả xét nghiệm / chẩn đoán hình ảnh / thăm dò chức năng và không dùng kết quả CLS để viết thành bệnh sử nếu user không mô tả là diễn biến lâm sàng.
+        8. A3 không viết thuốc / điều trị / đơn thuốc thay A15, không biến thuốc gợi ý thành thuốc đã dùng.
+        9. A3 không viết bệnh trình nội trú, diễn biến điều trị nội trú hoặc tình trạng ra viện thay C7/O; A3 chỉ xử lý diễn biến trước vào viện và câu kết bệnh sử O1/O8 theo rule A3.
+        10. Khám thực thể, CLS, chẩn đoán, thuốc, điều trị, bệnh trình hoặc tình trạng ra viện chỉ được nhắc trong A3 nếu user cung cấp dưới dạng diễn biến trước vào viện / bệnh sử hợp lệ hoặc thuộc cụm tình trạng câu kết A3_FOR_O8 đã được rule A3 cho phép; nếu không thì không đưa vào A3_FOR_O1 / A3_FOR_O8.
 
 A3_CHECK_PASS_IF
     A3_CHECK = PASS khi đồng thời đạt:
-        1. A3_STATE đủ STATE_VERSION, A3_FINAL, A3_CHECK, A3_ERROR.
-        2. A3_FINAL có giá trị hợp lệ theo dữ liệu và RUN_MODE.
-        3. A3_FINAL là đoạn bệnh sử hoàn chỉnh, mạch lạc khi dữ liệu cho phép.
-        4. A3_FINAL mở đầu đúng bằng câu tiền sử từ A2_FINAL.
-        5. A3_FINAL giữ triệu chứng chính user cung cấp và không bỏ sót triệu chứng chính cần xuất hiện hợp lý từ A1_REASON.
-        6. A3_FINAL không mâu thuẫn user input, A1_REASON hoặc A2_FINAL.
-        7. A3_FINAL đúng trình tự thời gian nếu có mốc thời gian và không đảo mốc làm sai diễn biến.
-        8. A3_FINAL chỉ tự hoàn thiện triệu chứng / diễn biến theo đúng quyền của RUN_MODE.
-        9. A3_FINAL không tự tạo thời gian, diễn biến, xử trí trước vào viện, nơi xử trí, đáp ứng hoặc triệu chứng trái phủ định ngoài quyền RUN_MODE.
-        10. A3_FINAL không chứa nội dung ngoài phạm vi bệnh sử, không chứa khám thực thể / CLS / chẩn đoán / hướng điều trị / thuốc / bệnh trình nội trú / tình trạng ra viện ngoài phạm vi.
-        11. A3_ERROR = NONE.
+        1. A3_STATE đủ schema: STATE_VERSION, A3_FOR_O1, A3_FOR_O8, A3_CHECK, A3_ERROR.
+        2. A3_FOR_O1 là đoạn bệnh sử hợp lệ cho O1.
+        3. A3_FOR_O8 là đoạn bệnh sử hợp lệ cho O8.
+        4. A3_FOR_O1 và A3_FOR_O8 đều mở đầu đúng bằng câu tiền sử từ A2_FINAL.
+        5. A3_FOR_O1 và A3_FOR_O8 giữ triệu chứng chính user cung cấp và không bỏ sót triệu chứng chính cần xuất hiện hợp lý từ A1_REASON.
+        6. A3_FOR_O1 và A3_FOR_O8 không mâu thuẫn user input, A1_TIME, A1_REASON hoặc A2_FINAL.
+        7. Trình tự bệnh sử đúng: tiền sử → thời gian khởi phát → triệu chứng chính → kiểu khởi phát / yếu tố chấn thương nếu có → diễn biến / tính chất / yếu tố tăng giảm → triệu chứng kèm → xử trí trước vào viện nếu có → ngày vào viện / diễn biến hiện tại → câu kết.
+        8. A3_FOR_O1 kết thúc đúng hướng bệnh án khám sơ bộ, dùng “khoa A3” khi cần ghi khoa và không có cụm “trong tình trạng...”.
+        9. A3_FOR_O8 kết thúc đúng hướng bệnh án chi tiết, dùng “khoa Cơ xương khớp và Nội tiết” và có cụm “trong tình trạng...” theo rule.
+        10. Nơi xử trí trước vào viện không bị hard-code sai và chỉ chuẩn hóa theo 3 nhóm hợp lệ.
+        11. A3_FOR_O1 / A3_FOR_O8 không tự tạo nơi xử trí / thuốc / đáp ứng trong USER_ONLY / DEFAULT_COMPLETION nếu user không cung cấp.
+        12. A3_FOR_O1 / A3_FOR_O8 chỉ tự hoàn thiện triệu chứng / diễn biến / ý thức / tiếp xúc theo đúng quyền của RUN_MODE.
+        13. A3_FOR_O1 / A3_FOR_O8 không tự tạo thời gian, kiểu khởi phát, yếu tố chấn thương, nơi xử trí, thuốc đã dùng, đáp ứng hoặc triệu chứng trái phủ định ngoài quyền RUN_MODE.
+        14. A3_FOR_O1 / A3_FOR_O8 không chứa khám thực thể, CLS, chẩn đoán, hướng điều trị, thuốc/đơn thuốc, bệnh trình nội trú hoặc tình trạng ra viện ngoài phạm vi A3, ngoại trừ cụm tình trạng câu kết A3_FOR_O8 đã được rule A3 cho phép.
+        15. A3_ERROR = NONE.
 
 A3_NEEDS_FIX_IF
     A3_CHECK = NEEDS_FIX nếu có ít nhất một lỗi:
-        1. Thiếu bệnh sử / triệu chứng hiện tại trong USER_ONLY khi output cần bệnh sử.
-        2. Thiếu thời gian khởi phát làm bệnh sử không chấp nhận được theo output đang chạy.
-        3. A3_FINAL mâu thuẫn user input.
-        4. A3_FINAL mâu thuẫn A1_REASON hoặc bỏ sót triệu chứng chính cần xuất hiện hợp lý theo A1_REASON.
-        5. A3_FINAL mâu thuẫn A2_FINAL hoặc câu mở đầu không lấy đúng từ A2_FINAL.
-        6. A3_FINAL tự tạo sai thời gian, diễn biến, xử trí trước vào viện, nơi xử trí hoặc đáp ứng.
-        7. A3_FINAL viết ngược triệu chứng user phủ định / đã hết hoặc tạo triệu chứng kèm trái phủ định.
-        8. A3_FINAL chứa khám thực thể, CLS, chẩn đoán, hướng điều trị, thuốc, bệnh trình nội trú hoặc tình trạng ra viện ngoài phạm vi.
-        9. User chỉ cung cấp chẩn đoán/mã ICD trong USER_ONLY mà không có dữ liệu bệnh sử / triệu chứng và bệnh sử là dữ liệu bắt buộc.
-        10. A3_STATE thiếu field bắt buộc.
-        11. A3_ERROR không rõ khi A3_CHECK = NEEDS_FIX.
-        12. A3_ERROR không phải NONE khi A3_CHECK = PASS.
+        1. A3_STATE thiếu field schema bắt buộc.
+        2. Vẫn chỉ có A3_FINAL mà không có A3_FOR_O1 / A3_FOR_O8 sau patch.
+        3. A3_FOR_O1 hoặc A3_FOR_O8 thiếu bệnh sử / triệu chứng hiện tại khi output cần bệnh sử.
+        4. A3_FOR_O1 hoặc A3_FOR_O8 mâu thuẫn user input.
+        5. A3_FOR_O1 hoặc A3_FOR_O8 mâu thuẫn A1_REASON hoặc bỏ sót triệu chứng chính cần xuất hiện hợp lý theo A1_REASON.
+        6. A3_FOR_O1 hoặc A3_FOR_O8 mâu thuẫn A1_TIME khi dùng ngày vào viện / ngày khám.
+        7. A3_FOR_O1 hoặc A3_FOR_O8 mâu thuẫn A2_FINAL hoặc câu mở đầu không lấy đúng từ A2_FINAL.
+        8. A3_FOR_O1 dùng sai câu kết của O8 hoặc tự thêm “trong tình trạng...” không đúng scope O1.
+        9. A3_FOR_O8 vẫn dùng “khoa A3” thay vì “khoa Cơ xương khớp và Nội tiết”.
+        10. A3_FOR_O8 thiếu cụm “trong tình trạng...” khi dữ kiện / RUN_MODE cho phép tạo đủ.
+        11. USER_ONLY thiếu ý thức / tiếp xúc cho câu kết A3_FOR_O8 trong trường hợp O8 bắt buộc đủ cụm tình trạng.
+        12. A3_FOR_O1 hoặc A3_FOR_O8 tự tạo sai thời gian, kiểu khởi phát, yếu tố chấn thương, nơi xử trí, thuốc đã dùng hoặc đáp ứng điều trị.
+        13. A3_FOR_O1 hoặc A3_FOR_O8 hard-code “tại nhà” khi user cung cấp nơi khác hoặc không cung cấp nơi xử trí.
+        14. A3_FOR_O1 hoặc A3_FOR_O8 chuẩn hóa nơi xử trí ngoài 3 nhóm hợp lệ mà không có căn cứ.
+        15. A3_FOR_O1 hoặc A3_FOR_O8 viết ngược triệu chứng user phủ định / đã hết hoặc tạo triệu chứng kèm trái phủ định.
+        16. A3_FOR_O1 hoặc A3_FOR_O8 chứa dữ liệu ngoài phạm vi A3 không được rule cho phép.
+        17. User chỉ cung cấp chẩn đoán/mã ICD trong USER_ONLY mà không có dữ liệu bệnh sử / triệu chứng và bệnh sử là dữ liệu bắt buộc.
+        18. A3_ERROR không rõ khi A3_CHECK = NEEDS_FIX.
+        19. A3_ERROR không phải NONE khi A3_CHECK = PASS.
 
 A3_ERROR_RULE
     Nếu A3_CHECK = PASS: A3_ERROR = NONE.
     Nếu A3_CHECK = NEEDS_FIX: A3_ERROR phải ghi lỗi cụ thể.
-    Nếu thiếu dữ liệu: A3_ERROR phải nêu dữ liệu cần user bổ sung.
-    Nếu mâu thuẫn: A3_ERROR phải nêu điểm mâu thuẫn, gồm mâu thuẫn với user input, A1_REASON hoặc A2_FINAL nếu có.
+    Nếu thiếu dữ liệu: A3_ERROR phải nêu dữ liệu cần user bổ sung, gồm thiếu ý thức / tiếp xúc cho câu kết A3_FOR_O8 trong USER_ONLY nếu O8 bắt buộc đủ cụm tình trạng.
+    Nếu mâu thuẫn: A3_ERROR phải nêu điểm mâu thuẫn, gồm mâu thuẫn với user input, A1_TIME, A1_REASON hoặc A2_FINAL nếu có.
     Nếu sai phạm vi: A3_ERROR phải nêu phần cần sửa.
     Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
 
 A3_REUSE_RULE
-    REUSE áp dụng khi latest/current A3_STATE có sẵn và user input/source hợp lệ không ảnh hưởng A3 hoặc không làm A3_FINAL thay đổi thật.
+    REUSE áp dụng khi latest/current A3_STATE hợp lệ có sẵn và user input/source hợp lệ không ảnh hưởng A3 hoặc không làm A3_FOR_O1 / A3_FOR_O8 thay đổi thật.
     Khi REUSE, A3 dùng lại nội dung thật của latest/current A3_STATE và vẫn in full A3_STATE với STATE_VERSION của ROUND hiện tại.
-    Không được ghi “giữ nguyên như trước”, “reuse A3”, “theo bản trước”, “không đổi” hoặc patch/delta thay cho A3_FINAL.
-    Khi REUSE hoặc input/source hợp lệ không làm đổi nội dung thật của A3_FINAL, A3_REV giữ nguyên.
+    Không được ghi “giữ nguyên như trước”, “reuse A3”, “theo bản trước”, “không đổi” hoặc patch/delta thay cho A3_FOR_O1 / A3_FOR_O8.
+    Khi REUSE hoặc input/source hợp lệ không làm đổi nội dung thật của A3_FOR_O1 / A3_FOR_O8, A3_REV giữ nguyên.
 
 A3_END
     A3 hoàn tất khi đã CREATE / UPDATE / REUSE A3_STATE, đã CHECK A3_STATE và không ghi ngoài A3_ALLOWED_WRITE.
@@ -542,10 +596,6 @@ A3_END
     Không chuyển sang A_GATE cho đến khi toàn bộ A1-A15 đã có trạng thái hợp lệ.
 
 <<< END A3
-
-####################################################################################################
-
-####################################################################################################
 
 A4 — KHÁM TOÀN THÂN
 Version: BA S-G-A-C-O v4
