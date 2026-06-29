@@ -323,7 +323,7 @@ O3_ALLOWED_SOURCE
             - A1_STATE.A1_TIME hoặc field ngày nhập viện tương đương đã chuẩn hóa.
             - A1_STATE.A1_REASON.
             - A2_STATE.A2_FINAL hoặc field tiền sử tương đương đã chuẩn hóa nếu có.
-            - A3_STATE.A3_FINAL và dữ kiện A3 chuẩn hóa về thời gian trước vào viện, diễn biến bệnh sử, xử trí trước vào viện/tại nhà và khoa điều trị nếu có.
+            - A3_STATE.A3_FOR_O8 và dữ kiện A3 chuẩn hóa về thời gian trước vào viện, diễn biến bệnh sử, xử trí trước vào viện/tại nhà và khoa điều trị nếu có.
             - A12_STATE.A12_FINAL.
             - A13_STATE.A13_TREATMENT.
             - A14_STATE.A14_DISCHARGE_DATE.
