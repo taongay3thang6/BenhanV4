@@ -1462,449 +1462,102 @@ O12_END
 ####################################################################################################
 
 O13 — CHẨN ĐOÁN PHÂN BIỆT / NGHI NGỜ / BỆNH KHÁC CÓ KHẢ NĂNG
-Version: BA S-G-A-C-O v3
-Update: 11/06/2026 GMT+7 — chuẩn hóa O13 renderer-only / C5-only và bullet differential
+Version: BA S-G-A-C-O V4
+Update: 29/06/2026 GMT+7 — compact allowlist contract, giữ nguyên logic renderer-only / C5-only
 
-O13.0. READ LOCK
-    Khi audit, patch, final review hoặc sử dụng/render O13, AI/Codex phải đọc toàn bộ O13 từ O13.0 đến marker “<<< END O13”.
-    Không được chỉ đọc một đoạn giữa module.
-    Không được chỉ đọc nguồn dữ liệu.
-    Không được chỉ đọc ví dụ, checklist hoặc lỗi cấm.
-    Không được chỉ đọc diff.
-    Không được patch một mục nếu chưa kiểm tra ảnh hưởng tới các mục còn lại trong O13.
-    Nếu chưa đọc đủ toàn bộ O13 thì phải kết luận UNCLEAR, không được kết luận PASS/FAIL.
-    O13 chỉ render khi nằm trong G_STATE.O_RENDER_LIST / G_STATE.O_RENDER_ORDER và đã đến lượt theo G_STATE.O_RENDER_ORDER.
+O13_READ_LOCK
+    Khi audit, patch, final review hoặc render O13, phải đọc nguyên section từ header O13 này đến `<<< END O13`; không kết luận/sửa từ diff, trích đoạn, ví dụ hoặc output cũ.
+    Chỉ patch O13 trong lượt O13; không đụng O1-O12, nhóm A, nhóm C, S/G hoặc section khác.
 
-O13.1. Mục tiêu
-    O13 là module render CHẨN ĐOÁN PHÂN BIỆT / NGHI NGỜ / BỆNH KHÁC CÓ KHẢ NĂNG.
-    O13 thuộc lớp O và chỉ tạo output/rendered text nếu được G_STATE cho phép.
-    O13 là renderer của C5.
-    O13 render nội dung do C5 tạo.
-    O13 phục vụ trình bày chẩn đoán phân biệt, nghi ngờ, bệnh khác có khả năng, căn cứ lập luận, giới hạn loại trừ / dữ kiện còn thiếu và ghi chú từ C5.
-    O13 không tự tạo chẩn đoán phân biệt.
-    O13 không tự thêm bệnh.
-    O13 không tự loại bệnh.
-    O13 không tự xếp hạng bệnh nếu C5 không có.
-    O13 không tự tạo căn cứ.
-    O13 không tự tạo cận lâm sàng.
-    O13 không tự tạo chẩn đoán chính thức.
-    O13 không tự chuyển chẩn đoán phân biệt thành A12.
-    O13 không tự tạo hướng xử trí.
-    O13 không tự cảnh báo.
-    O13 không tự tra cứu.
-    O13 không tự chạy C5.
-    O13 không sửa C5_STATE.
-    O13 không thay C5.
-    O13 không thay A12.
-    O13 không thay A13.
-    O13 không thay O9/O10/O11/O12.
-    O13 không sửa A_STATE/C_STATE/G_STATE.
-    O13 chỉ hoạt động khi có trong G_STATE.O_RENDER_LIST / G_STATE.O_RENDER_ORDER.
+O13_ROLE
+    O13 là strict renderer/output thuộc lớp O cho block `CHẨN ĐOÁN PHÂN BIỆT / NGHI NGỜ / BỆNH KHÁC CÓ KHẢ NĂNG`.
+    O13 là renderer-only của C5: chỉ trình bày nội dung đã được C5 tạo/chốt trong `C5_STATE` / `C5_FINAL`.
+    O13 không phải C5, A12, A13, A15, O9, O10, O11 hoặc O12; không tự xác định/tạo chẩn đoán phân biệt, nghi ngờ, bệnh khác, căn cứ, dữ kiện ủng hộ/chống lại, giới hạn loại trừ, dữ kiện còn thiếu, mức ưu tiên nếu C5 không cung cấp, chẩn đoán chính thức, hướng xử trí/chỉ định, xét nghiệm/cận lâm sàng, thuốc/đơn thuốc, cảnh báo hoặc tra cứu.
+    `O13_OUTPUT` nếu có chỉ là rendered output của O13, không phải state nguồn, không là source cho A/C/O khác, không được reuse như nguồn lâm sàng và không biến differential thành chẩn đoán chính thức.
 
-O13.2. Nguồn dữ liệu được phép
-    O13 chỉ được đọc nguồn mapping rõ:
-        1. G_STATE của ROUND hiện tại:
-            - chỉ để kiểm O13 nằm trong O_RENDER_LIST/O_RENDER_ORDER và thứ tự render;
-            - không dùng G_STATE làm nguồn tạo chẩn đoán phân biệt;
-            - không render metadata G_STATE vào output.
-        2. C_GATE mới nhất nếu hệ thống có:
-            - chỉ để kiểm C5_STATE hợp lệ;
-            - không render C_GATE vào output;
-            - không dùng C_GATE để tạo nội dung.
-        3. C5_STATE:
-            - nguồn chính và bắt buộc của O13.
-        4. C5_CHECK:
-            - phải = PASS để O13 render thường quy;
-            - nếu C5_CHECK != PASS thì O13 BLOCKED/NEEDS_FIX.
-        5. C5_FINAL:
-            - nguồn tổng hợp cuối nếu C5 đã chốt.
-        6. C5_DIFFERENTIAL_DIAGNOSES nếu có:
-            - nguồn cho mục “Chẩn đoán phân biệt”.
-        7. C5_OTHER_POSSIBLE_CONDITIONS nếu có:
-            - nguồn cho mục “Bệnh khác có khả năng”.
-        8. C5_REASONING_BASIS nếu có:
-            - nguồn cho mục “Căn cứ lập luận”.
-        9. C5_EXCLUSION_LIMITS nếu có:
-            - nguồn cho mục “Giới hạn loại trừ / dữ kiện còn thiếu”.
-        10. C5_INSUFFICIENT_DATA_NOTE hoặc field tương đương nếu có:
-            - nguồn cho trạng thái “chưa đủ dữ kiện”.
-        11. C5_NO_DIFFERENTIAL_NOTE hoặc field tương đương nếu có:
-            - nguồn cho trạng thái “không có phân biệt nổi bật”.
-        12. C5_ERROR:
-            - chỉ dùng để ghi lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu;
-            - không render vào output thường quy khi C5_CHECK = PASS.
-        13. C5_REV / C5_SOURCE_A_REV nếu hệ thống hiện hành còn dùng:
-            - chỉ được dùng như metadata kiểm nội bộ/schema nếu contract hiện hành yêu cầu;
-            - không được render vào output thường quy;
-            - không được dùng để tự tạo nội dung;
-            - không được dùng để tự sửa nội dung;
-            - không nên là điều kiện bắt buộc để render nếu C5_STATE/C5_CHECK/C5_FINAL đã hợp lệ, trừ khi core contract thật nêu rõ.
-    Không viết nguồn đọc kiểu “các Cx_STATE cần thiết” lấp lửng.
-    Không đọc Cx_STATE rộng.
-    Không đọc A_STATE để tự tạo nội dung O13.
-    Không giữ A_STATE/A_MODULE_REV/A_GATE_STATUS/RUN_MODE như nguồn render O13.
-    Nếu cần bối cảnh, bối cảnh đó phải nằm trong C5_STATE/C5_FINAL.
-    O13 không được đọc A_STATE như nguồn tự tạo phân biệt, bệnh khác, căn cứ, cận lâm sàng, chẩn đoán chính thức hoặc hướng xử trí.
+O13_ALLOWED_SOURCE
+    O13 chỉ được đọc:
+        1. `G_STATE` ROUND hiện tại: chỉ kiểm O13 nằm trong `O_RENDER_LIST` / `O_RENDER_ORDER`, đã đến lượt render và metadata điều phối cần thiết; không dùng G_STATE làm nguồn chẩn đoán phân biệt và không render metadata G_STATE.
+        2. `C_GATE` mới nhất nếu hệ thống có: chỉ kiểm `C5_STATE` hợp lệ; không render và không dùng để tạo nội dung.
+        3. `C5_STATE`: nguồn chính và bắt buộc.
+        4. `C5_CHECK`: phải = PASS để render thường quy; nếu không PASS thì O13 `BLOCKED/NEEDS_FIX`.
+        5. `C5_FINAL`: nguồn tổng hợp cuối nếu C5 đã chốt.
+        6. `C5_DIFFERENTIAL_DIAGNOSES` nếu có: nguồn cho mục `1. Chẩn đoán phân biệt:`.
+        7. `C5_OTHER_POSSIBLE_CONDITIONS` nếu có: nguồn cho mục `2. Bệnh khác có khả năng:`.
+        8. `C5_REASONING_BASIS` nếu có: nguồn cho mục `3. Căn cứ lập luận:`.
+        9. `C5_EXCLUSION_LIMITS` nếu có: nguồn cho mục `4. Giới hạn loại trừ / dữ kiện còn thiếu:`.
+        10. `C5_INSUFFICIENT_DATA_NOTE` hoặc field tương đương nếu có: nguồn cho trạng thái “chưa đủ dữ kiện”.
+        11. `C5_NO_DIFFERENTIAL_NOTE` hoặc field tương đương nếu có: nguồn cho trạng thái “không có phân biệt nổi bật”.
+        12. `C5_ERROR`: chỉ dùng làm lý do chặn khi `BLOCKED/NEEDS_FIX` nếu framework yêu cầu; không render trong output thường quy khi `C5_CHECK = PASS`.
+        13. `C5_REV` / `C5_SOURCE_A_REV` nếu hệ thống còn dùng: chỉ là metadata kiểm nội bộ/schema nếu core contract yêu cầu; không render, không tự tạo/sửa nội dung, không biến thành điều kiện bắt buộc nếu `C5_STATE/C5_CHECK/C5_FINAL` đã hợp lệ trừ khi core contract thật sự yêu cầu.
+    Nếu cần bối cảnh, bối cảnh phải nằm trong `C5_STATE` hoặc `C5_FINAL`; O13 không đọc A_STATE trực tiếp để tự tạo nội dung.
+    O13 không được đọc/dùng raw user input, hidden memory/trí nhớ ẩn, web/guideline/source ngoài, output O cũ, `O13_OUTPUT` cũ, rendered output cũ, A_STATE rộng, A_GATE để tạo nội dung, A_STATE_PATCH, C_STATE_PATCH, A12/A13/A14/A15, A13_LABS/A13_IMAGING/A13_TREATMENT, C1/C2/C3/C4/C6/C7, generic C_STATE/Cx_STATE ngoài C5, O9/O10/O11/O12 output hoặc metadata RUN_MODE/REV làm nguồn nội dung.
+    Nếu cần differential mới hoặc sửa differential, phải quay lại C5 theo điều phối hệ thống; O13 không tự gọi hoặc tự chạy C5.
 
-O13.3. Nguồn dữ liệu không được dùng
-    O13 không được đọc/dùng:
-        1. Raw input để tự tạo chẩn đoán phân biệt.
-        2. Hidden memory.
-        3. O_OUTPUT cũ / O13_OUTPUT cũ / rendered output cũ.
-        4. A_STATE_PATCH làm nguồn chính.
-        5. C_STATE_PATCH làm nguồn chính.
-        6. A_STATE để tự tạo chẩn đoán phân biệt.
-        7. A12_STATE để tự tạo hoặc thay chẩn đoán chính thức.
-        8. A13_STATE để tự tạo hướng xử trí.
-        9. A13_LABS để tự tạo cận lâm sàng hoặc căn cứ nếu C5 chưa tạo.
-        10. A13_IMAGING để tự tạo cận lâm sàng hoặc căn cứ nếu C5 chưa tạo.
-        11. A13_TREATMENT để tự tạo hướng điều trị.
-        12. A14_STATE hoặc C7_STATE / bệnh trình để tự thêm bệnh.
-        13. A15_STATE để tự tạo bệnh do thuốc nếu C5 chưa tạo.
-        14. C1_STATE để tạo hỏi thêm/khám thêm/cần làm thêm.
-        15. C2_STATE để tạo cảnh báo hoặc bệnh nguy hiểm.
-        16. C3_STATE để tạo bệnh do thuốc nếu C5 chưa tạo.
-        17. C4_STATE / C4_FOR_O2 để tạo hội chứng hoặc phân biệt.
-        18. C6_STATE trực tiếp để tra cứu hoặc thêm bệnh.
-        19. C7_STATE để lấy bệnh trình.
-        20. Cx_STATE ngoài C5.
-        21. O9_OUTPUT để tạo hỏi thêm/cần làm thêm.
-        22. O10_OUTPUT để tạo cảnh báo.
-        23. O11_OUTPUT để tạo cảnh báo thuốc.
-        24. O12_OUTPUT để thêm kiến thức/nguồn.
-        25. Web/guideline/source ngoài nếu C5 chưa cung cấp hoặc hệ thống không có contract.
-        26. Metadata kỹ thuật để render thành nội dung chẩn đoán phân biệt.
+O13_ALLOWED_ACTION
+    RUN/render khi đồng thời: O13 nằm trong `G_STATE.O_RENDER_LIST` hoặc `G_STATE.O_RENDER_ORDER`, đã đến lượt theo `G_STATE.O_RENDER_ORDER`, `C5_STATE` tồn tại, `C5_CHECK = PASS`, `C5_FINAL` hoặc field C5 tương ứng có nội dung/schema hợp lệ, output đúng schema O13 và chỉ dùng source allowlist.
+    SKIP khi O13 không nằm trong render plan hoặc chưa đến lượt render; khi SKIP không render O13, không tạo/cập nhật `O13_OUTPUT`, không in `O13_OUTPUT = SKIP` và không tự thêm O13 vào render plan.
+    BLOCKED/NEEDS_FIX khi O13 được yêu cầu render nhưng thiếu điều kiện RUN, thiếu `C5_STATE`, `C5_CHECK != PASS`, `C5_CHECK = NEEDS_FIX`, `C5_FINAL` thiếu/sai schema, field C5 cần cho mục đang render thiếu/sai schema, C5 chưa tạo nội dung, C5_STATE mâu thuẫn/không phù hợp format O13, C5 có nhiều differential nhưng schema chưa tách bullet/list rõ, dùng nguồn cấm, output sai schema, O13 tự tạo/bù differential/bệnh khác/căn cứ/giới hạn hoặc biến differential thành chẩn đoán chính thức/chỉ định/y lệnh/đơn thuốc.
+    Khi BLOCKED/NEEDS_FIX: không render bản O13 hoàn chỉnh, không tự tạo/thêm/loại/xếp hạng bệnh nếu C5 không có, không tự tạo căn cứ/xét nghiệm/cận lâm sàng, không sửa/chạy C5, không tự chạy A/C/O, không sửa A/C/G/O và chỉ ghi lý do chặn nếu framework yêu cầu.
 
-O13.4. Vai trò của O13 trong hệ thống
-    O13 nằm trong lớp O.
-    O13 là module render/output.
-    O13 là renderer của C5.
-    O13 chỉ trình bày nội dung đã có từ C5_STATE hợp lệ.
-    O13 chỉ chạy khi nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-    O13 không tự chạy C.
-    O13 không sửa A_STATE/C_STATE/G_STATE.
-    O13 không tạo dữ liệu lâm sàng mới.
-    O13 không tự tạo chẩn đoán phân biệt.
-    O13 không tự thêm bệnh.
-    O13 không tự loại bệnh.
-    O13 không tự xếp hạng bệnh nếu C5 không có.
-    O13 không tự tạo căn cứ.
-    O13 không tự tạo cận lâm sàng.
-    O13 không tự tạo chẩn đoán chính thức.
-    O13 không thay C5.
-    O13 không thay A12.
-    O13 không thay A13.
-    O13 không thay O9/O10/O11/O12.
-    Nếu thiếu C5 hoặc C5 không hợp lệ, O13 BLOCKED/NEEDS_FIX.
-    Nếu nguồn sai/mâu thuẫn, O13 không tự sửa mà yêu cầu chạy lại module nguồn.
+O13_ALLOWED_WRITE
+    O13 chỉ được ghi/render output thường quy của chính O13 theo schema, `O13_OUTPUT` nếu framework dùng field này, `O13_RENDER_CHECK` nếu framework nội bộ dùng và lý do `BLOCKED/NEEDS_FIX` nếu framework yêu cầu.
+    `O13_OUTPUT` là rendered output, không phải state nguồn và không phải source cho A/C/O khác.
+    `O13_RENDER_CHECK` là metadata kỹ thuật nếu còn dùng; không render vào output thường quy.
+    Không ghi/tạo/sửa `O13_STATE`, `O13_REV`, `O13_FINAL`, `O13_ERROR` field riêng nếu contract hiện tại không định nghĩa, `G_STATE`, `O_RENDER_LIST`, `O_RENDER_ORDER`, `A_STATE`, `C_STATE`, `C5_STATE`, C1/C2/C3/C4/C6/C7, O module khác hoặc S/G.
+    Không tạo/cập nhật `O13_OUTPUT` khi SKIP; không gọi A/C/O khác.
 
-O13.5. Điều kiện RUN / SKIP / BLOCKED
-    RUN chỉ khi tất cả đúng:
-        1. O13 nằm trong G_STATE.O_RENDER_LIST / G_STATE.O_RENDER_ORDER.
-        2. Đã đến lượt O13 theo G_STATE.O_RENDER_ORDER.
-        3. C5_STATE tồn tại.
-        4. C5_CHECK = PASS.
-        5. C5_FINAL hoặc các field tương ứng có nội dung/schema hợp lệ.
-    SKIP khi:
-        1. O13 không nằm trong G_STATE.O_RENDER_LIST / G_STATE.O_RENDER_ORDER.
-        2. Không render SKIP output nếu hệ thống không yêu cầu.
-        3. Không tạo/cập nhật O13_OUTPUT khi SKIP.
-    BLOCKED/NEEDS_FIX khi:
-        1. Thiếu C5_STATE.
-        2. C5_CHECK != PASS.
-        3. C5_CHECK = NEEDS_FIX.
-        4. C5_FINAL thiếu hoặc sai schema.
-        5. C5_DIFFERENTIAL_DIAGNOSES thiếu schema khi cần.
-        6. C5_OTHER_POSSIBLE_CONDITIONS thiếu schema khi cần.
-        7. C5_REASONING_BASIS thiếu schema khi cần.
-        8. C5_EXCLUSION_LIMITS thiếu schema khi cần.
-        9. C5 chưa tạo nội dung nhưng O13 được yêu cầu.
-        10. C5_STATE mâu thuẫn hoặc không phù hợp format O13.
-    Trường hợp C5 ghi “không có phân biệt nổi bật” hoặc “chưa đủ dữ kiện”:
-        - O13 vẫn RUN nếu C5_CHECK = PASS và C5_FINAL/field tương ứng hợp lệ.
-        - O13 render đúng nội dung C5 đã chốt.
-        - O13 không tự thêm bệnh.
-    Khi BLOCKED/NEEDS_FIX:
-        - O13 không tự tạo chẩn đoán phân biệt.
-        - O13 không tự thêm bệnh.
-        - O13 không tự loại bệnh.
-        - O13 không tự tạo căn cứ.
-        - O13 không tự sửa C5.
-        - O13 không tự chạy C5.
-        - O13 không tự đọc A_STATE/C6 để bù.
-        - Chỉ ghi lý do chặn nếu hệ thống yêu cầu.
-
-O13.6. Mapping dữ liệu nguồn sang output
-    O13 mapping:
-        1. Chẩn đoán phân biệt:
-            - lấy từ C5_DIFFERENTIAL_DIAGNOSES hoặc phần tương ứng trong C5_FINAL.
-            - bắt buộc render thành các gạch đầu dòng riêng; mỗi chẩn đoán phân biệt là một dòng bắt đầu bằng “-”.
-        2. Bệnh khác có khả năng:
-            - lấy từ C5_OTHER_POSSIBLE_CONDITIONS hoặc phần tương ứng trong C5_FINAL.
-        3. Căn cứ lập luận:
-            - lấy từ C5_REASONING_BASIS hoặc phần tương ứng trong C5_FINAL.
-        4. Giới hạn loại trừ / dữ kiện còn thiếu:
-            - lấy từ C5_EXCLUSION_LIMITS hoặc phần tương ứng trong C5_FINAL.
-        5. Kết luận / ghi chú từ C5:
-            - lấy từ C5_FINAL.
-        6. Trạng thái chưa đủ dữ kiện:
-            - lấy từ C5_INSUFFICIENT_DATA_NOTE hoặc C5_FINAL nếu C5 chốt.
-        7. Trạng thái không có phân biệt nổi bật:
-            - lấy từ C5_NO_DIFFERENTIAL_NOTE hoặc C5_FINAL nếu C5 chốt.
-    Không tự thêm mục nếu C5 không có nội dung.
-    Không tự ghi placeholder kiểu “chưa ghi nhận/chưa có dữ kiện” nếu C5 không chốt câu đó.
-    Không chuyển A12 thành phân biệt.
-    Không chuyển A13 hướng xử trí thành phân biệt.
-    Không chuyển C2 cảnh báo thành phân biệt.
-    Không chuyển C6 tra cứu thành phân biệt.
-    Không dùng O13 để sửa lỗi của C5.
-
-O13.7. Quy tắc render nội dung C5
-    O13 render chẩn đoán phân biệt đúng danh sách/thứ tự/mức ưu tiên do C5 cung cấp trong C5_DIFFERENTIAL_DIAGNOSES hoặc C5_FINAL.
-    Phần “Chẩn đoán phân biệt” bắt buộc là list/bullet: mỗi mục trên một dòng riêng bắt đầu bằng “-”.
-    Không render nhiều chẩn đoán phân biệt thành một đoạn dài hoặc một dòng nối bằng dấu chấm phẩy.
-    Nếu C5 cung cấp nhiều mục nhưng schema chưa tách dòng/bullet rõ, O13 phải BLOCKED/NEEDS_FIX và yêu cầu chạy lại C5 theo schema list; O13 không tự thêm chẩn đoán mới và không biến phân biệt thành chẩn đoán chính.
-    O13 render bệnh khác có khả năng đúng nội dung do C5 cung cấp trong C5_OTHER_POSSIBLE_CONDITIONS hoặc C5_FINAL.
-    O13 render căn cứ lập luận đúng nội dung do C5 cung cấp trong C5_REASONING_BASIS hoặc C5_FINAL.
-    O13 render giới hạn loại trừ / dữ kiện còn thiếu đúng nội dung do C5 cung cấp trong C5_EXCLUSION_LIMITS hoặc C5_FINAL.
-    Nếu C5 không cung cấp thứ tự hoặc xếp hạng, O13 không tự xếp hạng.
-    Nếu C5 không cung cấp căn cứ hoặc cận lâm sàng, O13 không tự tạo căn cứ hoặc cận lâm sàng.
-    Nếu C5 không cung cấp bệnh khác, O13 không tự thêm bệnh khác.
-    Nếu C5 ghi “không có phân biệt nổi bật”, O13 render đúng câu C5 đã chốt và không tự thêm bệnh.
-    Nếu C5 ghi “chưa đủ dữ kiện”, O13 render đúng giới hạn/câu C5 đã chốt và không tự thêm bệnh.
-
-O13.8. No-data / BLOCKED / NEEDS_FIX
-    O13 không render bản hoàn chỉnh nếu:
-        1. O13 không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        2. Thiếu C5_STATE.
-        3. C5_CHECK != PASS.
-        4. C5_FINAL thiếu hoặc sai schema.
-        5. C5_DIFFERENTIAL_DIAGNOSES thiếu schema khi cần.
-        6. C5_OTHER_POSSIBLE_CONDITIONS thiếu schema khi cần.
-        7. C5_REASONING_BASIS thiếu schema khi cần.
-        8. C5_EXCLUSION_LIMITS thiếu schema khi cần.
-        9. C5 chưa tạo nội dung nhưng O13 được yêu cầu.
-        10. C5_STATE mâu thuẫn hoặc không phù hợp format O13.
-    Khi BLOCKED:
-        - Không tự tạo chẩn đoán phân biệt.
-        - Không tự thêm bệnh.
-        - Không tự loại bệnh.
-        - Không tự tạo căn cứ.
-        - Không tự tạo cận lâm sàng.
-        - Không tự sửa C5.
-        - Không tự chạy C5.
-        - Không tự đọc A_STATE/C6 để bù.
-        - Không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C5 không chốt câu đó.
-
-O13.9. Metadata không được render
-    O13 không được render:
-        - STATE_VERSION
-        - ROUND_ID
-        - RUN_MODE
-        - Ax_REV
-        - Cx_REV
-        - Ox_REV nếu có
-        - UPDATED_AT
-        - A_CHECK / A_ERROR
-        - C_CHECK / C_ERROR
-        - O_CHECK / O_ERROR
-        - CREATE / UPDATE / REUSE
-        - A_MODULE_REV
-        - C_MODULE_REV
-        - O13_RENDER_CHECK
-        - G_STATE metadata kỹ thuật
-        - C5 technical metadata
-        - C5_REV
-        - C5_SOURCE_A_REV
-    Nếu O13_RENDER_CHECK còn dùng:
-        - O13_RENDER_CHECK chỉ là kiểm nội bộ;
-        - không render vào output thường quy;
-        - chỉ được hiển thị trong debug/report khi hệ thống yêu cầu.
-
-O13.10. Ranh giới O13
-    O13 không thay:
-        - C5 — tạo chẩn đoán phân biệt / bệnh khác có khả năng.
-        - A12 — chẩn đoán chính thức.
-        - A13 — hướng xử trí / điều trị.
-        - O9 — hỏi thêm / khám thêm / cần làm thêm.
-        - O10 — cảnh báo lâm sàng.
-        - O11 — cảnh báo thuốc.
-        - O12 — render C6 / tra cứu.
-        - C1 — hỏi thêm / khám thêm / cần làm thêm.
-        - C2 — cảnh báo lâm sàng.
-        - C3 — cảnh báo thuốc.
-        - C4 — tổng hợp hội chứng / tóm tắt.
-        - C6 — tra cứu / kiến thức ngoài.
-        - C7 — bệnh trình.
-    C5 tạo nội dung.
-    O13 chỉ render nội dung.
-    Nếu cần bổ sung phân biệt mới, phải chạy lại C5.
-    O13 không tự chạy C5.
-    O13 không tự sửa C5.
-    O13 không tự lấy A_STATE/A12/A13/C1/C2/C3/C4/C6/C7 để bù nội dung.
-    O13 không tự dùng web/guideline/source ngoài nếu C5 chưa cung cấp.
-    O13 không biến thành A12/A13/O9/O10/O11/O12.
-
-O13.11. Chuẩn đầu ra O13
-    O13 render nội dung do C5 tạo.
-    Format chuẩn:
-
+O13_RENDER_SCHEMA
+    O13 render thành block riêng theo contract O hiện tại; O13 không bắt buộc code block `text` riêng nếu contract O13 hiện hành không yêu cầu.
+    Heading literal chuẩn:
         CHẨN ĐOÁN PHÂN BIỆT / NGHI NGỜ / BỆNH KHÁC CÓ KHẢ NĂNG
-
+    Thứ tự mục chuẩn, tối đa 5 mục:
         1. Chẩn đoán phân biệt:
-            - Chẩn đoán đột quỵ não phân biệt với rối loạn chức năng tiền đình.
-            - Chẩn đoán phân biệt đau dây thần kinh với thoát vị đĩa đệm.
-            - Chẩn đoán [bệnh/nhóm bệnh A] phân biệt với [bệnh/nhóm bệnh B] khi có căn cứ.
-
         2. Bệnh khác có khả năng:
-            ...
-
         3. Căn cứ lập luận:
-            ...
-
         4. Giới hạn loại trừ / dữ kiện còn thiếu:
-            ...
-
         5. Ghi chú:
             Đây là phần chẩn đoán phân biệt / bệnh khác có khả năng, không phải chẩn đoán chính thức.
+    Mapping: `Chẩn đoán phân biệt` lấy từ `C5_DIFFERENTIAL_DIAGNOSES` hoặc phần tương ứng trong `C5_FINAL`; `Bệnh khác có khả năng` lấy từ `C5_OTHER_POSSIBLE_CONDITIONS` hoặc `C5_FINAL`; `Căn cứ lập luận` lấy từ `C5_REASONING_BASIS` hoặc `C5_FINAL`; `Giới hạn loại trừ / dữ kiện còn thiếu` lấy từ `C5_EXCLUSION_LIMITS`, `C5_INSUFFICIENT_DATA_NOTE` hoặc `C5_FINAL`; `Ghi chú` giữ literal/ý nghĩa giới hạn của O13.
+    Phần `Chẩn đoán phân biệt:` phải là bullet/list nếu có nhiều chẩn đoán; mỗi chẩn đoán phân biệt là một dòng riêng bắt đầu bằng dấu `-`; không nối nhiều chẩn đoán thành một đoạn dài hoặc bằng dấu chấm phẩy trong cùng một dòng; giữ đúng danh sách/thứ tự/mức ưu tiên nếu C5 cung cấp và không tự xếp hạng nếu C5 không cung cấp.
+    Nếu C5 không có nội dung cho một mục: không tự thêm mục, không tự lấp mục trống, không tự tạo căn cứ/giới hạn, không bù từ A/A12/A13/A14/A15/C1-C4/C6/C7/O output, không tự sửa nội dung C5 và không đổi thứ tự schema đã khóa.
+    Nếu C5 ghi “không có phân biệt nổi bật” hoặc “chưa đủ dữ kiện”: O13 render đúng câu/giới hạn C5 đã chốt, không tự thêm bệnh, không tự tạo differential và không tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C5 không chốt câu đó.
+    Khi xuất thật: không in placeholder, tên biến, nhãn kỹ thuật như `C5_STATE`, `C5_FINAL`, `O13_OUTPUT`, metadata, check/error/rev/state/debug text; không render `C5_ERROR` thường quy khi `C5_CHECK = PASS`; không render `C5_REV`, `C5_SOURCE_A_REV`, `O13_RENDER_CHECK`.
 
-    Nếu C5 ghi không có phân biệt nổi bật:
-        - O13 render đúng câu C5 đã chốt.
-        - Không tự thêm bệnh.
-    Nếu C5 ghi chưa đủ dữ kiện:
-        - O13 render đúng giới hạn từ C5.
-        - Không tự thêm bệnh.
-    Nguyên tắc:
-        - Không tự thêm mục nếu C5 không có.
-        - Không tự tạo nội dung để lấp mục trống.
-        - Không tự sửa nội dung C5.
-        - Không tự đổi thứ tự nhóm output nếu chuẩn đã khóa.
-        - Không render metadata kỹ thuật.
-        - Không render C5_ERROR vào output thường quy khi C5_CHECK = PASS.
-        - Nếu C5_ERROR được dùng, chỉ dùng cho lý do chặn khi BLOCKED/NEEDS_FIX nếu hệ thống yêu cầu.
-        - Không biến O13 thành A12 chẩn đoán chính thức.
-        - Không biến O13 thành A13 hướng xử trí.
-        - Không biến O13 thành O12 tra cứu.
+O13_LOGIC_RULES
+    O13 render nguyên nội dung C5 đúng vị trí theo mapping O13; mỗi nội dung output phải traceable về field C5 allowed hoặc phần tương ứng trong `C5_FINAL`.
+    O13 không tự tạo chẩn đoán phân biệt, tự thêm bệnh khác, tự loại bệnh, tự xếp hạng nếu C5 không cung cấp, tự tạo căn cứ lập luận, tự tạo giới hạn loại trừ/dữ kiện còn thiếu, tự tạo xét nghiệm/cận lâm sàng, tự biến differential thành chẩn đoán chính thức/hướng điều trị/chỉ định/y lệnh/đơn thuốc, tự tạo cảnh báo lâm sàng/cảnh báo thuốc/tra cứu hoặc dùng raw input/hidden/web/output cũ để bù.
+    Nếu C5 cung cấp nhiều differential nhưng schema chưa tách dòng/bullet rõ: O13 phải `BLOCKED/NEEDS_FIX`, yêu cầu chạy lại C5 theo schema list và không tự tách/sửa nếu việc tách làm thay đổi ý nghĩa C5.
+    Nếu cần bổ sung differential mới, phải quay lại C5 theo điều phối hệ thống; O13 không tự chạy hoặc tự sửa C5.
 
-O13.12. Ví dụ chuẩn hóa nếu cần
-    Ví dụ 1 — C5 có chẩn đoán phân biệt:
-        - C5_DIFFERENTIAL_DIAGNOSES có danh sách bệnh.
-        - C5_REASONING_BASIS có căn cứ nếu C5 chốt.
-        - O13 render đúng các mục từ C5.
-        - O13 render mỗi chẩn đoán phân biệt thành một bullet riêng, không gộp thành đoạn dài.
-        - O13 không tự thêm bệnh ngoài danh sách C5.
-    Ví dụ 2 — C5 có bệnh khác có khả năng:
-        - C5_OTHER_POSSIBLE_CONDITIONS có tình trạng/bệnh khác.
-        - O13 render đúng mục bệnh khác có khả năng.
-        - O13 không tự xếp hạng nếu C5 không có xếp hạng.
-    Ví dụ 3 — C5 ghi không có phân biệt nổi bật:
-        - C5_FINAL = “Không có chẩn đoán phân biệt nổi bật từ C5.”
-        - O13 render đúng câu C5 đã chốt.
-        - O13 không tự thêm bệnh.
-    Ví dụ 4 — C5 ghi chưa đủ dữ kiện:
-        - C5_FINAL hoặc C5_INSUFFICIENT_DATA_NOTE = “Chưa đủ dữ kiện để lập chẩn đoán phân biệt có ý nghĩa.”
-        - O13 render đúng câu C5 đã chốt.
-        - O13 không tự thêm bệnh.
-    Ví dụ 5 — Thiếu C5_STATE:
-        - O13 BLOCKED: thiếu C5_STATE.
-        - O13 không tự chạy C5 và không tự bù bằng A_STATE/C6.
-    Ví dụ 6 — C5_CHECK lỗi:
-        - O13 BLOCKED: C5_CHECK != PASS hoặc C5_CHECK = NEEDS_FIX.
-        - O13 chỉ ghi lý do chặn nếu hệ thống yêu cầu.
-    Ví dụ 7 — C5 thiếu schema:
-        - C5_DIFFERENTIAL_DIAGNOSES/C5_OTHER_POSSIBLE_CONDITIONS/C5_REASONING_BASIS/C5_EXCLUSION_LIMITS thiếu schema khi cần.
-        - O13 BLOCKED/NEEDS_FIX.
-        - O13 không tự bù.
-    Quy tắc cho mọi ví dụ:
-        - Không sao chép dữ kiện mẫu vào ca thật.
-        - Không render metadata kỹ thuật.
-        - Không dùng A_STATE/A12/A13/C1/C2/C3/C4/C6/C7 để tự tạo nội dung.
-        - Không tự thêm bệnh ngoài C5.
-        - Không biến O13 thành A12 chẩn đoán chính thức.
+O13_SPECIAL_RULES
+    Boundary với C5: C5 tạo nội dung differential/bệnh khác/căn cứ/giới hạn; O13 chỉ render, không thay/sửa/chạy C5; nếu cần nội dung differential mới phải chạy lại C5.
+    Boundary với A: A12 là chẩn đoán chính thức; A13 là hướng xử trí/chỉ định/điều trị; A15 là thuốc/đơn thuốc; O13 không tạo/sửa chẩn đoán chính thức, hướng xử trí, chỉ định, xét nghiệm, thuốc/đơn thuốc và không dùng A_STATE/A12/A13/A13_LABS/A13_IMAGING/A13_TREATMENT/A14/A15 để tự tạo/bù nội dung.
+    Boundary với C/O khác: O13 không đọc C1/O9 để render hỏi thêm/khám thêm/xét nghiệm cần làm; không đọc C2/O10 để render cảnh báo lâm sàng; không đọc C3/O11 để render cảnh báo thuốc/an toàn thuốc; không đọc C6/O12/web/guideline để render tra cứu/reference/evidence; không đọc C4 hoặc C7/bệnh trình/ra viện để tự tạo differential; không thay hoặc tự gọi O9/O10/O11/O12.
+    Boundary với output cũ: O13 không đọc O output cũ, `O13_OUTPUT` cũ, rendered output cũ hoặc O9/O10/O11/O12 output.
+    Metadata: không render metadata kỹ thuật, gồm `O13_RENDER_CHECK`, O13_ERROR nếu framework có, `C5_CHECK`, `C5_ERROR` trong output thường quy khi C5_CHECK PASS, `C5_REV`, `C5_SOURCE_A_REV`, STATE_VERSION, ROUND_ID, RUN_MODE, A/C/O REV, A_CHECK/C_CHECK/O_CHECK, CREATE/UPDATE/REUSE, A_MODULE_REV/C_MODULE_REV, output cũ hoặc debug text.
+    No-differential/no-data: nếu C5 ghi “không có phân biệt nổi bật” hoặc “chưa đủ dữ kiện”, O13 render đúng câu C5 đã chốt; nếu C5 chưa tạo nội dung nhưng O13 được yêu cầu thì O13 NEEDS_FIX/BLOCKED; không tự bù nội dung từ nguồn khác và không nhầm “không có phân biệt nổi bật” với “thiếu source”.
 
-O13.13. Checklist trước khi chốt O13
-    Trước khi chốt O13, phải kiểm:
-        1. Đã đọc đủ O13 theo READ LOCK.
-        2. O13 nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        3. Đã đến lượt O13 theo O_RENDER_ORDER.
-        4. C5_STATE tồn tại.
-        5. C5_CHECK = PASS.
-        6. C5_FINAL hoặc các field C5 tương ứng có nội dung/schema hợp lệ.
-        7. Nguồn đọc đúng O13.2.
-        8. Không đọc Cx_STATE ngoài C5.
-        9. Không dùng A_STATE/A12/A13 để tự tạo nội dung.
-        10. Không dùng A13_LABS/A13_IMAGING/A13_TREATMENT để thay C5.
-        11. Không dùng C1/C2/C3/C4/C6/C7 sai phạm vi.
-        12. Không dùng C6 trực tiếp.
-        13. Không dùng raw input/hidden memory/output cũ/patch state.
-        14. Output đúng CHẨN ĐOÁN PHÂN BIỆT / NGHI NGỜ / BỆNH KHÁC CÓ KHẢ NĂNG.
-        15. Phần “Chẩn đoán phân biệt” render dạng bullet, mỗi chẩn đoán phân biệt một dòng riêng bắt đầu bằng “-”.
-        16. Không nối nhiều chẩn đoán phân biệt bằng dấu chấm phẩy trong một dòng dài.
-        17. Output đủ 5 mục chuẩn nếu C5 có dữ liệu tương ứng.
-        18. Nếu C5 ghi không có phân biệt nổi bật, O13 render đúng câu C5.
-        19. Nếu C5 ghi chưa đủ dữ kiện, O13 render đúng câu C5.
-        20. Không tự thêm mục nếu C5 không có.
-        21. Không tự tạo chẩn đoán phân biệt.
-        22. Không tự thêm bệnh.
-        23. Không tự loại bệnh.
-        24. Không tự xếp hạng bệnh nếu C5 không có.
-        25. Không tự tạo căn cứ.
-        26. Không tự tạo cận lâm sàng.
-        27. Không tự tạo chẩn đoán chính thức.
-        28. Không tự thay A12.
-        29. Không tự thay A13.
-        30. No-data/BLOCKED đúng.
-        31. Không sửa C5.
-        32. Không tự chạy C5.
-        33. Không render metadata.
-        34. Không render C5_REV/C5_SOURCE_A_REV.
-        35. Không biến thành A12/A13/O9/O10/O11/O12.
+O13_CHECK_PASS_IF
+    PASS khi O13 nằm trong `G_STATE.O_RENDER_LIST/O_RENDER_ORDER`, đã đến lượt render, `C5_STATE` tồn tại, `C5_CHECK = PASS`, `C5_FINAL` hoặc các field C5 tương ứng có nội dung/schema hợp lệ, chỉ dùng source allowlist, output đúng heading/schema O13, `Chẩn đoán phân biệt` render bullet riêng nếu có nhiều mục, các mục render đúng từ C5, không tự thêm nội dung ngoài C5, không tự tạo differential/bệnh khác/căn cứ/giới hạn, không dùng A/A12/A13/A14/A15/C1/C2/C3/C4/C6/C7/O output cũ/raw/hidden/web/patch-delta để bù, không biến differential thành chẩn đoán chính thức/chỉ định/y lệnh/đơn thuốc, không render metadata, và nếu C5 ghi không có phân biệt nổi bật/chưa đủ dữ kiện thì O13 render đúng câu C5 đã chốt.
+    Nếu `O13_RENDER_CHECK = PASS` thì không có lỗi nội bộ còn mở.
 
-O13.14. Các lỗi không được mắc
-    Không được:
-        1. Không bỏ qua READ LOCK.
-        2. Không audit/patch/final review/sử dụng khi chưa đọc đủ O13.
-        3. Không render O13 khi không nằm trong O_RENDER_LIST/O_RENDER_ORDER.
-        4. Không render khi C5 chưa chạy.
-        5. Không render khi thiếu C5_STATE.
-        6. Không render khi C5_CHECK != PASS.
-        7. Không render khi C5_CHECK lỗi.
-        8. Không tự tạo chẩn đoán phân biệt.
-        9. Không tự thêm bệnh.
-        10. Không tự loại bệnh.
-        11. Không tự xếp hạng bệnh nếu C5 không có.
-        12. Không tự tạo căn cứ.
-        13. Không tự tạo cận lâm sàng.
-        14. Không tự tạo chẩn đoán chính thức.
-        15. Không tự thay A12.
-        16. Không tự thay A13.
-        17. Không tự viết hướng điều trị.
-        18. Không tự cảnh báo.
-        19. Không tự tra cứu.
-        20. Không dùng C6 trực tiếp.
-        21. Không dùng A_STATE sai phạm vi.
-        22. Không dùng A12 sai phạm vi.
-        23. Không dùng A13 sai phạm vi.
-        24. Không dùng C1 sai phạm vi.
-        25. Không dùng C2 sai phạm vi.
-        26. Không dùng C3 sai phạm vi.
-        27. Không dùng C4 sai phạm vi.
-        28. Không dùng C6 sai phạm vi.
-        29. Không dùng C7 sai phạm vi.
-        30. Không dùng raw input.
-        31. Không dùng hidden memory.
-        32. Không dùng output cũ/rendered output cũ.
-        33. Không dùng patch state làm nguồn.
-        34. Không biến O13 thành A12.
-        35. Không biến O13 thành A13.
-        36. Không biến O13 thành O9.
-        37. Không biến O13 thành O10.
-        38. Không biến O13 thành O11.
-        39. Không biến O13 thành O12.
-        40. Không sửa nội dung C5 khi render.
-        41. Không render metadata kỹ thuật.
-        42. Không render C5_REV.
-        43. Không render C5_SOURCE_A_REV.
+O13_NEEDS_FIX_IF
+    NEEDS_FIX/BLOCKED khi O13 được plan nhưng thiếu điều kiện RUN, O13 chưa đến lượt render, thiếu `C5_STATE`, `C5_CHECK != PASS`, `C5_CHECK = NEEDS_FIX`, `C5_FINAL` thiếu/sai schema, `C5_DIFFERENTIAL_DIAGNOSES` / `C5_OTHER_POSSIBLE_CONDITIONS` / `C5_REASONING_BASIS` / `C5_EXCLUSION_LIMITS` / `C5_INSUFFICIENT_DATA_NOTE` / `C5_NO_DIFFERENTIAL_NOTE` hoặc field tương đương thiếu/sai schema khi cần, C5 chưa tạo nội dung nhưng O13 được yêu cầu, C5_STATE mâu thuẫn/không phù hợp format O13, C5 có nhiều differential nhưng schema chưa tách bullet/list rõ, O13 cần tự bịa/tự tạo/tự thêm/tự bù mới render được, dùng source ngoài allowlist, dùng A/A12/A13/A14/A15/C1/C2/C3/C4/C6/C7/O output cũ/raw/hidden/web/patch-delta để bù, output sai schema, O13 tự tạo/bù differential/bệnh khác/căn cứ/giới hạn, biến differential thành chẩn đoán chính thức/y lệnh/hướng điều trị/đơn thuốc, lẫn O9/O10/O11/O12 hoặc render metadata kỹ thuật.
+
+O13_ERROR_RULE
+    Khi NEEDS_FIX/BLOCKED: không render bản O13 hoàn chỉnh, không tự tạo differential, không tự thêm bệnh, không tự tạo căn cứ/giới hạn, không tự sửa/chạy C5, không tự chạy A/C/O, không biến differential thành chẩn đoán chính thức/y lệnh/chỉ định/đơn thuốc và không fallback sang A/A12/A13/A14/A15/C1-C4/C6/C7/O output cũ/raw/hidden/web.
+    Nếu framework cần lỗi/check nội bộ: ghi lý do chặn theo framework, có thể dùng `C5_ERROR` làm lý do chặn, nhưng không render lỗi/check metadata vào output thường quy.
+    Lỗi phải nêu rõ nguyên nhân như O13 không nằm render plan, thiếu C5_STATE, C5_CHECK không PASS, C5_FINAL/field C5 thiếu/sai schema, C5_STATE mâu thuẫn, C5 differential không tách bullet/list rõ, dùng nguồn cấm, output sai schema, tự tạo differential/tự thêm bệnh hoặc lẫn O9/O10/O11/O12/A12/A13/A15.
+
+O13_REUSE_RULE
+    O13 không có lifecycle CREATE/UPDATE/REUSE state riêng theo contract hiện tại.
+    Không reuse O output cũ, `O13_OUTPUT` cũ, rendered output cũ hoặc patch/delta từ output cũ; khi G plan O13, render từ current allowed sources của ROUND hiện tại.
+    Nếu hệ thống có REUSE nội bộ, REUSE chỉ là metadata điều phối, không làm nguồn nội dung và không render thường quy; không ghi “reuse O13”, không tạo `O13_REV`, không tạo `O13_STATE`.
+
+O13_END
+    `<<< END O13` là marker kết thúc O13.
+    O13 là module cuối trong nhóm O nếu không có header O tiếp theo; O13 không tự gọi A/C, không sửa state và không sửa O khác.
 
 <<< END O13
 
