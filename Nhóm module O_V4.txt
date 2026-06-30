@@ -241,17 +241,20 @@ O2_RENDER_SCHEMA
     Format bắt buộc:
         ```text
         TÓM TẮT BỆNH ÁN
-        Bệnh nhân [nam/nữ], [tuổi] tuổi, [tiền sử nếu có], vào viện vì [lý do vào viện]. Qua thăm khám và cận lâm sàng phát hiện các hội chứng, triệu chứng và cận lâm sàng rời sau:
+        Bệnh nhân [nam/nữ], [tuổi] tuổi, [tiền sử nếu có], vào viện ngày thứ [số ngày bệnh] của bệnh vì [lý do vào viện]. Qua thăm khám phát hiện các hội chứng và triệu chứng sau:
         [COPY NGUYÊN VĂN C4_STATE.C4_FOR_O2]
         ```
     Schema trên không phải nội dung mẫu mặc định để copy vào ca bệnh thật.
 
 O2_LOGIC_RULES
-    Câu mở đầu tạo từ allowed A fields: giới, tuổi, tiền sử nếu có, lý do vào viện và số ngày bệnh/thời gian bệnh nếu A3 đã chuẩn hóa rõ và contract hiện hành còn yêu cầu.
+    Câu mở đầu tạo từ allowed A fields: giới, tuổi, tiền sử nếu có, số ngày bệnh/thời gian bệnh đã chuẩn hóa rõ và lý do vào viện.
+    O2 phải viết dạng “vào viện ngày thứ [số ngày bệnh] của bệnh vì [lý do vào viện]”.
+    Số ngày bệnh chỉ được lấy từ A3_STATE nếu đã chuẩn hóa rõ; O2 không được dùng legacy final field của A3, không được kéo narrative bệnh sử dài từ A3 và không được tự suy đoán ngày bệnh nếu A3 không có dữ liệu rõ.
+    Nếu thiếu số ngày bệnh/thời gian bệnh nhưng O2 formal output vẫn được yêu cầu, O2 không tự bịa số ngày bệnh, phải dùng no-data handling sạch theo contract như NEEDS_FIX/BLOCKED nếu contract coi đây là required source cho opening và không fallback sang raw user input hoặc output cũ.
     Nếu có tiền sử, chèn dưới dạng “tiền sử [A2_FINAL]”; nếu không có tiền sử thì bỏ cụm tiền sử và không để thừa dấu phẩy.
     O2 không viết lại toàn bộ A2_FINAL/A1_REASON, không tự thêm dữ kiện từ A ngoài mapping, không tự thêm chẩn đoán/điều trị/thuốc/cận lâm sàng.
     O2 có thể chỉnh chữ cái đầu của inserted A1/A2 nếu cần để câu liền mạch nhưng không được đổi nghĩa; phải giữ tên riêng, chữ viết tắt, thuật ngữ, mã bệnh và ký hiệu nếu nguồn có.
-    Opening phrase bắt buộc phải giữ cụm: “Qua thăm khám và cận lâm sàng phát hiện các hội chứng, triệu chứng và cận lâm sàng rời sau:”.
+    Opening phrase bắt buộc phải giữ cụm: “Qua thăm khám phát hiện các hội chứng và triệu chứng sau:”.
 
 O2_SPECIAL_RULES
     Toàn bộ body sau câu mở đầu phải copy nguyên văn C4_STATE.C4_FOR_O2.
@@ -271,7 +274,7 @@ O2_CHECK_PASS_IF
         4. C4_CHECK = PASS.
         5. C4 nằm trong C_RUN_ORDER trước O2 nếu O2 formal output được yêu cầu.
         6. C4_STATE.C4_FOR_O2 có mặt, hợp lệ và render-ready.
-        7. Câu mở đầu đúng mapping A và giữ đúng opening phrase bắt buộc.
+        7. Câu mở đầu đúng mapping A, có format “vào viện ngày thứ [số ngày bệnh] của bệnh vì [lý do vào viện]” và giữ đúng opening phrase bắt buộc “Qua thăm khám phát hiện các hội chứng và triệu chứng sau:”.
         8. Output nằm trong một code block text duy nhất, heading đúng literal “TÓM TẮT BỆNH ÁN”, không có blank line giữa heading/opening/body.
         9. Body sau opening bằng nguyên văn C4_STATE.C4_FOR_O2 và không có dòng ngoài C4_FOR_O2 trong body.
         10. Không dùng nguồn ngoài allowlist, không đọc/fallback C4_ITEMS, không dùng A12/A13/A14/A15/C1/C5 để thêm body.
@@ -280,7 +283,7 @@ O2_CHECK_PASS_IF
 
 O2_NEEDS_FIX_IF
     SKIP, không phải NEEDS_FIX, khi O2 không nằm trong render plan hoặc chưa đến lượt.
-    NEEDS_FIX/BLOCKED khi A_GATE thiếu/không PASS, full current A_STATE thiếu/không hợp lệ, C_GATE thiếu/không PASS, C4_CHECK thiếu/không PASS, C4 chưa được đưa vào C_RUN_ORDER trước O2 khi O2 formal output được yêu cầu, thiếu C4_STATE.C4_FOR_O2, C4_FOR_O2 không render-ready/sai format/chứa “Không áp dụng.” nếu contract cấm/chứa dòng phủ định cận lâm sàng bị cấm/chứa block giả hội chứng, thiếu required source cho câu mở đầu mà không có no-data handling sạch, output sai code block/heading/opening phrase/blank line, body không exact-copy C4_FOR_O2, O2 tự thêm/bớt/sửa/sắp xếp body, fallback sang C4_ITEMS hoặc A_STATE, dùng nguồn cấm, render metadata/check/error, hoặc tự sửa/che lỗi C4.
+    NEEDS_FIX/BLOCKED khi A_GATE thiếu/không PASS, full current A_STATE thiếu/không hợp lệ, C_GATE thiếu/không PASS, C4_CHECK thiếu/không PASS, C4 chưa được đưa vào C_RUN_ORDER trước O2 khi O2 formal output được yêu cầu, thiếu C4_STATE.C4_FOR_O2, C4_FOR_O2 không render-ready/sai format/chứa “Không áp dụng.” nếu contract cấm/chứa dòng phủ định cận lâm sàng bị cấm/chứa block giả hội chứng, thiếu required source cho câu mở đầu gồm ngày bệnh/số ngày bệnh nếu contract yêu cầu mà không có no-data handling sạch, output sai code block/heading/opening phrase/blank line, output vẫn dùng opening phrase cũ, body không exact-copy C4_FOR_O2, O2 tự suy đoán số ngày bệnh hoặc kéo narrative bệnh sử dài từ A3, O2 tự thêm/bớt/sửa/sắp xếp body, fallback sang C4_ITEMS hoặc A_STATE, dùng nguồn cấm, render metadata/check/error, hoặc tự sửa/che lỗi C4.
 
 O2_ERROR_RULE
     Khi NEEDS_FIX/BLOCKED, O2_ERROR phải ghi rõ lỗi cụ thể và chỉ rõ nhóm lỗi: G render plan/order, A_GATE/A_STATE, C_GATE, C4_CHECK, C4_STATE.C4_FOR_O2, opening sentence, render schema, exact-copy, forbidden source, metadata hoặc outside-record.
