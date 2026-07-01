@@ -27,6 +27,24 @@ Version: BA S-G-A-C-O v3
 
 ####################################################################################################
 
+O_PRESENTATION_NORMALIZATION — CHUẨN HÓA TRÌNH BÀY KHI RENDER
+Áp dụng cho toàn bộ O1-O13 khi render output.
+Đây là allowlist thao tác trình bày, không phải allowlist sửa nội dung.
+O chỉ được áp dụng các chuẩn hóa trình bày sau:
+1. Viết hoa chữ đầu dòng.
+2. Viết hoa chữ đầu câu sau dấu `.`, `?`, `!`.
+3. Chuẩn hóa khoảng trắng thừa.
+4. Chuẩn hóa khoảng trắng quanh dấu câu.
+5. Chuẩn hóa bullet, indentation, heading và code block theo schema của module.
+6. Chuẩn hóa blank line theo schema của module.
+O phải giữ nguyên nội dung lâm sàng của nguồn A/C.
+Khi module O render từ nguồn A/C hoặc dùng wording copy/nguyên văn/render nguyên nguồn, hiểu là giữ nguyên nội dung lâm sàng và chỉ được áp dụng O_PRESENTATION_NORMALIZATION.
+Mọi thay đổi ngoài allowlist O_PRESENTATION_NORMALIZATION là forbidden và phải route về module nguồn A/C tương ứng.
+Nếu lỗi trong nguồn cần sửa từ ngữ, thuật ngữ, ngày tháng, số liệu, đơn vị hoặc nội dung lâm sàng, O phải BLOCKED/NEEDS_FIX và route về module nguồn A/C tương ứng.
+O_PRESENTATION_NORMALIZATION không tạo source mới, không sửa state A/C/G/S và không sửa source module.
+
+####################################################################################################
+
 O1 — KHÁM SƠ BỘ
 Version: BA S-G-A-C-O V4
 Update: 27/06/2026 GMT+7 — compact allowlist contract, giữ nguyên logic render O1
