@@ -721,7 +721,8 @@ O5_RENDER_SCHEMA
 
 O5_LOGIC_RULES
     O5 render từ current allowed state, không render từ output cũ.
-    O5 chỉ trình bày nội dung do A15 đã tạo trong field mapping rõ; không tự tạo nội dung thuốc, không tự chọn thuốc, không tự sửa thuốc và không tự kê đơn.
+    O5 phải giữ nguyên nội dung lâm sàng/source semantic từ A15_STATE và C3_STATE nếu dùng; O5 chỉ được áp dụng O_PRESENTATION_NORMALIZATION khi render trình bày. Cụm “chỉ trình bày nội dung do A15 đã tạo” không có nghĩa byte-level exact-copy và không cấm 6 thao tác presentation allowlist.
+    O5 chỉ trình bày nội dung do A15 đã tạo trong field mapping rõ; không tự tạo nội dung thuốc, không tự chọn thuốc, không tự sửa thuốc và không tự kê đơn. O5 không sửa chính tả, từ ngữ, thuật ngữ, ngày tháng, số liệu, đơn vị hoặc nội dung thuốc/cảnh báo; mọi lỗi ngoài allowlist presentation phải BLOCKED/NEEDS_FIX và route về A15/C3 hoặc module nguồn A/C tương ứng.
     Nếu C3 hợp lệ có cảnh báo/lưu ý, O5 có thể hiển thị cảnh báo/lưu ý đó trong mục 5 nhưng không rewrite C3 thành kết luận an toàn, không biến C3 thành đơn thuốc và không tự quyết định “được dùng thuốc” hoặc “không có chống chỉ định”.
     Nếu A15 thiếu hoặc sai, O5 BLOCKED/NEEDS_FIX; không dùng A13_TREATMENT, raw input, C6/web, O6/O11/output cũ để bù.
     Nếu O5 không nằm trong render plan, O5 SKIP, không output và không tự thêm vào render plan.
@@ -801,10 +802,10 @@ O6_RENDER_SCHEMA
 
 O6_LOGIC_RULES
     Nếu `A15_HAS_MEDICATION = NO`: không render đơn thuốc, không tự tạo thuốc, không render `NONE/NOT_APPLICABLE` và xử lý theo no-medication/no-prescription logic hiện hành.
-    Nếu `A15_HAS_MEDICATION = YES` và `A15_PRESCRIPTION_FOR_O` là đơn thuốc cụ thể đủ tối thiểu: render từ `A15_PRESCRIPTION_FOR_O`, không tự sửa nội dung.
+    Nếu `A15_HAS_MEDICATION = YES` và `A15_PRESCRIPTION_FOR_O` là đơn thuốc cụ thể đủ tối thiểu: render từ `A15_PRESCRIPTION_FOR_O`, không tự sửa nội dung. O6 phải giữ nguyên nội dung lâm sàng/source semantic từ A15_STATE và C3_STATE nếu dùng; O6 chỉ được áp dụng O_PRESENTATION_NORMALIZATION khi render trình bày. “Không tự sửa nội dung” không cấm 6 thao tác presentation allowlist.
     Nếu `A15_HAS_MEDICATION = YES` và `A15_PRESCRIPTION_FOR_O` là no-prescription sạch: render đúng ý nghĩa chưa xuất đơn, có thể render medication record từ `A15_MEDICATION_LIST`, có thể render `A15_SAFETY_NOTE`, không áp dụng cấu trúc tối thiểu để chặn nhánh này.
     Nếu `A15_HAS_MEDICATION = YES` nhưng `A15_PRESCRIPTION_FOR_O` không phải đơn thuốc cụ thể hợp lệ và không phải no-prescription sạch: BLOCKED/NEEDS_FIX.
-    Tên thuốc, hàm lượng, dạng dùng, liều, đường dùng, số lần, thời điểm, số ngày, số lượng, ghi chú chỉ lấy từ `A15_PRESCRIPTION_FOR_O` hoặc `A15_MEDICATION_LIST`; O6 không tự bù thiếu.
+    Tên thuốc, hàm lượng, dạng dùng, liều, đường dùng, số lần, thời điểm, số ngày, số lượng, ghi chú chỉ lấy từ `A15_PRESCRIPTION_FOR_O` hoặc `A15_MEDICATION_LIST`; O6 không tự bù thiếu. O6 không sửa chính tả, từ ngữ, tên thuốc, hàm lượng, dạng thuốc, liều, đường dùng, số lần dùng, thời điểm dùng, số ngày, số lượng, đơn vị hoặc nội dung lâm sàng; lỗi ngoài allowlist phải BLOCKED/NEEDS_FIX và route về A15/C3 hoặc module nguồn A/C tương ứng.
     Dặn dò/lưu ý chỉ lấy từ `A15_SAFETY_NOTE` hoặc `C3_PATIENT_ADVICE` nếu có; O6 không tự tạo.
 
 O6_SPECIAL_RULES
@@ -900,8 +901,9 @@ O7_RENDER_SCHEMA
 
 O7_LOGIC_RULES
     O7 không có no-data literal “chưa có hội chẩn”. Nếu O7 không nằm trong render plan thì SKIP không output; nếu thiếu dữ kiện bắt buộc thì BLOCKED/NEEDS_FIX hoặc hỏi lại thông tin bắt buộc nếu user cần xuất bản cuối.
+    O7 phải giữ nguyên nội dung lâm sàng/source semantic từ các field A được allowlist; O7 chỉ được áp dụng O_PRESENTATION_NORMALIZATION khi render heading, bullet, code block, indentation và blank line theo schema O7. O7 không sửa chính tả, từ ngữ, thuật ngữ, ngày tháng, số liệu, đơn vị hoặc nội dung lâm sàng; mọi lỗi ngoài allowlist presentation phải BLOCKED/NEEDS_FIX và route về module A/source tương ứng.
     O7 không tự tạo thời gian hội chẩn, địa điểm hội chẩn, thành phần tham gia, chủ trì, thư ký, chữ ký/họ tên/chức danh, kết luận hội chẩn ngoài A12/nhánh được phép, hướng xử trí ngoài câu mẫu nhánh được phép, tên bệnh viện nhận, tên xét nghiệm/thăm dò/chẩn đoán hình ảnh, triệu chứng/khám/điều trị không có trong source.
-    Phần 1 chỉ tóm tắt bệnh cảnh liên quan hội chẩn; không biến thành O2, không chép toàn bộ bệnh án, không lặp tiền sử/lý do vào viện do A3 nếu đã có dòng đầu sạch, không đưa chỉ định/hướng điều trị/phác đồ vào phần 1 và không đưa thuốc/đơn thuốc vào phần 1.
+    Phần 1 chỉ tóm tắt bệnh cảnh liên quan hội chẩn; không biến thành O2, không chép toàn bộ bệnh án, không lặp tiền sử/lý do vào viện do A3 nếu đã có dòng đầu sạch, không đưa chỉ định/hướng điều trị/phác đồ vào phần 1 và không đưa thuốc/đơn thuốc vào phần 1. O_PRESENTATION_NORMALIZATION không cho phép O7 rewrite, derive, làm mượt hoặc chuẩn hóa y văn phần tóm tắt bệnh cảnh; phần tóm tắt chỉ được dùng dữ liệu A allowlist đã có và giữ đúng ý nghĩa nguồn.
     Phần 2 lấy chẩn đoán từ A12, không tự sửa A12, không tạo chẩn đoán mới và không thêm ICD nếu A12 không có.
     Phần 3 chỉ render câu theo nhánh, không tạo phác đồ điều trị dài, không dùng A13_TREATMENT và không dùng A15.
 
@@ -1111,7 +1113,8 @@ O9_RENDER_SCHEMA
     Khi xuất thật: không in placeholder, tên biến, nhãn kỹ thuật như C1_STATE/C1_FINAL/O9_OUTPUT, metadata, check/error/rev/state hoặc debug text.
 
 O9_LOGIC_RULES
-    O9 render nguyên nội dung C1 đúng vị trí theo mapping O9.
+    O9 phải giữ nguyên nội dung lâm sàng/source semantic từ C1_STATE/C1_FINAL; O9 chỉ được áp dụng O_PRESENTATION_NORMALIZATION khi render trình bày. Cụm “render nguyên nội dung C1” hoặc “render đúng câu C1 đã chốt” không có nghĩa byte-level exact-copy và không cấm 6 thao tác presentation allowlist.
+    O9 render nguyên nội dung C1 đúng vị trí theo mapping O9. O9 không sửa chính tả, từ ngữ, thuật ngữ, ngày tháng, số liệu, đơn vị hoặc nội dung lâm sàng; mọi lỗi ngoài allowlist presentation phải BLOCKED/NEEDS_FIX và route về C1/module nguồn A/C tương ứng.
     O9 không tự tạo câu hỏi, khám thêm, xét nghiệm/thăm dò cần làm, đánh giá lại/theo dõi lại, mức ưu tiên, chẩn đoán, hướng xử trí, thuốc, cảnh báo hoặc chẩn đoán phân biệt.
     O9 không tự thêm nội dung từ A13/C2-C6, không tự chuyển A13/C2/C3/C5/C6 thành C1/O9, không tự biến dữ kiện đã có thành “cần làm”, không tự biến kết quả A14 đã có thành xét nghiệm cần làm và không tự biến gợi ý thành y lệnh chính thức nếu C1 không chốt.
     Nếu cần bổ sung nội dung mới, phải quay lại C1 theo điều phối hệ thống; O9 không tự chạy C1 và không tự sửa C1.
@@ -1216,7 +1219,8 @@ O10_RENDER_SCHEMA
     Khi xuất thật, không in placeholder, tên biến, nhãn kỹ thuật như C2_STATE/C2_FINAL/O10_OUTPUT, metadata, check/error/rev/state hoặc debug text.
 
 O10_LOGIC_RULES
-    O10 render nguyên nội dung C2 đúng vị trí theo mapping O10.
+    O10 phải giữ nguyên nội dung lâm sàng/source semantic từ C2_STATE/C2_FINAL; O10 chỉ được áp dụng O_PRESENTATION_NORMALIZATION khi render trình bày. “Render nguyên nội dung C2” hoặc “render đúng câu C2 đã chốt” không cấm 6 thao tác presentation allowlist.
+    O10 render nguyên nội dung C2 đúng vị trí theo mapping O10. O10 không sửa chính tả, từ ngữ, thuật ngữ, ngày tháng, số liệu, đơn vị hoặc nội dung lâm sàng; mọi lỗi ngoài allowlist presentation phải BLOCKED/NEEDS_FIX và route về C2/module nguồn A/C tương ứng.
     O10 không tự tạo cảnh báo, không tự phân tầng nguy cơ nếu C2 không có C2_RISK_LEVEL, không tự tạo dấu hiệu nguy cơ/điểm theo dõi/khuyến nghị nếu C2 không có, không tự biến dữ kiện đã có hoặc kết quả A14 thành cảnh báo, không biến cảnh báo thành y lệnh/chỉ định/hướng điều trị, không biến khuyến nghị C2 thành A13_TREATMENT và không tự tạo chẩn đoán/chẩn đoán phân biệt/cảnh báo thuốc/tra cứu nguồn.
     Nếu cần bổ sung cảnh báo mới, phải quay lại C2 theo điều phối hệ thống; O10 không tự chạy hoặc tự sửa C2.
 
@@ -1327,7 +1331,8 @@ O11_RENDER_SCHEMA
     Khi xuất thật, không in placeholder, tên biến, nhãn kỹ thuật như C3_STATE/C3_FINAL/O11_OUTPUT, metadata, check/error/rev/state hoặc debug text.
 
 O11_LOGIC_RULES
-    O11 render nguyên nội dung C3 đúng vị trí theo mapping O11.
+    O11 phải giữ nguyên nội dung lâm sàng/source semantic từ C3_STATE/C3_FINAL và ngoại lệ A15 hẹp nếu dùng; O11 chỉ được áp dụng O_PRESENTATION_NORMALIZATION khi render trình bày. “Render nguyên nội dung C3” hoặc “render đúng câu C3 đã chốt” không cấm 6 thao tác presentation allowlist.
+    O11 render nguyên nội dung C3 đúng vị trí theo mapping O11. O11 không sửa chính tả, từ ngữ, thuật ngữ, tên thuốc, liều, ngày tháng, số liệu, đơn vị hoặc nội dung cảnh báo; mọi lỗi ngoài allowlist presentation phải BLOCKED/NEEDS_FIX và route về C3/A15 hoặc module nguồn A/C tương ứng.
     Mỗi nội dung output phải traceable về field C3 allowed hoặc ngoại lệ A15 rất hẹp chỉ để đối chiếu tên thuốc khi C3 không chứa tên thuốc.
     O11 không tự tạo cảnh báo thuốc, tự kiểm tương tác, tự kết luận thuốc an toàn, tự cho phép/chặn O6 nếu C3 chưa chốt, tự sửa thuốc/đơn thuốc, tự thêm/bỏ/đổi thuốc, tự đổi liều/đường dùng/thời gian dùng/số ngày/số lượng, tự biến cảnh báo thành y lệnh/hướng điều trị/chỉ định, tự chuyển A15/O6/C2/C6/O10/O12/O13 thành cảnh báo thuốc, tự dùng web/guideline để thêm cảnh báo hoặc tự ghi “chưa ghi nhận/chưa có dữ kiện” nếu C3 không chốt.
     Nếu cần bổ sung cảnh báo thuốc mới, phải quay lại C3 theo điều phối hệ thống; O11 không tự chạy hoặc tự sửa C3.
@@ -1445,7 +1450,8 @@ O12_RENDER_SCHEMA
     Khi xuất thật, không in placeholder, tên biến, nhãn kỹ thuật như `C6_STATE`, `C6_FINAL`, `O12_OUTPUT`, metadata, check/error/rev/state, debug text hoặc `C6_ERROR` thường quy khi `C6_CHECK = PASS`.
 
 O12_LOGIC_RULES
-    O12 render nguyên nội dung C6 đúng vị trí theo mapping O12; mỗi nội dung output phải traceable về field C6 allowed hoặc phần tương ứng trong `C6_FINAL`; không có nội dung nào được lấy từ non-C6 source.
+    O12 phải giữ nguyên nội dung/source semantic từ C6_STATE/C6_FINAL; O12 chỉ được áp dụng O_PRESENTATION_NORMALIZATION khi render trình bày. “Render nguyên nội dung C6” hoặc “render đúng câu C6 đã chốt” không cấm 6 thao tác presentation allowlist.
+    O12 render nguyên nội dung C6 đúng vị trí theo mapping O12; mỗi nội dung output phải traceable về field C6 allowed hoặc phần tương ứng trong `C6_FINAL`; không có nội dung nào được lấy từ non-C6 source. O12 không sửa chính tả, từ ngữ, thuật ngữ, ngày tháng, số liệu, đơn vị, nguồn/citation hoặc nội dung C6; mọi lỗi ngoài allowlist presentation phải BLOCKED/NEEDS_FIX và route về C6/module nguồn A/C tương ứng.
     O12 không tự tra cứu, tự trả lời, tự thêm nguồn tham khảo/guideline/citation, tự tóm tắt nếu C6 không cung cấp, tự tạo ý chính/giới hạn dữ liệu/lưu ý độ tin cậy/phạm vi áp dụng nếu C6 không cung cấp, tự biến nội dung tra cứu thành dữ kiện bệnh án chính thức, tự biến nguồn tham khảo/guideline thành chỉ định/hướng xử trí/xét nghiệm/cận lâm sàng/thuốc/đơn thuốc, tự tạo cảnh báo lâm sàng/cảnh báo thuốc/chẩn đoán phân biệt hoặc tự dùng raw input/hidden/web/output cũ để bù.
     Nếu cần bổ sung nội dung tra cứu mới, phải quay lại C6 theo điều phối hệ thống; O12 không tự chạy C6 và không tự sửa C6.
 
@@ -1546,7 +1552,8 @@ O13_RENDER_SCHEMA
     Khi xuất thật: không in placeholder, tên biến, nhãn kỹ thuật như `C5_STATE`, `C5_FINAL`, `O13_OUTPUT`, metadata, check/error/rev/state/debug text; không render `C5_ERROR` thường quy khi `C5_CHECK = PASS`; không render `C5_REV`, `C5_SOURCE_A_REV`, `O13_RENDER_CHECK`.
 
 O13_LOGIC_RULES
-    O13 render nguyên nội dung C5 đúng vị trí theo mapping O13; mỗi nội dung output phải traceable về field C5 allowed hoặc phần tương ứng trong `C5_FINAL`.
+    O13 phải giữ nguyên nội dung lâm sàng/source semantic từ C5_STATE/C5_FINAL; O13 chỉ được áp dụng O_PRESENTATION_NORMALIZATION khi render trình bày. “Render nguyên nội dung C5” hoặc “render đúng câu/giới hạn C5 đã chốt” không cấm 6 thao tác presentation allowlist, nhưng O13 không được tự tách/sửa/tạo differential nếu làm thay đổi ý nghĩa C5.
+    O13 render nguyên nội dung C5 đúng vị trí theo mapping O13; mỗi nội dung output phải traceable về field C5 allowed hoặc phần tương ứng trong `C5_FINAL`. O13 không sửa chính tả, từ ngữ, thuật ngữ, ngày tháng, số liệu, đơn vị hoặc nội dung lâm sàng; mọi lỗi ngoài allowlist presentation phải BLOCKED/NEEDS_FIX và route về C5/module nguồn A/C tương ứng.
     O13 không tự tạo chẩn đoán phân biệt, tự thêm bệnh khác, tự loại bệnh, tự xếp hạng nếu C5 không cung cấp, tự tạo căn cứ lập luận, tự tạo giới hạn loại trừ/dữ kiện còn thiếu, tự tạo xét nghiệm/cận lâm sàng, tự biến differential thành chẩn đoán chính thức/hướng điều trị/chỉ định/y lệnh/đơn thuốc, tự tạo cảnh báo lâm sàng/cảnh báo thuốc/tra cứu hoặc dùng raw input/hidden/web/output cũ để bù.
     Nếu C5 cung cấp nhiều differential nhưng schema chưa tách dòng/bullet rõ: O13 phải `BLOCKED/NEEDS_FIX`, yêu cầu chạy lại C5 theo schema list và không tự tách/sửa nếu việc tách làm thay đổi ý nghĩa C5.
     Nếu cần bổ sung differential mới, phải quay lại C5 theo điều phối hệ thống; O13 không tự chạy hoặc tự sửa C5.
