@@ -857,8 +857,8 @@ A5_LOGIC_RULES
         1. RUN_MODE lấy từ G_STATE; A5 không tự xác định RUN_MODE.
         2. RUN_MODE độc lập với trạng thái xử lý nội bộ CREATE / UPDATE / REUSE.
         3. USER_ONLY: chỉ dùng dữ kiện khám tuần hoàn user cung cấp; không tự tạo mạch; không tự tạo huyết áp; không tự tạo tiếng tim bệnh lý, nhịp tim không đều, tĩnh mạch cổ nổi, khám tuần hoàn bình thường hoặc mẫu mặc định nếu user không cung cấp dữ kiện và không có state hợp lệ để REUSE; không biến triệu chứng/bệnh sử/chẩn đoán/mã bệnh/CLS thành dấu khám; nếu không có A5_STATE hợp lệ để REUSE và thiếu dữ kiện khám tuần hoàn thì A5_FOR_O1 = Chưa có dữ kiện khám tuần hoàn, A5_FOR_O8 = Chưa có dữ kiện khám tuần hoàn, A5_CHECK = NEEDS_FIX, A5_ERROR = Thiếu dữ kiện khám tuần hoàn.
-        4. DEFAULT_COMPLETION: dùng dữ liệu user làm nền; nếu user cung cấp mạch/huyết áp thì giữ đúng trị số, không tự đổi, không làm tròn sai, không thay bằng trị số khác; nếu thiếu mạch/huyết áp và bệnh cảnh không sốc/cấp cứu/mâu thuẫn thì được tự tạo mạch/huyết áp phù hợp bệnh cảnh, bệnh nền, tuổi, giới tính, mức độ nặng, A3, A4 và dữ kiện user nếu có; không cố định một cặp mạch/huyết áp cho mọi ca; không tự thêm bất thường tim mạch mới, tiếng tim bệnh lý, nhịp tim không đều hoặc tĩnh mạch cổ nổi nếu user không cung cấp hoặc không đủ căn cứ; không ghi khám tuần hoàn bình thường trái dữ kiện user/dependency; nếu bệnh cảnh có sốc/cấp cứu hoặc mâu thuẫn khiến không thể tự hoàn thiện an toàn thì A5_CHECK = NEEDS_FIX.
-        5. AUTO_SAMPLE: chỉ dùng cho ca mẫu; được tạo khám tuần hoàn, mạch và huyết áp phù hợp bệnh cảnh mẫu, nhất quán với A4 và dữ kiện hợp lệ tại thời điểm A5 chạy; nếu mẫu ổn định có thể tạo trong giới hạn bình thường; nếu mẫu có tăng huyết áp, suy tim, rối loạn nhịp, sốc hoặc bệnh tim mạch thì tạo khám tuần hoàn phù hợp bệnh cảnh mẫu; không dùng AUTO_SAMPLE cho ca bệnh thật đã có dữ liệu user và không đọc ngược A12/A6-A15 để tạo A5.
+        4. DEFAULT_COMPLETION: dùng dữ liệu user làm nền; nếu user cung cấp mạch/huyết áp thì giữ đúng trị số, không tự đổi, không làm tròn sai, không thay bằng trị số khác. Nếu thiếu mạch/huyết áp và bệnh cảnh cho phép tự hoàn thiện an toàn, A5 chọn một cặp trị số tuần hoàn hợp lệ gồm mạch và huyết áp trong quá trình tạo/cập nhật A5_STATE, phù hợp bệnh cảnh, bệnh nền, tuổi/giới nếu có, mức độ nặng, A3_STATE/A4_STATE và dữ kiện user hợp lệ. Ca ổn định chọn trị số trong giới hạn bình thường phù hợp tuổi/bệnh nền; sốt, đau, lo lắng, nhiễm trùng nhẹ hoặc bệnh cảnh cấp nhẹ có thể chọn mạch tăng nhẹ-vừa phù hợp; tăng huyết áp đã biết hoặc bệnh cảnh tăng huyết áp có thể chọn huyết áp tăng phù hợp mức độ được dữ kiện hỗ trợ; bệnh cảnh nặng/sốc/cấp cứu/mâu thuẫn chỉ tạo trị số nặng khi dữ kiện hợp lệ đủ hỗ trợ, nếu không đủ để hoàn thiện an toàn thì A5_CHECK = NEEDS_FIX. Cặp trị số tự hoàn thiện là biến thiên có kiểm soát theo bệnh cảnh, không phải random tự do và không neo vào một trị số/cặp trị số cố định cho mọi ca. A5 không tự thêm bất thường tim mạch mới, tiếng tim bệnh lý, nhịp tim không đều hoặc tĩnh mạch cổ nổi nếu user không cung cấp hoặc không đủ căn cứ; không ghi khám tuần hoàn bình thường trái dữ kiện user/dependency.
+        5. AUTO_SAMPLE: chỉ dùng cho ca mẫu; được tạo khám tuần hoàn, mạch và huyết áp phù hợp bệnh cảnh mẫu, nhất quán với A4 và dữ kiện hợp lệ tại thời điểm A5 chạy. Khi cần tự tạo mạch/huyết áp, A5 chọn một cặp trị số tuần hoàn hợp lệ theo cùng rule biến thiên có kiểm soát theo bệnh cảnh của DEFAULT_COMPLETION; mẫu ổn định dùng giới hạn bình thường phù hợp, mẫu có tăng huyết áp, suy tim, rối loạn nhịp, sốc hoặc bệnh tim mạch dùng trị số phù hợp mức độ được ca mẫu hỗ trợ; không dùng AUTO_SAMPLE cho ca bệnh thật đã có dữ liệu user và không đọc ngược A12/A6-A15 để tạo A5.
 
 A5_REV_RULE
     Nếu CREATE A5_STATE: A5_REV = 1.
@@ -900,11 +900,12 @@ A5_SPECIAL_RULES
         1. Nếu user cung cấp mạch hoặc huyết áp, A5 phải giữ đúng trị số, không làm tròn, không thay trị số, không đổi đơn vị sai.
         2. Chuẩn hóa đơn vị mạch về ck/p và huyết áp về mmHg trong A5_FOR_O1/A5_FOR_O8.
         3. Nếu user không cung cấp mạch/huyết áp: USER_ONLY không tự tạo; DEFAULT_COMPLETION được tự tạo phù hợp bệnh cảnh nếu an toàn; AUTO_SAMPLE được tự tạo phù hợp ca mẫu.
-        4. Trị số tự tạo phải hợp lý với bệnh cảnh, không cố định cho mọi ca; ổn định có thể trong giới hạn bình thường, sốt/đau/mất nước/nhiễm trùng/lo lắng/cường giáp/bệnh cảnh cấp có thể mạch nhanh phù hợp, sốc/mất máu/nhiễm khuẩn nặng có thể mạch nhanh rõ hoặc huyết áp thấp nếu đủ căn cứ, tăng huyết áp đã biết/bệnh cảnh tăng huyết áp có thể huyết áp tăng phù hợp.
-        5. Không tự tạo mạch chậm, rối loạn nhịp, tăng huyết áp, tụt huyết áp hoặc sốc nếu không có căn cứ.
-        6. Nếu có nhiều trị số, ưu tiên trị số tại thời điểm khám nếu xác định được; nếu mâu thuẫn không xác minh được thì A5_CHECK = NEEDS_FIX và A5_ERROR ghi rõ dữ kiện cần xác minh.
-        7. A5_FOR_O1 và A5_FOR_O8 phải dùng cùng mạch/huyết áp; không để O1 một trị số và O8 một trị số khác nếu không có căn cứ.
-        8. Không dùng “huyết động ổn định”, “tuần hoàn bình thường”, “mạch bình thường” hoặc “huyết áp bình thường” thay cho trị số cụ thể.
+        4. Khi DEFAULT_COMPLETION/AUTO_SAMPLE tự hoàn thiện mạch/huyết áp, A5 chọn một cặp trị số tuần hoàn hợp lệ gồm mạch và huyết áp trong quá trình tạo/cập nhật A5_STATE, rồi render cùng cặp trị số đó vào cả A5_FOR_O1 và A5_FOR_O8; đây là rule nội bộ, không phải field mới trong schema.
+        5. Trị số tự hoàn thiện phải biến thiên có kiểm soát theo bệnh cảnh, không cố định cho mọi ca; ổn định có thể trong giới hạn bình thường phù hợp tuổi/bệnh nền, sốt/đau/mất nước/nhiễm trùng/lo lắng/cường giáp/bệnh cảnh cấp có thể mạch nhanh phù hợp, sốc/mất máu/nhiễm khuẩn nặng có thể mạch nhanh rõ hoặc huyết áp thấp nếu đủ căn cứ, tăng huyết áp đã biết/bệnh cảnh tăng huyết áp có thể huyết áp tăng phù hợp.
+        6. Không tự tạo mạch chậm, rối loạn nhịp, tăng huyết áp, tụt huyết áp hoặc sốc nếu không có căn cứ.
+        7. Nếu có nhiều trị số, ưu tiên trị số tại thời điểm khám nếu xác định được; nếu mâu thuẫn không xác minh được thì A5_CHECK = NEEDS_FIX và A5_ERROR ghi rõ dữ kiện cần xác minh.
+        8. A5_FOR_O1 và A5_FOR_O8 phải dùng cùng cặp mạch/huyết áp đã giữ từ user hoặc đã chọn hợp lệ trong A5_STATE; không để O1 một trị số và O8 một trị số khác nếu không có căn cứ.
+        9. Không dùng “huyết động ổn định”, “tuần hoàn bình thường”, “mạch bình thường” hoặc “huyết áp bình thường” thay cho trị số cụ thể.
     Mỏm tim:
         1. Mỏm tim chủ yếu cần cho A5_FOR_O8.
         2. A5_FOR_O8 thường quy bắt đầu bằng “Mỏm tim đập khoang gian sườn V, đường giữa đòn trái”.
@@ -930,8 +931,8 @@ A5_SPECIAL_RULES
         3. Không biến bệnh sử hiện tại hoặc tiền sử tim mạch thành dấu khám hiện tại nếu không có căn cứ.
         4. Không biến chẩn đoán/mã bệnh/CLS thành tiếng tim bệnh lý, rối loạn nhịp, phù ngoại vi, tĩnh mạch cổ nổi hoặc dấu khám tuần hoàn mới.
     A5_FOR_O1:
-        1. A5_FOR_O1 là bản ngắn, cụ thể, không làm O1 bị dài.
-        2. A5_FOR_O1 bắt buộc có mạch/tần số tim cụ thể đơn vị ck/p, nhịp tim đều/không đều, T1T2, tiếng tim bệnh lý nếu có hoặc không có, và huyết áp cụ thể đơn vị mmHg.
+        1. A5_FOR_O1 là bản ngắn, cụ thể, đúng vai trò short cho O1 và không làm O1 bị dài.
+        2. A5_FOR_O1 hợp lệ khi có mạch/tần số tim cụ thể đơn vị ck/p, nhịp tim đều/không đều, T1T2, tiếng tim bệnh lý nếu có hoặc không có, và huyết áp cụ thể đơn vị mmHg.
         3. Mẫu thường quy: A5_FOR_O1 = Mạch [mạch] ck/p, nhịp tim đều, T1T2 rõ, không có tiếng tim bệnh lý, huyết áp [huyết áp] mmHg.
         4. Nếu có tiếng tim bệnh lý: A5_FOR_O1 = Mạch [mạch] ck/p, nhịp tim đều/không đều, T1T2 [mô tả nếu có], [mô tả tiếng tim bệnh lý], huyết áp [huyết áp] mmHg.
         5. Nếu nhịp tim không đều: A5_FOR_O1 = Mạch [mạch] ck/p, nhịp tim không đều, T1T2 rõ, không có tiếng tim bệnh lý, huyết áp [huyết áp] mmHg.
@@ -939,8 +940,8 @@ A5_SPECIAL_RULES
         7. Nếu có tụt huyết áp/sốc hoặc dấu tuần hoàn đặc biệt do user cung cấp và cần thiết, O1 có thể thêm ngắn gọn nhưng không tự tạo sốc nếu không có căn cứ.
         8. A5_FOR_O1 không ghi mỏm tim thường quy, không mặc định tĩnh mạch cổ, không chứa nhịp thở, SpO2/SpO₂, ran phổi, rì rào phế nang, triệu chứng cơ năng, CLS, chẩn đoán hoặc khám ngoài scope A5.
     A5_FOR_O8:
-        1. A5_FOR_O8 là bản chi tiết hơn dùng cho O8 theo mẫu chuẩn riêng.
-        2. A5_FOR_O8 bắt buộc có mỏm tim, mạch/tần số tim cụ thể đơn vị ck/p, nhịp tim đều/không đều, T1T2, tiếng tim bệnh lý nếu có hoặc không có, và huyết áp cụ thể đơn vị mmHg.
+        1. A5_FOR_O8 là bản chi tiết hơn dùng cho O8, đạt vai trò detailed bằng cấu trúc khám tuần hoàn đầy đủ hơn A5_FOR_O1.
+        2. A5_FOR_O8 hợp lệ khi có mỏm tim nếu phù hợp, mạch/tần số tim cụ thể đơn vị ck/p, nhịp tim đều/không đều, T1T2, tiếng tim bệnh lý nếu có hoặc không có, và huyết áp cụ thể đơn vị mmHg; cặp mạch/huyết áp phải là cùng cặp đã dùng trong A5_FOR_O1.
         3. Mẫu thường quy: A5_FOR_O8 = Mỏm tim đập khoang gian sườn V, đường giữa đòn trái, mạch [mạch] ck/p, nhịp tim đều, T1T2 rõ, không có tiếng tim bệnh lý, huyết áp [huyết áp] mmHg.
         4. Sau mỏm tim dùng “mạch [mạch] ck/p”, không dùng “Mạch” viết hoa ở giữa câu.
         5. Nếu có tiếng tim bệnh lý: A5_FOR_O8 = Mỏm tim [mô tả], mạch [mạch] ck/p, nhịp tim đều/không đều, T1T2 [mô tả nếu có], [mô tả tiếng tim bệnh lý], huyết áp [huyết áp] mmHg, [tĩnh mạch cổ nếu user cung cấp hoặc có căn cứ rõ].
@@ -949,33 +950,35 @@ A5_SPECIAL_RULES
         8. Nếu user cung cấp không có tĩnh mạch cổ nổi và cần ghi nhận trong A5_FOR_O8, ghi đúng dữ kiện user nhưng không dùng làm mẫu thường quy mặc định.
         9. A5_FOR_O8 không chứa nhịp thở, SpO2/SpO₂, ran phổi, rì rào phế nang, triệu chứng cơ năng, CLS, chẩn đoán hoặc khám ngoài scope A5.
     Đồng bộ O1/O8:
-        1. A5_FOR_O1 và A5_FOR_O8 phải dùng cùng mạch/huyết áp và không mâu thuẫn nhau.
-        2. Nếu O1 có bất thường tuần hoàn thì O8 phải thể hiện tương ứng; nếu O8 có bất thường tuần hoàn rõ thì O1 không được ghi bình thường trái lại.
-        3. Nếu O1 ghi nhịp tim không đều hoặc tiếng tim bệnh lý thì O8 cũng phải thể hiện tương ứng.
-        4. Nếu O8 ghi tĩnh mạch cổ theo dữ kiện user/căn cứ rõ và dữ kiện này quan trọng, O1 có thể cần ghi tĩnh mạch cổ.
-        5. Nếu O1/O8 mâu thuẫn nhau thì A5_CHECK = NEEDS_FIX và A5_ERROR ghi rõ.
+        1. A5_FOR_O1 và A5_FOR_O8 hợp lệ khi dùng cùng cặp mạch/huyết áp, cùng bản chất nhịp tim, T1T2 và tiếng tim bệnh lý, đồng thời không mâu thuẫn nhau.
+        2. Khác biệt hợp lệ giữa hai bản là mức độ chi tiết: A5_FOR_O1 giữ vai trò short cho O1, A5_FOR_O8 giữ vai trò detailed cho O8.
+        3. Trong mẫu thường quy PASS, A5_FOR_O8 giữ thành phần mỏm tim theo contract A5_FOR_O8, còn A5_FOR_O1 giữ dạng short theo contract A5_FOR_O1.
+        4. Nếu O1 có bất thường tuần hoàn thì O8 phải thể hiện tương ứng; nếu O8 có bất thường tuần hoàn rõ thì O1 không được ghi bình thường trái lại.
+        5. Nếu O1 ghi nhịp tim không đều hoặc tiếng tim bệnh lý thì O8 cũng phải thể hiện tương ứng.
+        6. Nếu O8 ghi tĩnh mạch cổ theo dữ kiện user/căn cứ rõ và dữ kiện này quan trọng, O1 có thể cần ghi tĩnh mạch cổ.
+        7. Nếu O1/O8 mâu thuẫn nhau hoặc không đạt split O1/O8 hợp lệ thì A5_CHECK = NEEDS_FIX và A5_ERROR ghi rõ.
 
 A5_CHECK_PASS_IF
     A5_CHECK = PASS khi tất cả điều kiện sau đạt:
         1. A5_STATE đủ schema: STATE_VERSION, UPDATED_AT, A5_FOR_O1, A5_FOR_O8, A5_CHECK, A5_ERROR.
-        2. A5_FOR_O1 và A5_FOR_O8 có dữ liệu khám tuần hoàn hợp lệ theo RUN_MODE.
-        3. Khi PASS, có mạch/huyết áp cụ thể đúng đơn vị ck/p và mmHg; mẫu thường quy dùng đúng literal/format “Mạch [mạch] ck/p”, “T1T2 rõ”, và O8 có “Mỏm tim đập khoang gian sườn V, đường giữa đòn trái”.
-        4. O1/O8 đúng scope A5, không chứa nhịp thở, SpO2/SpO₂, ran phổi, rì rào phế nang, triệu chứng cơ năng, CLS, chẩn đoán hoặc khám chuyên khoa ngoài scope.
-        5. O1/O8 không trái user input, không tự tạo dấu khám từ A1-A4/triệu chứng/bệnh sử/chẩn đoán/mã bệnh/CLS.
-        6. O1/O8 không mâu thuẫn nhau và dùng cùng mạch/huyết áp.
+        2. A5_FOR_O1 đạt vai trò short cho O1, A5_FOR_O8 đạt vai trò detailed cho O8, và cả hai có dữ liệu khám tuần hoàn hợp lệ theo RUN_MODE.
+        3. Khi PASS, có mạch/huyết áp cụ thể đúng đơn vị ck/p và mmHg; hai field dùng cùng cặp mạch/huyết áp, cùng bản chất nhịp tim, T1T2 và tiếng tim bệnh lý.
+        4. Mẫu thường quy có split O1/O8 hợp lệ: A5_FOR_O1 giữ literal/format short “Mạch [mạch] ck/p”, “T1T2 rõ”; A5_FOR_O8 giữ detailed format có “Mỏm tim đập khoang gian sườn V, đường giữa đòn trái”.
+        5. O1/O8 đúng scope A5, không chứa nhịp thở, SpO2/SpO₂, ran phổi, rì rào phế nang, triệu chứng cơ năng, CLS, chẩn đoán hoặc khám chuyên khoa ngoài scope.
+        6. O1/O8 không trái user input, không tự tạo dấu khám từ A1-A4/triệu chứng/bệnh sử/chẩn đoán/mã bệnh/CLS.
         7. Nếu user cung cấp mạch/huyết áp hoặc bất thường tuần hoàn, A5 phản ánh đúng và không làm mất bất thường.
-        8. Nếu mạch/huyết áp do AI tự tạo trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE, trị số phù hợp bệnh cảnh, bệnh nền, tuổi, giới tính, mức độ nặng và dependency hợp lệ.
+        8. Nếu mạch/huyết áp do AI tự hoàn thiện trong DEFAULT_COMPLETION hoặc AUTO_SAMPLE, trị số đạt rule chọn cặp trị số hợp lệ của A5 theo RUN_MODE, bệnh cảnh, bệnh nền, tuổi/giới nếu có, mức độ nặng và dependency hợp lệ.
         9. Nếu A4_STATE đã ghi phù, A5 không ghi ngược “không phù ngoại vi”.
         10. A5_ERROR = NONE.
 
 A5_NEEDS_FIX_IF
     A5_CHECK = NEEDS_FIX nếu có bất kỳ điều kiện sau:
         1. USER_ONLY thiếu dữ kiện khám tuần hoàn và không có A5_STATE hợp lệ để REUSE.
-        2. A5_FOR_O1 hoặc A5_FOR_O8 thiếu dữ liệu cần thiết, thiếu mạch/huyết áp cụ thể khi cần PASS, hoặc state thiếu field bắt buộc.
+        2. A5_FOR_O1 hoặc A5_FOR_O8 thiếu dữ liệu cần thiết, thiếu mạch/huyết áp cụ thể khi cần PASS, không đạt output hợp lệ theo vai trò short/detailed của A5, hoặc state thiếu field bắt buộc.
         3. Mạch/huyết áp có nhiều trị số mâu thuẫn không xác minh được.
         4. A5_FOR_O1 hoặc A5_FOR_O8 chứa dữ liệu ngoài scope A5, tự tạo dấu khám từ triệu chứng/bệnh sử/chẩn đoán/mã bệnh/CLS, hoặc mâu thuẫn user input/dependency hợp lệ.
-        5. A5_FOR_O1 và A5_FOR_O8 mâu thuẫn nhau hoặc không dùng cùng mạch/huyết áp.
-        6. DEFAULT_COMPLETION tạo mẫu trái dữ kiện user/dependency, dùng một cặp mạch/huyết áp cố định không xét bệnh cảnh, hoặc bệnh cảnh có nguy cơ sốc/cấp cứu/mâu thuẫn khiến không thể tự hoàn thiện an toàn.
+        5. A5_FOR_O1 và A5_FOR_O8 mâu thuẫn nhau, không dùng cùng cặp mạch/huyết áp, hoặc mẫu thường quy không đạt split O1/O8 hợp lệ.
+        6. DEFAULT_COMPLETION/AUTO_SAMPLE tự hoàn thiện trị số mạch/huyết áp không đạt rule chọn cặp trị số hợp lệ của A5 theo RUN_MODE/bệnh cảnh, dùng một cặp mạch/huyết áp cố định không xét bệnh cảnh, hoặc bệnh cảnh có nguy cơ sốc/cấp cứu/mâu thuẫn khiến không thể tự hoàn thiện an toàn.
         7. O1/O8 sai format mạch/huyết áp/T1T2, dùng “T1,T2 rõ”, dùng cụm mơ hồ “huyết động ổn định”, “tuần hoàn bình thường”, “mạch bình thường” hoặc “huyết áp bình thường” thay trị số cụ thể.
         8. A4 và A5 mâu thuẫn về phù/tình trạng tuần hoàn.
         9. A5_ERROR không rõ khi NEEDS_FIX hoặc A5_ERROR không phải NONE khi PASS.
