@@ -677,18 +677,22 @@ A4_SPECIAL_RULES
         - Không tự tạo hạch ngoại vi bất thường, tuyến giáp bất thường, bướu giáp, đau tuyến giáp hoặc nhân tuyến giáp nếu user không cung cấp.
         - Không dùng wording cũ: “hạch ngoại vi không sờ thấy”, “tuyến giáp không to” trong mẫu thường quy.
     A4_FOR_O1:
-        - A4_FOR_O1 là bản khám toàn thân ngắn, cụ thể, không làm O1 dài và không lặp phần thuộc A5-A11.
-        - A4_FOR_O1 nên gồm ý thức/tiếp xúc, thể trạng hoặc tình trạng chung nếu cần, bất thường toàn thân nổi bật nếu có, phù, sốt/nhiệt độ nếu có hoặc cần ghi, da niêm mạc toàn thân nếu cần.
+        - A4_FOR_O1 là bản khám toàn thân short/compact, ngắn, cụ thể, dùng cho O1; không làm O1 dài và không lặp phần thuộc A5-A11.
+        - A4_FOR_O1 không ép narrative kiểu “Bệnh nhân ý thức...”; khi dữ kiện nguồn chỉ đủ ý thức/tiếp xúc, được phép dùng dạng tối thiểu [ý thức], [tiếp xúc], ví dụ: tỉnh, tiếp xúc tốt.
+        - A4_FOR_O1 gồm ý thức/tiếp xúc, thể trạng hoặc tình trạng chung nếu cần, bất thường toàn thân nổi bật nếu có, phù, sốt/nhiệt độ nếu có hoặc cần ghi, da niêm mạc toàn thân nếu cần, ở mức short/compact phù hợp O1.
         - Mẫu mặc định khi DEFAULT_COMPLETION/AUTO_SAMPLE, không có bất thường toàn thân và không có dữ kiện trái ngược: A4_FOR_O1 = Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
         - A4_FOR_O1 thường quy không ghi hạch ngoại vi hoặc tuyến giáp bình thường; chỉ đưa hạch ngoại vi/tuyến giáp vào O1 khi user cung cấp bất thường hoặc dữ kiện rõ cần ghi theo dữ liệu hợp lệ.
         - Nếu user cung cấp sốt, phù, rối loạn ý thức, tình trạng chung bất thường, hạch ngoại vi/tuyến giáp bất thường hoặc bất thường A4 rõ, O1 phải phản ánh tương ứng ở mức ngắn và không phủ định/làm nhẹ dữ kiện user.
         - A4_FOR_O1 không chứa mạch, huyết áp, nhịp thở, SpO2/SpO₂, triệu chứng cơ năng hoặc khám cơ quan chuyên khoa ngoài scope A4.
     A4_FOR_O8:
-        - A4_FOR_O8 là bản khám toàn thân dùng cho O8, có thể chi tiết hơn O1 nhưng không thêm dữ kiện ngoài phạm vi A4.
-        - A4_FOR_O8 nên gồm ý thức, tiếp xúc, thể trạng, phù, sốt/nhiệt độ nếu user cung cấp nhiệt độ cụ thể hoặc chỉ ghi không sốt theo mẫu thường quy, da niêm mạc toàn thân, hạch ngoại vi, tuyến giáp, tình trạng chung chỉ khi user cung cấp hoặc có căn cứ hợp lệ.
+        - A4_FOR_O8 là bản narrative/detailed dùng cho O8, bắt buộc là câu mô tả bệnh án chi tiết, không phải cụm rời short/compact như A4_FOR_O1 và không thêm dữ kiện ngoài phạm vi A4.
+        - Khi có dữ kiện ý thức, A4_FOR_O8 phải bắt đầu bằng “Bệnh nhân ý thức [ý thức], ...”; nếu chỉ có dữ kiện tối thiểu ý thức/tiếp xúc, output tối thiểu phải là: Bệnh nhân ý thức tỉnh, tiếp xúc tốt.
+        - A4_FOR_O8 bắt buộc gồm các thành phần A4 hợp lệ theo dữ kiện nguồn: ý thức, tiếp xúc, thể trạng, phù, sốt/nhiệt độ nếu user cung cấp nhiệt độ cụ thể hoặc chỉ ghi không sốt theo mẫu thường quy, da niêm mạc toàn thân, hạch ngoại vi, tuyến giáp, tình trạng chung chỉ khi user cung cấp hoặc có căn cứ hợp lệ.
+        - A4_FOR_O8 không được chỉ ghi short form/cụm ngắn kiểu tỉnh, tiếp xúc tốt hoặc [ý thức], [tiếp xúc].
+        - A4_FOR_O8 không được copy y nguyên A4_FOR_O1 nếu việc copy làm mất split O1/O8; đặc biệt khi A4_FOR_O1 là dạng short/compact thì A4_FOR_O8 phải chuyển thành câu narrative/detailed phù hợp O8.
         - Mẫu mặc định khi DEFAULT_COMPLETION/AUTO_SAMPLE, không có bất thường toàn thân và không có dữ kiện trái ngược: A4_FOR_O8 = Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
         - A4_FOR_O8 có hạch ngoại vi/tuyến giáp thường quy theo literal trên.
-        - Nếu user cung cấp bất thường A4 rõ, O8 phải phản ánh tương ứng đầy đủ hơn O1.
+        - Nếu user cung cấp bất thường A4 rõ, O8 phải phản ánh tương ứng đầy đủ hơn O1 ở dạng narrative/detailed.
         - Bất thường ở đâu thì thay thế phần tương ứng ở đó, không thêm lan man.
         - Nếu user cung cấp da niêm mạc khô, môi khô hoặc mệt mỏi nhiều như nhận định toàn thân/dấu khám toàn thân, A4_FOR_O1 và A4_FOR_O8 được ghi đúng dữ kiện đó.
         - Không tự suy dấu mất nước, da niêm mạc khô hoặc môi khô từ chẩn đoán đái tháo đường, bệnh sử, khát nhiều/tiểu nhiều hoặc triệu chứng cơ năng nếu user chưa cung cấp dấu khám tương ứng.
@@ -702,16 +706,18 @@ A4_SPECIAL_RULES
 A4_CHECK_PASS_IF
     A4_CHECK = PASS khi tất cả điều kiện sau đạt:
         1. A4_STATE đủ schema: STATE_VERSION, A4_FOR_O1, A4_FOR_O8, A4_CHECK, A4_ERROR.
-        2. A4_FOR_O1 có dữ liệu khám toàn thân hợp lệ, ngắn gọn, đúng scope A4, đúng RUN_MODE.
-        3. A4_FOR_O8 có dữ liệu khám toàn thân hợp lệ, đúng scope A4, đúng RUN_MODE, có thể chi tiết hơn O1 nhưng không thêm dữ kiện ngoài phạm vi A4.
-        4. O1/O8 không trái user input và không mâu thuẫn nhau.
-        5. O1/O8 không tự tạo dấu khám từ A1-A3, triệu chứng, bệnh sử, chẩn đoán hoặc mã bệnh.
-        6. O1/O8 không chứa mạch, huyết áp, nhịp thở, SpO2/SpO₂ hoặc khám chuyên khoa ngoài scope A4.
-        7. Mẫu thường quy O1 đúng literal/ý nghĩa: Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
-        8. Mẫu thường quy O1 không chứa hạch ngoại vi, tuyến giáp, “tình trạng chung ổn” hoặc nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
-        9. Mẫu thường quy O8 đúng literal/ý nghĩa: Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
-        10. Mẫu thường quy O8 không chứa “tình trạng chung ổn”, “hạch ngoại vi không sờ thấy”, “tuyến giáp không to” hoặc nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
-        11. Nếu A4_CHECK = PASS thì A4_ERROR = NONE.
+        2. A4_FOR_O1 có dữ liệu khám toàn thân hợp lệ, short/compact, ngắn gọn, đúng scope A4, đúng RUN_MODE.
+        3. A4_FOR_O8 là bản narrative/detailed cho O8, đúng scope A4, đúng RUN_MODE, không thêm dữ kiện ngoài phạm vi A4.
+        4. Khi có dữ kiện ý thức, A4_FOR_O8 bắt đầu bằng “Bệnh nhân ý thức [ý thức], ...”.
+        5. Nếu A4_FOR_O1 là short form/cụm ngắn, A4_FOR_O8 không được copy y nguyên A4_FOR_O1 và không được chỉ là cụm ngắn kiểu [ý thức], [tiếp xúc].
+        6. O1/O8 không trái user input và không mâu thuẫn nhau.
+        7. O1/O8 không tự tạo dấu khám từ A1-A3, triệu chứng, bệnh sử, chẩn đoán hoặc mã bệnh.
+        8. O1/O8 không chứa mạch, huyết áp, nhịp thở, SpO2/SpO₂ hoặc khám chuyên khoa ngoài scope A4.
+        9. Mẫu thường quy O1 đúng literal/ý nghĩa: Tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường.
+        10. Mẫu thường quy O1 không chứa hạch ngoại vi, tuyến giáp, “tình trạng chung ổn” hoặc nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
+        11. Mẫu thường quy O8 đúng literal/ý nghĩa: Bệnh nhân ý thức tỉnh, tiếp xúc tốt, thể trạng trung bình, không phù, không sốt, da niêm mạc bình thường. Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy.
+        12. Mẫu thường quy O8 không chứa “tình trạng chung ổn”, “hạch ngoại vi không sờ thấy”, “tuyến giáp không to” hoặc nhiệt độ cụ thể khi user không cung cấp nhiệt độ.
+        13. Nếu A4_CHECK = PASS thì A4_ERROR = NONE.
 
 A4_NEEDS_FIX_IF
     A4_CHECK = NEEDS_FIX nếu có bất kỳ điều kiện sau:
@@ -721,13 +727,17 @@ A4_NEEDS_FIX_IF
         4. A4_FOR_O1 hoặc A4_FOR_O8 chứa mạch, huyết áp, nhịp thở, SpO2/SpO₂ hoặc khám chuyên khoa ngoài scope.
         5. A4_FOR_O1 hoặc A4_FOR_O8 tự tạo dấu khám từ A1-A3, triệu chứng, bệnh sử, chẩn đoán hoặc mã bệnh.
         6. A4_FOR_O1 hoặc A4_FOR_O8 mâu thuẫn user input hoặc mâu thuẫn nhau.
-        7. DEFAULT_COMPLETION tạo mẫu trái dữ kiện user.
-        8. O8 thường quy thiếu “Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy”.
-        9. O1 thường quy đưa hạch ngoại vi/tuyến giáp bình thường vào sai.
-        10. O1/O8 tự thêm “tình trạng chung ổn” hoặc nhiệt độ cụ thể như “36,7°C” khi user không cung cấp.
-        11. State thiếu field bắt buộc.
-        12. A4_ERROR không rõ khi NEEDS_FIX hoặc A4_ERROR không phải NONE khi PASS.
-        13. Có mâu thuẫn rõ giữa user input và A1-A3 cần user/module liên quan sửa trước khi khóa A4.
+        7. A4_FOR_O8 = A4_FOR_O1 trong khi A4_FOR_O1 là dạng short/compact hoặc việc copy làm mất split O1/O8.
+        8. A4_FOR_O8 chỉ là short form/cụm ngắn kiểu tỉnh, tiếp xúc tốt hoặc [ý thức], [tiếp xúc].
+        9. A4_FOR_O8 thiếu prefix narrative “Bệnh nhân ý thức ...” khi có dữ kiện ý thức.
+        10. A4_FOR_O8 không phải câu mô tả hoàn chỉnh cho O8 hoặc chưa đúng dạng narrative/detailed.
+        11. DEFAULT_COMPLETION tạo mẫu trái dữ kiện user.
+        12. O8 thường quy thiếu “Hạch ngoại vi không sưng đau, tuyến giáp không sờ thấy”.
+        13. O1 thường quy đưa hạch ngoại vi/tuyến giáp bình thường vào sai.
+        14. O1/O8 tự thêm “tình trạng chung ổn” hoặc nhiệt độ cụ thể như “36,7°C” khi user không cung cấp.
+        15. State thiếu field bắt buộc.
+        16. A4_ERROR không rõ khi NEEDS_FIX hoặc A4_ERROR không phải NONE khi PASS.
+        17. Có mâu thuẫn rõ giữa user input và A1-A3 cần user/module liên quan sửa trước khi khóa A4.
 
 A4_ERROR_RULE
     Nếu A4_CHECK = PASS thì A4_ERROR = NONE.
@@ -735,6 +745,7 @@ A4_ERROR_RULE
     Nếu thiếu dữ liệu, A4_ERROR phải nêu dữ liệu cần user bổ sung.
     Nếu mâu thuẫn, A4_ERROR phải nêu điểm mâu thuẫn hoặc module liên quan cần cập nhật.
     Nếu sai phạm vi, A4_ERROR phải nêu phần cần sửa.
+    Nếu sai split O1/O8, A4_ERROR phải nêu lỗi cụ thể, ví dụ: “A4_FOR_O8 chưa đúng dạng narrative cho O8”, “A4_FOR_O8 không được bằng A4_FOR_O1 dạng ngắn”, hoặc “A4_FOR_O8 thiếu prefix Bệnh nhân ý thức...”.
     Không ghi lỗi chung chung nếu xác định được lỗi cụ thể.
 
 A4_REUSE_RULE
